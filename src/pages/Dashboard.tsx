@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Calendar, BookOpen, AlertCircle, UserPlus } from 'lucide-react';
+import { Calendar, BookOpen, AlertCircle, UserPlus, Users } from 'lucide-react';
 import type { Event, LogEntry, Request } from '../lib/types';
 
 const hexToRgb = (hex: string) => {
@@ -35,6 +35,7 @@ export function Dashboard() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [hasCoupling, setHasCoupling] = useState(false);
   const [unansweredMessages, setUnansweredMessages] = useState<any[]>([]);
+  const [pendingCouplingRequests, setPendingCouplingRequests] = useState<any[]>([]);
 
   const getChildColor = (childId: string | null) => {
     if (!childId) return null;
@@ -147,6 +148,13 @@ export function Dashboard() {
             .eq('family_id', currentFamily.id)
             .eq('status', 'ACTIVE')
         );
+        basePromises.push(
+          supabase
+            .from('coupling_requests')
+            .select('*, from_user:users!coupling_requests_from_user_id_fkey(name, email)')
+            .eq('to_user_id', user.id)
+            .eq('status', 'PENDING')
+        );
       }
 
       const results = await Promise.all(basePromises);
@@ -185,13 +193,14 @@ export function Dashboard() {
 
         setUnansweredMessages(unanswered);
       } else {
-        const [, , requestsResult, inviteCodeResult, familyMembersResult] = results;
+        const [, , requestsResult, inviteCodeResult, familyMembersResult, couplingRequestsResult] = results;
         const myOpenRequests = (requestsResult.data || []).filter(
           (req: Request) => req.last_action_by !== user.id
         );
         setOpenRequests(myOpenRequests);
         setInviteCode(inviteCodeResult.data?.code || '');
         setHasCoupling((familyMembersResult.data?.length || 0) > 1);
+        setPendingCouplingRequests(couplingRequestsResult.data || []);
 
         const { data: parentMessages } = await supabase
           .from('helper_messages')
@@ -283,11 +292,28 @@ export function Dashboard() {
       )
       .subscribe();
 
+    const couplingChannel = supabase
+      .channel(`dashboard_coupling_${user?.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'coupling_requests',
+          filter: `to_user_id=eq.${user?.id}`,
+        },
+        () => {
+          fetchData();
+        }
+      )
+      .subscribe();
+
     return () => {
       messagesChannel.unsubscribe();
       requestsChannel.unsubscribe();
+      couplingChannel.unsubscribe();
     };
-  }, [currentFamily, fetchData]);
+  }, [currentFamily, fetchData, user]);
 
   const handleCopyCode = async () => {
     if (!inviteCode) return;
@@ -477,6 +503,29 @@ export function Dashboard() {
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         <p className="mt-2 text-gray-600">Overzicht van recente activiteiten en openstaande items</p>
       </div>
+
+      {pendingCouplingRequests.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <Users className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-blue-900 mb-2">
+                Koppelverzoek van co-ouder
+              </h3>
+              <p className="text-sm text-blue-800 mb-3">
+                {pendingCouplingRequests[0].from_user?.name} wil met je koppelen. Ga naar instellingen om het verzoek te accepteren of af te wijzen.
+              </p>
+              <Link
+                to="/instellingen/koppelen"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                <Users className="w-4 h-4" />
+                Bekijk koppelverzoek
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(openRequests.length > 0 || unansweredMessages.length > 0) && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
