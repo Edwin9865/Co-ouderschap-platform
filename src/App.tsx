@@ -21,6 +21,9 @@ import { Koppelen } from './pages/settings/Koppelen';
 import { Abonnement } from './pages/settings/Abonnement';
 import { Meldingen } from './pages/settings/Meldingen';
 import { AccountSettings } from './pages/settings/AccountSettings';
+import { useEffect } from 'react';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { isAndroid } from './lib/capacitor';
 
 function RootRedirect() {
   const { user } = useAuth();
@@ -33,6 +36,13 @@ function RootRedirect() {
 }
 
 function App() {
+  useEffect(() => {
+    if (isAndroid()) {
+      StatusBar.setStyle({ style: Style.Light });
+      StatusBar.setBackgroundColor({ color: '#ffffff' });
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>
