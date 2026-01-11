@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type { NotificationSettings, Request, Event, LogEntry } from './types';
 import { requestFCMToken, onForegroundMessage } from './firebase';
+import { isNative, isWeb } from './capacitor';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 export class NotificationService {
   private settings: NotificationSettings | null = null;
@@ -27,31 +29,90 @@ export class NotificationService {
 
   private async initializeFCM() {
     try {
-      const token = await requestFCMToken();
-
-      if (token && token !== this.settings?.fcm_token) {
-        await supabase
-          .from('notification_settings')
-          .update({ fcm_token: token })
-          .eq('user_id', this.userId!);
-
-        if (this.settings) {
-          this.settings.fcm_token = token;
-        }
+      if (isNative()) {
+        await this.initializeNativePush();
+      } else {
+        await this.initializeWebPush();
       }
-
-      this.foregroundUnsubscribe = await onForegroundMessage((payload) => {
-        console.log('Foreground message received:', payload);
-
-        const title = payload.notification?.title || 'Co-oudering App';
-        const body = payload.notification?.body || '';
-        const url = payload.data?.url || '/';
-
-        this.showNotification(title, body, url);
-      });
     } catch (error) {
       console.error('FCM initialization error:', error);
     }
+  }
+
+  private async initializeNativePush() {
+    let permStatus = await PushNotifications.checkPermissions();
+
+    if (permStatus.receive === 'prompt') {
+      permStatus = await PushNotifications.requestPermissions();
+    }
+
+    if (permStatus.receive !== 'granted') {
+      console.log('Push notification permission denied');
+      return;
+    }
+
+    await PushNotifications.register();
+
+    PushNotifications.addListener('registration', async (token) => {
+      console.log('Native push token:', token.value);
+
+      if (token.value !== this.settings?.fcm_token) {
+        await supabase
+          .from('notification_settings')
+          .update({ fcm_token: token.value })
+          .eq('user_id', this.userId!);
+
+        if (this.settings) {
+          this.settings.fcm_token = token.value;
+        }
+      }
+    });
+
+    PushNotifications.addListener('registrationError', (error) => {
+      console.error('Push registration error:', error);
+    });
+
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      console.log('Push notification received:', notification);
+
+      const title = notification.title || 'Co-oudering App';
+      const body = notification.body || '';
+      const url = notification.data?.url || '/';
+
+      this.showNotification(title, body, url);
+    });
+
+    PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+      console.log('Push notification action:', notification);
+
+      const url = notification.notification.data?.url || '/';
+      window.location.href = url;
+    });
+  }
+
+  private async initializeWebPush() {
+    const token = await requestFCMToken();
+
+    if (token && token !== this.settings?.fcm_token) {
+      await supabase
+        .from('notification_settings')
+        .update({ fcm_token: token })
+        .eq('user_id', this.userId!);
+
+      if (this.settings) {
+        this.settings.fcm_token = token;
+      }
+    }
+
+    this.foregroundUnsubscribe = await onForegroundMessage((payload) => {
+      console.log('Foreground message received:', payload);
+
+      const title = payload.notification?.title || 'Co-oudering App';
+      const body = payload.notification?.body || '';
+      const url = payload.data?.url || '/';
+
+      this.showNotification(title, body, url);
+    });
   }
 
   private async loadSettings() {
@@ -287,6 +348,10 @@ export class NotificationService {
     if (this.foregroundUnsubscribe) {
       this.foregroundUnsubscribe();
       this.foregroundUnsubscribe = null;
+    }
+
+    if (isNative()) {
+      PushNotifications.removeAllListeners();
     }
   }
 }

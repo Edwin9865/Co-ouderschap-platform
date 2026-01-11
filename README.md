@@ -308,6 +308,23 @@ npx cap sync
 4. Sync naar native: `npx cap sync`
 5. Open native IDE en run op emulator/device
 
+### Android App Bouwen
+
+Voor gedetailleerde instructies over het bouwen van de Android app, zie:
+- **[Android Build Instructies](./android/BUILD_INSTRUCTIONS.md)** - Complete guide voor Android development
+- **[Firebase Setup voor Android](./android/FIREBASE_SETUP.md)** - google-services.json configuratie
+
+**Quick start:**
+```bash
+# Build, sync en open in Android Studio (alles in één commando)
+npm run android
+
+# Of stap voor stap:
+npm run build
+npx cap sync android
+npx cap open android
+```
+
 ## Belangrijke Ontwerpkeuzes
 
 1. **Hybrid App met Capacitor**: Web-based met native iOS en Android apps via Capacitor

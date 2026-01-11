@@ -79,6 +79,17 @@ Voor het versturen van notificaties vanuit de backend heb je een service account
    - Key: `FIREBASE_SERVICE_ACCOUNT_KEY`
    - Value: De inhoud van het gedownloade JSON bestand
 
+### Stap 6: Android App Setup (Optioneel)
+Voor de Android app heb je een extra Firebase configuratie nodig:
+
+1. Ga terug naar Firebase Console
+2. In "Your apps", klik "Add app" en selecteer Android
+3. Package name: `com.coparenting.app`
+4. Download `google-services.json`
+5. Plaats het bestand in: `android/app/google-services.json`
+
+**Volledige Android build instructies:** Zie `/android/BUILD_INSTRUCTIONS.md`
+
 ## 3. .env Bestand Configureren
 
 Kopieer `.env.example` naar `.env`:
