@@ -126,7 +126,7 @@ export function Koppelen() {
   };
 
   const handleSendCouplingRequest = async () => {
-    if (!linkingCode.trim() || !user || !currentFamily) return;
+    if (!linkingCode.trim()) return;
 
     setLinkingError('');
     setLinkingSuccess('');
@@ -135,59 +135,18 @@ export function Koppelen() {
     try {
       const codeToUse = linkingCode.trim().toUpperCase();
 
-      const { data: inviteData, error: inviteError } = await supabase
-        .from('family_invite_codes')
-        .select('id, family_id, used_at, family:families!family_invite_codes_family_id_fkey(id, name)')
-        .eq('code', codeToUse)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('send_coupling_request', {
+        invite_code_param: codeToUse,
+      });
 
-      if (inviteError || !inviteData) {
-        throw new Error('Koppelcode niet gevonden');
+      if (error) throw error;
+
+      if (!data.success) {
+        throw new Error(data.error);
       }
-
-      if (inviteData.family_id === currentFamily.id) {
-        throw new Error('Dit is je eigen koppelcode');
-      }
-
-      const { data: targetFamilyMembers } = await supabase
-        .from('family_members')
-        .select('user_id, user:users!family_members_user_id_fkey(*)')
-        .eq('family_id', inviteData.family_id)
-        .eq('role', 'PARENT')
-        .eq('status', 'ACTIVE');
-
-      if (!targetFamilyMembers || targetFamilyMembers.length === 0) {
-        throw new Error('Geen ouder gevonden in het doelgezin');
-      }
-
-      const targetUser = targetFamilyMembers[0];
-
-      const { data: existingRequest } = await supabase
-        .from('coupling_requests')
-        .select('id, status')
-        .eq('from_user_id', user.id)
-        .eq('to_user_id', targetUser.user_id)
-        .eq('status', 'PENDING')
-        .maybeSingle();
-
-      if (existingRequest) {
-        throw new Error('Je hebt al een actief verzoek naar deze ouder');
-      }
-
-      const { error: insertError } = await supabase
-        .from('coupling_requests')
-        .insert({
-          from_user_id: user.id,
-          to_user_id: targetUser.user_id,
-          from_family_id: currentFamily.id,
-          to_family_id: inviteData.family_id,
-          status: 'PENDING',
-        });
-
-      if (insertError) throw insertError;
 
       setLinkingCode('');
-      setLinkingSuccess('Koppelverzoek verzonden! Wacht op goedkeuring van de andere ouder.');
+      setLinkingSuccess(`Koppelverzoek verzonden naar ${data.target_user_name}! Wacht op goedkeuring.`);
 
       setTimeout(() => setLinkingSuccess(''), 5000);
       await fetchFamilyData();
