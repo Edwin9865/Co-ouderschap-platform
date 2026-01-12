@@ -72,23 +72,23 @@ export function HelperFamilySelector() {
             .select('*')
             .eq('family_id', family.id);
 
-          const { data: myMessages } = await supabase
+          const { data: allMessages } = await supabase
             .from('helper_messages')
-            .select('id, sender_id, recipient_id, status, has_responded_users, helper_has_read_replies, closed')
+            .select('id, sender_id, recipient_id, status, closed, parent_message_id')
             .eq('family_id', family.id)
-            .eq('sender_id', user.id)
-            .is('parent_message_id', null)
-            .eq('closed', false);
+            .eq('closed', false)
+            .is('parent_message_id', null);
 
           let unreadCount = 0;
 
-          if (myMessages && myMessages.length > 0) {
+          if (allMessages && allMessages.length > 0) {
             const messagesWithReplies = await Promise.all(
-              myMessages.map(async (msg: any) => {
+              allMessages.map(async (msg: any) => {
                 const { data: replies } = await supabase
                   .from('helper_messages')
-                  .select('id, sender_id, status, created_at')
-                  .eq('parent_message_id', msg.id);
+                  .select('id, sender_id, recipient_id, status, created_at')
+                  .eq('parent_message_id', msg.id)
+                  .order('created_at', { ascending: true });
 
                 return {
                   ...msg,
@@ -98,25 +98,19 @@ export function HelperFamilySelector() {
             );
 
             unreadCount = messagesWithReplies.filter((msg: any) => {
-              const hasNewResponses = msg.replies && msg.replies.some((r: any) => {
-                return !Array.isArray(msg.helper_has_read_replies) ||
-                       !msg.helper_has_read_replies.includes(r.id);
-              });
+              const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
+                                      (msg.recipient_id === user.id ||
+                                       (msg.recipient_id === null && msg.sender_id !== user.id));
 
-              return hasNewResponses;
+              const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
+                r.status === 'MOET_BEANTWOORDEN' &&
+                (r.recipient_id === user.id ||
+                 (r.recipient_id === null && r.sender_id !== user.id))
+              );
+
+              return needsMyResponse || hasRepliesThatNeedMyResponse;
             }).length;
           }
-
-          const { data: receivedMessages } = await supabase
-            .from('helper_messages')
-            .select('id, status, closed')
-            .eq('family_id', family.id)
-            .eq('closed', false)
-            .eq('status', 'MOET_BEANTWOORDEN')
-            .or(`recipient_id.eq.${user.id},and(recipient_id.is.null,sender_id.neq.${user.id})`)
-            .is('parent_message_id', null);
-
-          unreadCount += receivedMessages?.length || 0;
 
           return {
             ...family,
