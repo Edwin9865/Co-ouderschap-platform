@@ -3,18 +3,82 @@ import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import html2pdf from 'html2pdf.js';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const canExport = canAccessFeature('export');
+
+  const generateAndSharePDF = async (html: string) => {
+    try {
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+
+      const opt = {
+        margin: [10, 10],
+        filename: `coparenting-export-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
+      document.body.removeChild(container);
+
+      const reader = new FileReader();
+      reader.readAsDataURL(pdfBlob);
+
+      await new Promise<void>((resolve, reject) => {
+        reader.onloadend = async () => {
+          try {
+            const base64Data = reader.result as string;
+            const base64String = base64Data.split(',')[1];
+
+            const fileName = `coparenting-export-${new Date().toISOString().split('T')[0]}.pdf`;
+
+            const savedFile = await Filesystem.writeFile({
+              path: fileName,
+              data: base64String,
+              directory: Directory.Cache,
+            });
+
+            console.log('PDF opgeslagen:', savedFile);
+
+            await Share.share({
+              title: 'Co-Parenting Export',
+              text: 'Jouw co-parenting dossier export',
+              url: savedFile.uri,
+              dialogTitle: 'Deel PDF'
+            });
+
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = reject;
+      });
+
+    } catch (error) {
+      console.error('PDF generatie fout:', error);
+      throw new Error('Kon PDF niet genereren. Probeer het opnieuw.');
+    }
+  };
 
   const handleExport = async () => {
     if (!canExport) {
@@ -39,6 +103,7 @@ export function Export() {
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
       console.log('Starting export with:', {
@@ -104,12 +169,18 @@ export function Export() {
       const html = await response.text();
       console.log('Received HTML, length:', html.length);
 
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
+      if (Capacitor.isNativePlatform()) {
+        await generateAndSharePDF(html);
+        setSuccess('PDF succesvol gegenereerd en gedeeld!');
       } else {
-        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+          setSuccess('Export geopend in nieuwe tab. Gebruik de print knop in de PDF om deze op te slaan.');
+        } else {
+          throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+        }
       }
     } catch (err: any) {
       console.error('Export error:', err);
@@ -135,6 +206,18 @@ export function Export() {
             <div>
               <h3 className="font-semibold text-red-900 mb-1">Fout bij exporteren</h3>
               <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <FileText className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
+            <div>
+              <h3 className="font-semibold text-green-900 mb-1">Export succesvol</h3>
+              <p className="text-sm text-green-800">{success}</p>
             </div>
           </div>
         </div>
