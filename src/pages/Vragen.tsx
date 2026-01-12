@@ -134,9 +134,16 @@ export function Vragen() {
 
     setLoading(true);
     try {
-      const recipientId = parentMessage.sender_id === user.id
-        ? parentMessage.recipient_id
-        : parentMessage.sender_id;
+      const isParentGroupMessage = parentMessage.recipient_id === null;
+
+      let recipientId;
+      if (isParentGroupMessage) {
+        recipientId = null;
+      } else {
+        recipientId = parentMessage.sender_id === user.id
+          ? parentMessage.recipient_id
+          : parentMessage.sender_id;
+      }
 
       await supabase.from('helper_messages').insert({
         family_id: currentFamily!.id,
@@ -152,7 +159,6 @@ export function Vragen() {
           await supabase
             .from('helper_messages')
             .update({
-              has_responded_users: [],
               helper_has_read_replies: [],
               status: 'MOET_BEANTWOORDEN'
             })
@@ -165,23 +171,25 @@ export function Vragen() {
         }
       } else {
         if (parentMessage.recipient_id === null) {
-          const currentResponders = Array.isArray(parentMessage.has_responded_users)
-            ? parentMessage.has_responded_users
-            : [];
+          const { data: allReplies } = await supabase
+            .from('helper_messages')
+            .select('sender_id')
+            .eq('parent_message_id', parentMessageId);
 
-          if (!currentResponders.includes(user.id)) {
-            const newResponders = [...currentResponders, user.id];
-            const parentCount = parents.length;
-            const newStatus = newResponders.length >= parentCount ? 'BEANTWOORD' : 'MOET_BEANTWOORDEN';
+          const parentIds = parents.map(p => p.user_id);
+          const respondedParentIds = [...new Set(
+            (allReplies || [])
+              .map((r: any) => r.sender_id)
+              .filter((id: string) => parentIds.includes(id))
+          )];
 
-            await supabase
-              .from('helper_messages')
-              .update({
-                has_responded_users: newResponders,
-                status: newStatus
-              })
-              .eq('id', parentMessageId);
-          }
+          const allParentsResponded = respondedParentIds.length >= parents.length;
+          const newStatus = allParentsResponded ? 'BEANTWOORD' : 'MOET_BEANTWOORDEN';
+
+          await supabase
+            .from('helper_messages')
+            .update({ status: newStatus })
+            .eq('id', parentMessageId);
         } else if (parentMessage.recipient_id === user.id) {
           await supabase
             .from('helper_messages')
@@ -419,11 +427,13 @@ export function Vragen() {
             const iAmSender = message.sender_id === user?.id;
             const isGroupMessage = message.recipient_id === null;
             const parentCount = parents.length;
-            const respondedCount = Array.isArray(message.has_responded_users)
-              ? message.has_responded_users.length
-              : 0;
 
-            const respondedParentIds = message.has_responded_users || [];
+            const parentReplies = message.replies?.filter((r: any) =>
+              parents.some(p => p.user_id === r.sender_id)
+            ) || [];
+            const respondedParentIds = [...new Set(parentReplies.map((r: any) => r.sender_id))];
+            const respondedCount = respondedParentIds.length;
+
             const respondedParents = parents.filter(p => respondedParentIds.includes(p.user_id));
             const notRespondedParents = parents.filter(p => !respondedParentIds.includes(p.user_id));
 

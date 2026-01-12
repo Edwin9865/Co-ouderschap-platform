@@ -109,15 +109,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         if (message.recipient_id === user.id) {
           needsMyResponse = true;
         } else if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
-          const hasResponded = Array.isArray(message.has_responded_users) &&
-                               message.has_responded_users.includes(user.id);
-          needsMyResponse = !hasResponded;
+          const iHaveReplied = message.replies?.some((r: any) => r.sender_id === user.id);
+          needsMyResponse = !iHaveReplied;
         }
       } else if (message.status === 'BEANTWOORD') {
         if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
-          const hasResponded = Array.isArray(message.has_responded_users) &&
-                               message.has_responded_users.includes(user.id);
-          needsMyResponse = !hasResponded;
+          const iHaveReplied = message.replies?.some((r: any) => r.sender_id === user.id);
+          needsMyResponse = !iHaveReplied;
         }
       }
 
@@ -131,9 +129,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         if (r.recipient_id === user.id) {
           return true;
         } else if (r.recipient_id === null && r.sender_id !== user.id && !isHelperMode) {
-          const hasResponded = Array.isArray(r.has_responded_users) &&
-                               r.has_responded_users.includes(user.id);
-          return !hasResponded;
+          const iHaveReplied = message.replies?.some((reply: any) => reply.sender_id === user.id);
+          needsMyResponse = !iHaveReplied;
         }
         return false;
       });
