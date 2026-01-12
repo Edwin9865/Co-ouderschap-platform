@@ -490,42 +490,42 @@ export function Vragen() {
                 className="bg-white rounded-lg border border-gray-200"
               >
                 <div
-                  className="p-6 cursor-pointer hover:bg-gray-50"
+                  className="p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
                   onClick={() => toggleMessage(message.id)}
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <h3 className="text-lg font-semibold text-gray-900">{message.subject}</h3>
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{message.subject}</h3>
                         {messageStatus && (
-                          <span className={`px-2 py-1 text-xs rounded font-medium ${statusColor}`}>
+                          <span className={`px-2 py-1 text-xs rounded font-medium whitespace-nowrap ${statusColor}`}>
                             {messageStatus}
                           </span>
                         )}
                       </div>
-                      <p className="text-gray-700 mb-3 line-clamp-2">{message.message}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>Van: {message.sender.name}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
+                      <p className="text-sm sm:text-base text-gray-700 mb-3 line-clamp-2 break-words">{message.message}</p>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                        <span className="break-words">Van: {message.sender.name}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="flex items-center gap-1 break-words">
                           {message.recipient_id ? (
                             <>
-                              <User className="w-3 h-3" />
-                              Aan: {message.recipient?.name}
+                              <User className="w-3 h-3 flex-shrink-0" />
+                              <span>Aan: {message.recipient?.name}</span>
                             </>
                           ) : (
                             <>
-                              <UsersIcon className="w-3 h-3" />
-                              Aan: {isHelperMode ? 'Hele gezin' : 'Alle hulpverleners'}
+                              <UsersIcon className="w-3 h-3 flex-shrink-0" />
+                              <span>Aan: {isHelperMode ? 'Hele gezin' : 'Alle hulpverleners'}</span>
                             </>
                           )}
                         </span>
-                        <span>•</span>
-                        <span>{new Date(message.created_at).toLocaleDateString('nl-NL')}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="whitespace-nowrap">{new Date(message.created_at).toLocaleDateString('nl-NL')}</span>
                         {message.replies && message.replies.length > 0 && (
                           <>
-                            <span>•</span>
-                            <span>{message.replies.length} antwoord(en)</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="whitespace-nowrap">{message.replies.length} antwoord(en)</span>
                           </>
                         )}
                       </div>
@@ -534,7 +534,7 @@ export function Vragen() {
                 </div>
 
                 {selectedMessage === message.id && (
-                  <div className="p-6 bg-gray-50 border-t border-gray-200">
+                  <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
                     <div className="mb-6">
                       <div className="text-sm font-medium text-gray-500 mb-2">Origineel bericht</div>
                       <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -611,24 +611,24 @@ export function Vragen() {
                           rows={3}
                           maxLength={2000}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={() => handleReply(message.id)}
                             disabled={loading || !replyText[message.id]?.trim()}
-                            className="flex-1 flex items-center gap-2 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 justify-center"
+                            className="flex-1 flex items-center gap-2 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 justify-center text-sm sm:text-base"
                           >
                             <Send className="w-4 h-4" />
-                            {loading ? 'Bezig...' : 'Antwoord versturen'}
+                            <span>{loading ? 'Bezig...' : 'Antwoord versturen'}</span>
                           </button>
                           {message.sender_id === user?.id && isHelperMode && (
                             <button
                               onClick={() => handleCloseMessage(message.id)}
                               disabled={loading}
-                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2"
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 justify-center text-sm sm:text-base"
                               title="Vraag sluiten"
                             >
                               <X className="w-4 h-4" />
-                              Sluiten
+                              <span>Sluiten</span>
                             </button>
                           )}
                         </div>
