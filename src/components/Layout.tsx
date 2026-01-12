@@ -102,17 +102,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const actionableCount = messagesWithReplies.filter(message => {
       if (message.closed) return false;
 
-      const parentNeedsAttention = (message.status === 'NIEUW' || message.status === 'MOET_BEANTWOORDEN') &&
-                                    (message.recipient_id === user.id ||
-                                     (message.recipient_id === null && message.sender_id !== user.id));
+      const needsMyResponse = message.status === 'MOET_BEANTWOORDEN' &&
+                              (message.recipient_id === user.id ||
+                               (message.recipient_id === null && message.sender_id !== user.id));
 
-      const hasUnreadReplies = message.replies?.some((r: any) =>
-        (r.status === 'NIEUW' || r.status === 'MOET_BEANTWOORDEN') &&
+      const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) =>
+        r.status === 'MOET_BEANTWOORDEN' &&
         (r.recipient_id === user.id ||
          (r.recipient_id === null && r.sender_id !== user.id))
       );
 
-      return parentNeedsAttention || hasUnreadReplies;
+      return needsMyResponse || hasRepliesThatNeedMyResponse;
     }).length;
 
     setUnreadMessagesCount(actionableCount);

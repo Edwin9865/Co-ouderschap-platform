@@ -13,7 +13,7 @@ interface HelperMessage {
   message: string;
   parent_message_id: string | null;
   is_read: boolean;
-  status: 'NIEUW' | 'MOET_BEANTWOORDEN' | 'BEANTWOORD';
+  status: 'MOET_BEANTWOORDEN' | 'BEANTWOORD';
   has_responded_users: string[];
   helper_has_read_replies: string[];
   closed: boolean;
@@ -413,38 +413,11 @@ export function Vragen() {
         ) : (
           monthlyMessages.map((message) => {
             const iAmSender = message.sender_id === user?.id;
-            const iAmRecipient = message.recipient_id === user?.id;
             const isGroupMessage = message.recipient_id === null;
-
-            const hasUserResponded = isGroupMessage &&
-              Array.isArray(message.has_responded_users) &&
-              message.has_responded_users.includes(user!.id);
-
-            const isUnread = !message.is_read &&
-              (message.recipient_id === user?.id ||
-               (isGroupMessage && !iAmSender && !hasUserResponded));
-
-            const hasUnreadReplies = message.replies?.some(r =>
-              !r.is_read &&
-              (r.recipient_id === user?.id || (r.recipient_id === null && r.sender_id !== user?.id))
-            );
-
-            const isHelperSentMessage = isHelperMode && iAmSender;
             const parentCount = parents.length;
             const respondedCount = Array.isArray(message.has_responded_users)
               ? message.has_responded_users.length
               : 0;
-
-            const hasNewResponses = isHelperSentMessage &&
-              message.replies &&
-              message.replies.some(r =>
-                !Array.isArray(message.helper_has_read_replies) ||
-                !message.helper_has_read_replies.includes(r.id)
-              );
-
-            const allParentsResponded = isHelperSentMessage &&
-              isGroupMessage &&
-              respondedCount >= parentCount;
 
             const respondedParentIds = message.has_responded_users || [];
             const respondedParents = parents.filter(p => respondedParentIds.includes(p.user_id));
@@ -458,34 +431,26 @@ export function Vragen() {
               statusColor = 'bg-gray-100 text-gray-800';
             } else if (message.status === 'MOET_BEANTWOORDEN') {
               if (iAmSender) {
-                if (isGroupMessage) {
-                  if (respondedCount === 0) {
-                    messageStatus = `Wacht op antwoord (0/${parentCount})`;
-                    statusColor = 'bg-gray-200 text-gray-700';
-                  } else if (respondedCount < parentCount) {
+                if (isHelperMode) {
+                  if (isGroupMessage) {
                     messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
                     statusColor = 'bg-amber-100 text-amber-800';
                   } else {
-                    messageStatus = 'Volledig beantwoord';
-                    statusColor = 'bg-green-100 text-green-800';
+                    messageStatus = 'Wacht op antwoord';
+                    statusColor = 'bg-amber-100 text-amber-800';
                   }
                 } else {
-                  messageStatus = 'Wacht op antwoord';
-                  statusColor = 'bg-gray-200 text-gray-700';
+                  messageStatus = 'Wacht op hulpverlener';
+                  statusColor = 'bg-amber-100 text-amber-800';
                 }
               } else {
                 messageStatus = 'Moet beantwoorden';
                 statusColor = 'bg-red-100 text-red-800';
               }
             } else if (message.status === 'BEANTWOORD') {
-              if (iAmSender && isGroupMessage) {
-                if (respondedCount >= parentCount) {
-                  messageStatus = 'Volledig beantwoord';
-                  statusColor = 'bg-green-100 text-green-800';
-                } else {
-                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                  statusColor = 'bg-green-100 text-green-800';
-                }
+              if (iAmSender && isGroupMessage && isHelperMode) {
+                messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                statusColor = 'bg-green-100 text-green-800';
               } else {
                 messageStatus = 'Beantwoord';
                 statusColor = 'bg-green-100 text-green-800';
@@ -495,11 +460,7 @@ export function Vragen() {
             return (
               <div
                 key={message.id}
-                className={`bg-white rounded-lg border ${
-                  isUnread || hasNewResponses || hasUnreadReplies
-                    ? 'border-blue-400 shadow-md'
-                    : 'border-gray-200'
-                }`}
+                className="bg-white rounded-lg border border-gray-200"
               >
                 <div
                   className="p-6 cursor-pointer hover:bg-gray-50"
@@ -554,7 +515,7 @@ export function Vragen() {
                       </div>
                     </div>
 
-                    {isHelperSentMessage && message.recipient_id === null && (
+                    {isHelperMode && iAmSender && message.recipient_id === null && (
                       <div className="mb-6">
                         <div className="text-sm font-medium text-gray-500 mb-3">Status ouders</div>
                         <div className="space-y-2">
