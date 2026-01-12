@@ -24,13 +24,34 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization');
+
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Geen authenticatie header gevonden' }),
+        {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('User authentication error:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Authenticatie mislukt' }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -40,19 +61,50 @@ Deno.serve(async (req: Request) => {
 
     const { familyId, exportType, childId, startDate, endDate }: ExportRequest = await req.json();
 
-    let childFilter = childId ? `child_id.eq.${childId}` : undefined;
-    let dateFilter = '';
-    if (startDate && endDate) {
-      dateFilter = `created_at.gte.${startDate},created_at.lte.${endDate}`;
+    console.log('Export request:', { familyId, exportType, userId: user.id });
+
+    const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { data: familyMember, error: familyError } = await serviceSupabase
+      .from('family_members')
+      .select('*')
+      .eq('family_id', familyId)
+      .eq('user_id', user.id)
+      .eq('status', 'ACTIVE')
+      .maybeSingle();
+
+    if (familyError) {
+      console.error('Family member check error:', familyError);
+      return new Response(
+        JSON.stringify({ error: 'Fout bij controleren van familielid' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
-    const { data: family } = await supabase
+    if (!familyMember) {
+      return new Response(
+        JSON.stringify({ error: 'Je hebt geen toegang tot deze familie' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
+
+    const { data: family, error: famError } = await serviceSupabase
       .from('families')
       .select('*')
       .eq('id', familyId)
       .single();
 
-    const { data: children } = await supabase
+    if (famError) {
+      console.error('Family fetch error:', famError);
+    }
+
+    const { data: children } = await serviceSupabase
       .from('children')
       .select('*')
       .eq('family_id', familyId)
@@ -63,31 +115,86 @@ Deno.serve(async (req: Request) => {
       childrenToExport = childrenToExport.filter(c => c.id === childId);
     }
 
-    const { data: events } = await supabase
+    const { data: events } = await serviceSupabase
       .from('events')
-      .select('*, children(first_name, color)')
+      .select('id, family_id, child_id, type, title, description, start_at, end_at, location, status, created_at, children(first_name, color)')
       .eq('family_id', familyId)
       .order('start_at', { ascending: false });
 
-    const { data: logEntries } = await supabase
+    const { data: logEntries } = await serviceSupabase
       .from('log_entries')
-      .select('*, children(first_name, color), users!log_entries_created_by_fkey(name)')
+      .select('id, title, category, details, occurred_at, created_by, deleted_at, children(first_name, color)')
       .eq('family_id', familyId)
       .order('occurred_at', { ascending: false });
 
-    const { data: requests } = await supabase
+    const logEntriesWithUsers = await Promise.all(
+      (logEntries || []).map(async (log) => {
+        const { data: user } = await serviceSupabase
+          .from('users')
+          .select('name')
+          .eq('id', log.created_by)
+          .maybeSingle();
+        return { ...log, user_name: user?.name || 'Onbekend' };
+      })
+    );
+
+    const { data: requests } = await serviceSupabase
       .from('requests')
-      .select('*, children(first_name, color), users!requests_created_by_fkey(name)')
+      .select('id, title, type, description, status, created_at, created_by, child_id, children(first_name, color)')
       .eq('family_id', familyId)
       .order('created_at', { ascending: false });
 
-    const { data: questions } = await supabase
+    const requestsWithUsers = await Promise.all(
+      (requests || []).map(async (req) => {
+        const { data: user } = await serviceSupabase
+          .from('users')
+          .select('name')
+          .eq('id', req.created_by)
+          .maybeSingle();
+        return { ...req, user_name: user?.name || 'Onbekend' };
+      })
+    );
+
+    const { data: questions } = await serviceSupabase
       .from('questions')
-      .select('*, users!questions_helper_id_fkey(name), answers(*, users!answers_parent_id_fkey(name))')
+      .select('id, title, question_text, status, created_at, helper_id')
       .eq('family_id', familyId)
       .order('created_at', { ascending: false });
 
-    const { data: auditLogs } = await supabase
+    const questionsWithDetails = await Promise.all(
+      (questions || []).map(async (question) => {
+        const { data: helper } = await serviceSupabase
+          .from('users')
+          .select('name')
+          .eq('id', question.helper_id)
+          .maybeSingle();
+
+        const { data: answers } = await serviceSupabase
+          .from('answers')
+          .select('id, answer_text, created_at, parent_id')
+          .eq('question_id', question.id)
+          .order('created_at');
+
+        const answersWithUsers = await Promise.all(
+          (answers || []).map(async (answer) => {
+            const { data: parent } = await serviceSupabase
+              .from('users')
+              .select('name')
+              .eq('id', answer.parent_id)
+              .maybeSingle();
+            return { ...answer, parent_name: parent?.name || 'Onbekend' };
+          })
+        );
+
+        return {
+          ...question,
+          helper_name: helper?.name || 'Onbekend',
+          answers: answersWithUsers,
+        };
+      })
+    );
+
+    const { data: auditLogs } = await serviceSupabase
       .from('audit_logs')
       .select('*')
       .eq('family_id', familyId)
@@ -97,11 +204,11 @@ Deno.serve(async (req: Request) => {
     const html = generateHTML({
       family,
       children: childrenToExport,
-      events,
-      logEntries,
-      requests,
-      questions,
-      auditLogs,
+      events: events || [],
+      logEntries: logEntriesWithUsers || [],
+      requests: requestsWithUsers || [],
+      questions: questionsWithDetails || [],
+      auditLogs: auditLogs || [],
       exportType,
       exportDate: new Date().toLocaleDateString('nl-NL'),
     });
@@ -113,10 +220,10 @@ Deno.serve(async (req: Request) => {
         'Content-Type': 'text/html; charset=utf-8',
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Export error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error?.message || 'Onbekende fout bij exporteren' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -418,7 +525,7 @@ function generateHTML(data: any): string {
                         ${log.children ? `<span class="child-tag" style="background: ${log.children.color}22; color: ${log.children.color};">${log.children.first_name}</span>` : ''}
                         <br>
                         <strong>Datum:</strong> ${new Date(log.occurred_at).toLocaleString('nl-NL')} |
-                        <strong>Door:</strong> ${log.users?.name || 'Onbekend'}
+                        <strong>Door:</strong> ${log.user_name || 'Onbekend'}
                         ${log.deleted_at ? ' | <span style="color: #dc2626;">VERWIJDERD</span>' : ''}
                     </div>
                     ${log.details ? `<div class="card-content">${log.details}</div>` : ''}
@@ -441,7 +548,7 @@ function generateHTML(data: any): string {
                         ${request.children ? `<span class="child-tag" style="background: ${request.children.color}22; color: ${request.children.color};">${request.children.first_name}</span>` : ''}
                         <br>
                         <strong>Aangemaakt:</strong> ${new Date(request.created_at).toLocaleString('nl-NL')} |
-                        <strong>Door:</strong> ${request.users?.name || 'Onbekend'}
+                        <strong>Door:</strong> ${request.user_name || 'Onbekend'}
                     </div>
                     ${request.description ? `<div class="card-content">${request.description}</div>` : ''}
                 </div>
@@ -460,7 +567,7 @@ function generateHTML(data: any): string {
                             ${statusLabels[question.status] || question.status}
                         </span>
                         <br>
-                        <strong>Hulpverlener:</strong> ${question.users?.name || 'Onbekend'} |
+                        <strong>Hulpverlener:</strong> ${question.helper_name || 'Onbekend'} |
                         <strong>Datum:</strong> ${new Date(question.created_at).toLocaleString('nl-NL')}
                     </div>
                     <div class="card-content">
@@ -472,7 +579,7 @@ function generateHTML(data: any): string {
                             ${question.answers.map((answer: any) => `
                                 <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px;">
                                     <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
-                                        ${answer.users?.name || 'Onbekend'} - ${new Date(answer.created_at).toLocaleString('nl-NL')}
+                                        ${answer.parent_name || 'Onbekend'} - ${new Date(answer.created_at).toLocaleString('nl-NL')}
                                     </div>
                                     ${answer.answer_text}
                                 </div>
