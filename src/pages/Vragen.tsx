@@ -113,6 +113,7 @@ export function Vragen() {
         subject: formData.subject,
         message: formData.message,
         recipient_id: formData.recipient_id || null,
+        status: isHelperMode ? 'MOET_BEANTWOORDEN' : 'NIEUW',
       };
 
       await supabase.from('helper_messages').insert(messageData);
@@ -507,9 +508,7 @@ export function Vragen() {
               <div
                 key={message.id}
                 className={`bg-white rounded-lg border ${
-                  hasNewResponses
-                    ? 'border-blue-400 shadow-md'
-                    : isUnread || hasUnreadReplies
+                  message.status === 'NIEUW' || hasNewResponses
                     ? 'border-blue-400 shadow-md'
                     : 'border-gray-200'
                 }`}
