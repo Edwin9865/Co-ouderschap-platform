@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
-import { Download, Lock, FileText } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
+  const { session } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -18,9 +22,62 @@ export function Export() {
       return;
     }
 
+    if (!currentFamily) {
+      setError('Geen familie geselecteerd');
+      return;
+    }
+
+    if (exportType === 'child' && !selectedChild) {
+      setError('Selecteer een kind voor deze export');
+      return;
+    }
+
+    if (exportType === 'date_range' && (!startDate || !endDate)) {
+      setError('Selecteer een start- en einddatum');
+      return;
+    }
+
     setLoading(true);
-    alert('Export functionaliteit wordt uitgevoerd via een Edge Function. Implementatie volgt.');
-    setLoading(false);
+    setError(null);
+
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          familyId: currentFamily.id,
+          exportType,
+          childId: selectedChild || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Export mislukt');
+      }
+
+      const html = await response.text();
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+      }
+    } catch (err: any) {
+      console.error('Export error:', err);
+      setError(err.message || 'Er is een fout opgetreden bij het exporteren');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +88,18 @@ export function Export() {
           Exporteer je dossier naar PDF voor archivering of delen met derden
         </p>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3" />
+            <div>
+              <h3 className="font-semibold text-red-900 mb-1">Fout bij exporteren</h3>
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!canExport && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
