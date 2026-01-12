@@ -288,9 +288,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <aside
           className={`${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out flex flex-col`}
+          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 md:min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out`}
         >
-          <nav className="p-3 space-y-0.5 flex-1">
+          <nav className="p-3 space-y-0.5">
             {familyMemberships.length > 1 && !isHelperMode && (
               <Link
                 to="/families"
