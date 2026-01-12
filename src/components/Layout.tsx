@@ -347,6 +347,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div className="px-3 py-1.5 text-sm text-gray-600">
                 Ingelogd als <span className="font-medium">{user?.name}</span>
               </div>
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Uitloggen</span>
+              </button>
             </div>
           </div>
         </aside>
