@@ -23,22 +23,56 @@ export function Export() {
 
   const generateAndSharePDF = async (html: string) => {
     try {
-      const container = document.createElement('div');
-      container.innerHTML = html;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      document.body.appendChild(container);
+      console.log('Generating PDF from HTML, length:', html.length);
+
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '210mm';
+      iframe.style.height = '297mm';
+      iframe.style.visibility = 'hidden';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) {
+        throw new Error('Kon iframe document niet openen');
+      }
+
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const iframeBody = iframeDoc.body;
+      console.log('Iframe body text length:', iframeBody?.textContent?.length || 0);
+
+      if (!iframeBody || !iframeBody.textContent || iframeBody.textContent.length === 0) {
+        throw new Error('HTML content is leeg');
+      }
 
       const opt = {
         margin: [10, 10],
         filename: `coparenting-export-${new Date().toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          windowWidth: 794,
+          windowHeight: 1123
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      const pdfBlob = await html2pdf().set(opt).from(container).outputPdf('blob');
-      document.body.removeChild(container);
+      console.log('Starting PDF generation...');
+      const pdfBlob = await html2pdf().set(opt).from(iframeBody).outputPdf('blob');
+      console.log('PDF generated, size:', pdfBlob.size);
+
+      document.body.removeChild(iframe);
 
       const reader = new FileReader();
       reader.readAsDataURL(pdfBlob);
