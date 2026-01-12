@@ -113,7 +113,7 @@ export function Vragen() {
         subject: formData.subject,
         message: formData.message,
         recipient_id: formData.recipient_id || null,
-        status: isHelperMode ? 'MOET_BEANTWOORDEN' : 'NIEUW',
+        status: 'MOET_BEANTWOORDEN',
       };
 
       await supabase.from('helper_messages').insert(messageData);
@@ -203,10 +203,7 @@ export function Vragen() {
         (message.recipient_id === null && message.sender_id !== user.id)) {
       await supabase
         .from('helper_messages')
-        .update({
-          is_read: true,
-          status: message.status === 'NIEUW' ? 'MOET_BEANTWOORDEN' : message.status
-        })
+        .update({ is_read: true })
         .eq('id', messageId);
     }
 
@@ -231,10 +228,7 @@ export function Vragen() {
       for (const reply of unreadReplies) {
         await supabase
           .from('helper_messages')
-          .update({
-            is_read: true,
-            status: reply.status === 'NIEUW' ? 'MOET_BEANTWOORDEN' : reply.status
-          })
+          .update({ is_read: true })
           .eq('id', reply.id);
       }
     }
@@ -462,9 +456,6 @@ export function Vragen() {
             if (message.closed) {
               messageStatus = 'Gesloten';
               statusColor = 'bg-gray-100 text-gray-800';
-            } else if (message.status === 'NIEUW') {
-              messageStatus = 'Nieuw';
-              statusColor = 'bg-blue-100 text-blue-800';
             } else if (message.status === 'MOET_BEANTWOORDEN') {
               if (iAmSender) {
                 if (isGroupMessage) {
@@ -499,16 +490,13 @@ export function Vragen() {
                 messageStatus = 'Beantwoord';
                 statusColor = 'bg-green-100 text-green-800';
               }
-            } else {
-              messageStatus = 'Nieuw';
-              statusColor = 'bg-blue-100 text-blue-800';
             }
 
             return (
               <div
                 key={message.id}
                 className={`bg-white rounded-lg border ${
-                  message.status === 'NIEUW' || hasNewResponses
+                  isUnread || hasNewResponses || hasUnreadReplies
                     ? 'border-blue-400 shadow-md'
                     : 'border-gray-200'
                 }`}
