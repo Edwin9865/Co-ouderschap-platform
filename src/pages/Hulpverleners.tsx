@@ -14,7 +14,7 @@ interface HelperMessage {
   message: string;
   parent_message_id: string | null;
   is_read: boolean;
-  status: 'NIEUW' | 'MOET_BEANTWOORDEN' | 'BEANTWOORD';
+  status: 'MOET_BEANTWOORDEN' | 'BEANTWOORD';
   has_responded_users: string[];
   closed: boolean;
   closed_at: string | null;
@@ -285,10 +285,7 @@ export function Hulpverleners() {
         (message.recipient_id === null && message.sender_id !== user.id)) {
       await supabase
         .from('helper_messages')
-        .update({
-          is_read: true,
-          status: message.status === 'NIEUW' ? 'MOET_BEANTWOORDEN' : message.status
-        })
+        .update({ is_read: true })
         .eq('id', messageId);
     }
 
@@ -301,10 +298,7 @@ export function Hulpverleners() {
       for (const reply of unreadReplies) {
         await supabase
           .from('helper_messages')
-          .update({
-            is_read: true,
-            status: reply.status === 'NIEUW' ? 'MOET_BEANTWOORDEN' : reply.status
-          })
+          .update({ is_read: true })
           .eq('id', reply.id);
       }
     }
@@ -332,17 +326,17 @@ export function Hulpverleners() {
   const unreadCount = messages.filter(m => {
     if (m.closed) return false;
 
-    const parentNeedsAttention = (m.status === 'NIEUW' || m.status === 'MOET_BEANTWOORDEN') &&
-                                  (m.recipient_id === user?.id ||
-                                   (m.recipient_id === null && m.sender_id !== user?.id));
+    const needsMyResponse = m.status === 'MOET_BEANTWOORDEN' &&
+                            (m.recipient_id === user?.id ||
+                             (m.recipient_id === null && m.sender_id !== user?.id));
 
-    const hasUnreadReplies = m.replies?.some(r =>
-      (r.status === 'NIEUW' || r.status === 'MOET_BEANTWOORDEN') &&
+    const hasRepliesThatNeedMyResponse = m.replies?.some(r =>
+      r.status === 'MOET_BEANTWOORDEN' &&
       (r.recipient_id === user?.id ||
        (r.recipient_id === null && r.sender_id !== user?.id))
     );
 
-    return parentNeedsAttention || hasUnreadReplies;
+    return needsMyResponse || hasRepliesThatNeedMyResponse;
   }).length;
 
   return (
@@ -602,27 +596,9 @@ export function Hulpverleners() {
               </div>
             ) : (
               messages.map((message) => {
-                const isGroupMessage = message.recipient_id === null && message.sender_id !== user?.id;
-                const hasUserResponded = isGroupMessage &&
-                  Array.isArray(message.has_responded_users) &&
-                  message.has_responded_users.includes(user!.id);
-
-                const isUnread = !message.is_read &&
-                  (message.recipient_id === user?.id ||
-                   (isGroupMessage && !hasUserResponded));
-
-                const hasUnreadReplies = message.replies?.some(r =>
-                  !r.is_read &&
-                  (r.recipient_id === user?.id || (r.recipient_id === null && r.sender_id !== user?.id))
-                );
-
+                const isSentByMe = message.sender_id === user?.id;
                 const senderIsHelper = message.sender.account_type === 'HELPER';
                 const recipientIsHelper = message.recipient?.account_type === 'HELPER';
-                const numParents = members.filter(m => m.role === 'PARENT').length;
-                const numHelpers = helpers.length;
-
-                const isSentByMe = message.sender_id === user?.id;
-                const isToWholeFamily = message.recipient_id === null;
 
                 let messageStatus = '';
                 let statusColor = '';
@@ -630,99 +606,23 @@ export function Hulpverleners() {
                 if (message.closed) {
                   messageStatus = 'Gesloten';
                   statusColor = 'bg-gray-100 text-gray-800';
-                } else if (isGroupMessage) {
-                  const originalSenderId = message.sender_id;
-                  const replies = message.replies || [];
-
-                  const lastSenderReply = replies
-                    .filter(r => r.sender_id === originalSenderId)
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-
-                  const lastSenderReplyTime = lastSenderReply
-                    ? new Date(lastSenderReply.created_at).getTime()
-                    : new Date(message.created_at).getTime();
-
-                  const myRepliesAfterLastSender = replies.filter(r =>
-                    r.sender_id === user?.id &&
-                    new Date(r.created_at).getTime() > lastSenderReplyTime
-                  );
-
-                  const iHaveResponded = myRepliesAfterLastSender.length > 0;
-
-                  if (!iHaveResponded) {
+                } else if (message.status === 'MOET_BEANTWOORDEN') {
+                  if (isSentByMe) {
+                    messageStatus = 'Wacht op hulpverlener';
+                    statusColor = 'bg-amber-100 text-amber-800';
+                  } else {
                     messageStatus = 'Moet beantwoorden';
                     statusColor = 'bg-red-100 text-red-800';
-                  } else {
-                    const parents = members.filter(m => m.role === 'PARENT');
-                    const otherParents = parents.filter(p => p.user_id !== user?.id);
-
-                    const coParentRepliesAfterLastSender = otherParents.some(parent =>
-                      replies.some(r =>
-                        r.sender_id === parent.user_id &&
-                        new Date(r.created_at).getTime() > lastSenderReplyTime
-                      )
-                    );
-
-                    if (!coParentRepliesAfterLastSender && otherParents.length > 0) {
-                      messageStatus = 'Wacht op co-ouder';
-                      statusColor = 'bg-amber-100 text-amber-800';
-                    } else {
-                      messageStatus = 'Beantwoord';
-                      statusColor = 'bg-green-100 text-green-800';
-                    }
                   }
-                } else if (isUnread || hasUnreadReplies) {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
-                } else if (isSentByMe) {
-                  if (isToWholeFamily) {
-                    const expectedResponses = senderIsHelper ? numParents : numParents - 1;
-                    const actualResponses = message.has_responded_users?.length || 0;
-
-                    if (actualResponses < expectedResponses) {
-                      messageStatus = senderIsHelper
-                        ? `Wacht op ouders (${actualResponses}/${expectedResponses})`
-                        : `Wacht op co-ouder (${actualResponses}/${expectedResponses})`;
-                      statusColor = 'bg-amber-100 text-amber-800';
-                    } else if (message.replies && message.replies.length > 0) {
-                      messageStatus = 'Afgerond';
-                      statusColor = 'bg-green-100 text-green-800';
-                    }
-                  } else if (recipientIsHelper) {
-                    if (!message.replies || message.replies.length === 0) {
-                      messageStatus = 'Wacht op hulpverlener';
-                      statusColor = 'bg-amber-100 text-amber-800';
-                    } else {
-                      messageStatus = 'Afgerond';
-                      statusColor = 'bg-green-100 text-green-800';
-                    }
-                  } else {
-                    if (!message.replies || message.replies.length === 0) {
-                      messageStatus = 'Wacht op antwoord';
-                      statusColor = 'bg-amber-100 text-amber-800';
-                    } else {
-                      messageStatus = 'Afgerond';
-                      statusColor = 'bg-green-100 text-green-800';
-                    }
-                  }
-                } else {
-                  const myReply = message.replies?.find(r => r.sender_id === user?.id);
-                  if (myReply) {
-                    messageStatus = 'Beantwoord';
-                    statusColor = 'bg-green-100 text-green-800';
-                  } else if (message.status === 'MOET_BEANTWOORDEN') {
-                    messageStatus = 'Moet beantwoorden';
-                    statusColor = 'bg-red-100 text-red-800';
-                  } else if (message.status === 'NIEUW') {
-                    messageStatus = 'Nieuw';
-                    statusColor = 'bg-blue-100 text-blue-800';
-                  }
+                } else if (message.status === 'BEANTWOORD') {
+                  messageStatus = 'Beantwoord';
+                  statusColor = 'bg-green-100 text-green-800';
                 }
 
                 return (
                   <div
                     key={message.id}
-                    className={`bg-white rounded-lg border ${isUnread || hasUnreadReplies ? 'border-blue-400 shadow-md' : 'border-gray-200'}`}
+                    className="bg-white rounded-lg border border-gray-200"
                   >
                     <div
                       className="p-6 cursor-pointer hover:bg-gray-50"
