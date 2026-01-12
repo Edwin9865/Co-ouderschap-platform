@@ -111,6 +111,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                                message.has_responded_users.includes(user.id);
           needsMyResponse = !hasResponded;
         }
+      } else if (message.status === 'BEANTWOORD') {
+        if (message.recipient_id === null && message.sender_id !== user.id) {
+          const hasResponded = Array.isArray(message.has_responded_users) &&
+                               message.has_responded_users.includes(user.id);
+          needsMyResponse = !hasResponded;
+        }
       }
 
       const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) => {

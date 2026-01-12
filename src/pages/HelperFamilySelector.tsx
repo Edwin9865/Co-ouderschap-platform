@@ -107,6 +107,12 @@ export function HelperFamilySelector() {
                                        msg.has_responded_users.includes(user.id);
                   needsMyResponse = !hasResponded;
                 }
+              } else if (msg.status === 'BEANTWOORD') {
+                if (msg.recipient_id === null && msg.sender_id !== user.id) {
+                  const hasResponded = Array.isArray(msg.has_responded_users) &&
+                                       msg.has_responded_users.includes(user.id);
+                  needsMyResponse = !hasResponded;
+                }
               }
 
               const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) => {

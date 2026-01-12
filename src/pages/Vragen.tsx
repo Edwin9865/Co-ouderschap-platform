@@ -457,7 +457,15 @@ export function Vragen() {
                 }
               }
             } else if (message.status === 'BEANTWOORD') {
-              if (isGroupMessage) {
+              if (isGroupMessage && !isHelperMode) {
+                if (respondedParentIds.includes(user?.id || '')) {
+                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                  statusColor = 'bg-green-100 text-green-800';
+                } else {
+                  messageStatus = 'Moet beantwoorden';
+                  statusColor = 'bg-red-100 text-red-800';
+                }
+              } else if (isGroupMessage && isHelperMode) {
                 messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
                 statusColor = 'bg-green-100 text-green-800';
               } else {
