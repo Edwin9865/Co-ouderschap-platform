@@ -288,9 +288,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <aside
           className={`${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out`}
+          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out flex flex-col`}
         >
-          <nav className="p-4 space-y-1">
+          <nav className="p-4 space-y-1 flex-1">
             {familyMemberships.length > 1 && !isHelperMode && (
               <Link
                 to="/families"
@@ -322,6 +322,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             ))}
           </nav>
+
+          <div className="md:hidden p-4 border-t border-gray-200">
+            <div className="space-y-2">
+              {isHelperMode && currentFamily && (
+                <div className="px-4 py-2 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200 mb-3">
+                  <div className="font-semibold mb-1">{currentFamily.name}</div>
+                  <button
+                    onClick={() => {
+                      handleBackToFamilies();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="underline hover:text-blue-900"
+                  >
+                    Wijzigen
+                  </button>
+                </div>
+              )}
+              {subscription && !isHelperMode && (
+                <div className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg mb-3">
+                  {subscription.plan}
+                </div>
+              )}
+              <Link
+                to="/account"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg"
+              >
+                <span className="text-sm font-medium">{user?.name}</span>
+              </Link>
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center space-x-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-medium">Uitloggen</span>
+              </button>
+            </div>
+          </div>
         </aside>
 
         <main className="flex-1 p-6 overflow-auto">
