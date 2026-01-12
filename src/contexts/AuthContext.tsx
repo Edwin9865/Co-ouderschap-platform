@@ -126,10 +126,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    localStorage.removeItem('helper_selected_family');
-    const { error } = await supabase.auth.signOut();
-    if (error && error.message !== 'Session from session_id claim in JWT does not exist') {
-      throw error;
+    try {
+      localStorage.removeItem('helper_selected_family');
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error during sign out:', error);
     }
   };
 
