@@ -146,30 +146,43 @@ export function Vragen() {
         parent_message_id: parentMessageId,
       });
 
-      if (parentMessage.recipient_id === null && parentMessage.sender_id !== user.id) {
-        const currentResponders = Array.isArray(parentMessage.has_responded_users)
-          ? parentMessage.has_responded_users
-          : [];
-
-        if (!currentResponders.includes(user.id)) {
+      if (parentMessage.sender_id === user.id) {
+        if (parentMessage.recipient_id === null) {
           await supabase
             .from('helper_messages')
             .update({
-              has_responded_users: [...currentResponders, user.id]
+              has_responded_users: [],
+              helper_has_read_replies: [],
+              status: 'MOET_BEANTWOORDEN'
             })
             .eq('id', parentMessageId);
+        } else {
+          await supabase
+            .from('helper_messages')
+            .update({ status: 'MOET_BEANTWOORDEN' })
+            .eq('id', parentMessageId);
         }
-      }
+      } else {
+        if (parentMessage.recipient_id === null) {
+          const currentResponders = Array.isArray(parentMessage.has_responded_users)
+            ? parentMessage.has_responded_users
+            : [];
 
-      const shouldMarkAsAnswered =
-        parentMessage.recipient_id === user.id ||
-        (parentMessage.recipient_id === null && parentMessage.sender_id !== user.id);
-
-      if (shouldMarkAsAnswered && parentMessage.status === 'MOET_BEANTWOORDEN') {
-        await supabase
-          .from('helper_messages')
-          .update({ status: 'BEANTWOORD' })
-          .eq('id', parentMessageId);
+          if (!currentResponders.includes(user.id)) {
+            await supabase
+              .from('helper_messages')
+              .update({
+                has_responded_users: [...currentResponders, user.id],
+                status: 'BEANTWOORD'
+              })
+              .eq('id', parentMessageId);
+          }
+        } else if (parentMessage.recipient_id === user.id) {
+          await supabase
+            .from('helper_messages')
+            .update({ status: 'BEANTWOORD' })
+            .eq('id', parentMessageId);
+        }
       }
 
       await fetchMessages();
@@ -446,72 +459,66 @@ export function Vragen() {
               messageStatus = 'Gesloten';
               statusColor = 'bg-gray-100 text-gray-800';
             } else if (message.recipient_id === null) {
-              const originalSenderId = message.sender_id;
-              const replies = message.replies || [];
               const iAmSender = message.sender_id === user?.id;
-
-              const lastSenderReply = replies
-                .filter(r => r.sender_id === originalSenderId)
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-
-              const lastSenderReplyTime = lastSenderReply
-                ? new Date(lastSenderReply.created_at).getTime()
-                : new Date(message.created_at).getTime();
 
               if (iAmSender) {
                 if (hasNewResponses) {
                   messageStatus = 'Nieuw';
                   statusColor = 'bg-blue-100 text-blue-800';
-                } else {
-                  const parentsWhoResponded = parents.filter(parent =>
-                    replies.some(r =>
-                      r.sender_id === parent.user_id &&
-                      new Date(r.created_at).getTime() > lastSenderReplyTime
-                    )
-                  );
-
-                  const respondedAfterCount = parentsWhoResponded.length;
-
-                  if (respondedAfterCount === 0) {
+                } else if (message.status === 'MOET_BEANTWOORDEN') {
+                  if (respondedCount === 0) {
                     messageStatus = `Wacht op antwoord (0/${parentCount})`;
                     statusColor = 'bg-gray-200 text-gray-700';
-                  } else if (respondedAfterCount < parentCount) {
-                    messageStatus = `Wacht op antwoord (${respondedAfterCount}/${parentCount})`;
+                  } else if (respondedCount < parentCount) {
+                    messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
                     statusColor = 'bg-amber-100 text-amber-800';
                   } else {
                     messageStatus = 'Volledig beantwoord';
                     statusColor = 'bg-green-100 text-green-800';
                   }
+                } else if (message.status === 'BEANTWOORD') {
+                  if (respondedCount >= parentCount) {
+                    messageStatus = 'Volledig beantwoord';
+                    statusColor = 'bg-green-100 text-green-800';
+                  } else {
+                    messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                    statusColor = 'bg-green-100 text-green-800';
+                  }
+                } else {
+                  messageStatus = 'Nieuw';
+                  statusColor = 'bg-blue-100 text-blue-800';
                 }
               } else {
                 if (isUnread || hasUnreadReplies) {
                   messageStatus = 'Nieuw';
                   statusColor = 'bg-blue-100 text-blue-800';
+                } else if (message.status === 'MOET_BEANTWOORDEN') {
+                  messageStatus = 'Moet beantwoorden';
+                  statusColor = 'bg-red-100 text-red-800';
+                } else if (message.status === 'BEANTWOORD') {
+                  messageStatus = 'Beantwoord';
+                  statusColor = 'bg-green-100 text-green-800';
                 } else {
-                  const myRepliesAfterLastSender = replies.filter(r =>
-                    r.sender_id === user?.id &&
-                    new Date(r.created_at).getTime() > lastSenderReplyTime
-                  );
-
-                  const iHaveResponded = myRepliesAfterLastSender.length > 0;
-
-                  if (!iHaveResponded) {
-                    messageStatus = 'Moet beantwoorden';
-                    statusColor = 'bg-red-100 text-red-800';
-                  } else {
-                    messageStatus = 'Beantwoord';
-                    statusColor = 'bg-green-100 text-green-800';
-                  }
+                  messageStatus = 'Nieuw';
+                  statusColor = 'bg-blue-100 text-blue-800';
                 }
               }
             } else {
-              const replies = message.replies || [];
               const iAmRecipient = message.recipient_id === user?.id;
+              const iAmSender = message.sender_id === user?.id;
 
               if (isUnread || hasUnreadReplies) {
                 messageStatus = 'Nieuw';
                 statusColor = 'bg-blue-100 text-blue-800';
-              } else if (replies.length === 0) {
+              } else if (message.status === 'NIEUW') {
+                if (iAmRecipient) {
+                  messageStatus = 'Nieuw';
+                  statusColor = 'bg-blue-100 text-blue-800';
+                } else {
+                  messageStatus = 'Verzonden';
+                  statusColor = 'bg-gray-200 text-gray-700';
+                }
+              } else if (message.status === 'MOET_BEANTWOORDEN') {
                 if (iAmRecipient) {
                   messageStatus = 'Moet beantwoorden';
                   statusColor = 'bg-red-100 text-red-800';
@@ -519,16 +526,12 @@ export function Vragen() {
                   messageStatus = 'Wacht op antwoord';
                   statusColor = 'bg-gray-200 text-gray-700';
                 }
+              } else if (message.status === 'BEANTWOORD') {
+                messageStatus = 'Beantwoord';
+                statusColor = 'bg-green-100 text-green-800';
               } else {
-                const lastReply = replies[replies.length - 1];
-
-                if (lastReply.sender_id === user?.id) {
-                  messageStatus = 'Beantwoord';
-                  statusColor = 'bg-green-100 text-green-800';
-                } else {
-                  messageStatus = 'Moet beantwoorden';
-                  statusColor = 'bg-red-100 text-red-800';
-                }
+                messageStatus = 'Nieuw';
+                statusColor = 'bg-blue-100 text-blue-800';
               }
             }
 
