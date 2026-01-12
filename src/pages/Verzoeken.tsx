@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Request, RequestProposal, User } from '../lib/types';
 
 type RequestWithProposals = Request & {
@@ -20,6 +20,7 @@ export function Verzoeken() {
   const [showDeclineForm, setShowDeclineForm] = useState<string | null>(null);
   const [counterText, setCounterText] = useState('');
   const [declineReason, setDeclineReason] = useState('');
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const [formData, setFormData] = useState({
     type: 'other' as Request['type'],
@@ -180,6 +181,33 @@ export function Verzoeken() {
     CLOSED: 'bg-gray-100 text-gray-800',
   };
 
+  const monthNames = [
+    'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
+    'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'
+  ];
+
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const getRequestsForMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const monthStart = new Date(year, month, 1, 0, 0, 0);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+
+    return requests.filter(request => {
+      const requestDate = new Date(request.created_at);
+      return requestDate >= monthStart && requestDate <= monthEnd;
+    });
+  };
+
+  const monthlyRequests = getRequestsForMonth();
+
   if (!isParent && !isHelper) {
     return (
       <div className="text-center py-12">
@@ -278,11 +306,29 @@ export function Verzoeken() {
         </div>
       )}
 
+      <div className="flex items-center justify-between mb-4 bg-white rounded-lg border border-gray-200 p-4">
+        <button
+          onClick={previousMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-lg font-semibold text-gray-900">
+          {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+        </h2>
+        <button
+          onClick={nextMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
       <div className="space-y-4">
-        {requests.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">Nog geen verzoeken aangemaakt</div>
+        {monthlyRequests.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">Geen verzoeken in deze maand</div>
         ) : (
-          requests.map((request) => (
+          monthlyRequests.map((request) => (
             <div key={request.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-start justify-between mb-3">
