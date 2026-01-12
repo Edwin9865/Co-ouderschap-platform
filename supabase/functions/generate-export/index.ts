@@ -24,6 +24,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization');
 
@@ -37,8 +38,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: authHeader,
@@ -46,12 +46,12 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
       console.error('User authentication error:', userError);
       return new Response(
-        JSON.stringify({ error: 'Authenticatie mislukt' }),
+        JSON.stringify({ error: 'Authenticatie mislukt', details: userError?.message }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -255,7 +255,7 @@ function generateHTML(data: any): string {
 
   const requestTypeLabels: Record<string, string> = {
     schedule_change: 'Roosterwijziging',
-    financial: 'Financieel',
+    financial: 'Financiël',
     medical_decision: 'Medische beslissing',
     education: 'Onderwijs',
     vacation: 'Vakantie',
