@@ -594,25 +594,6 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="text-3xl font-bold text-gray-900">{children.length}</div>
-          <div className="text-sm text-gray-600 mt-1">
-            {children.length === 1 ? 'Kind' : 'Kinderen'}
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="text-3xl font-bold text-gray-900">{openRequests.length}</div>
-          <div className="text-sm text-gray-600 mt-1">Open verzoeken</div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border border-gray-200">
-          <div className="text-lg font-semibold text-slate-700">{subscription?.plan || 'FREE'}</div>
-          <div className="text-sm text-gray-600 mt-1">Huidig abonnement</div>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -814,6 +795,25 @@ export function Dashboard() {
               })
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="text-3xl font-bold text-gray-900">{children.length}</div>
+          <div className="text-sm text-gray-600 mt-1">
+            {children.length === 1 ? 'Kind' : 'Kinderen'}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="text-3xl font-bold text-gray-900">{openRequests.length}</div>
+          <div className="text-sm text-gray-600 mt-1">Open verzoeken</div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <div className="text-lg font-semibold text-slate-700">{subscription?.plan || 'FREE'}</div>
+          <div className="text-sm text-gray-600 mt-1">Huidig abonnement</div>
         </div>
       </div>
 
