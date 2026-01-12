@@ -22,6 +22,9 @@ import { Abonnement } from './pages/settings/Abonnement';
 import { Meldingen } from './pages/settings/Meldingen';
 import { AccountSettings } from './pages/settings/AccountSettings';
 import { About } from './pages/settings/About';
+import { AlgemeneVoorwaarden } from './pages/AlgemeneVoorwaarden';
+import { Privacybeleid } from './pages/Privacybeleid';
+import { ContactSupport } from './pages/ContactSupport';
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { isAndroid } from './lib/capacitor';
@@ -51,6 +54,9 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
+            <Route path="/privacybeleid" element={<Privacybeleid />} />
+            <Route path="/contact" element={<ContactSupport />} />
 
             <Route
               path="/families"

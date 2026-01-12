@@ -302,6 +302,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 p-6 overflow-auto">
           <div className="max-w-7xl mx-auto">{children}</div>
+
+          <footer className="mt-12 pt-8 border-t border-gray-200">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
+                <Link to="/algemene-voorwaarden" className="hover:text-gray-900">
+                  Algemene Voorwaarden
+                </Link>
+                <span className="text-gray-300">|</span>
+                <Link to="/privacybeleid" className="hover:text-gray-900">
+                  Privacybeleid
+                </Link>
+                <span className="text-gray-300">|</span>
+                <Link to="/contact" className="hover:text-gray-900">
+                  Contact & Support
+                </Link>
+              </div>
+              <p className="text-center text-xs text-gray-500 mt-4">
+                © 2026 Co-Ouderschap. Alle rechten voorbehouden.
+              </p>
+            </div>
+          </footer>
         </main>
       </div>
     </div>

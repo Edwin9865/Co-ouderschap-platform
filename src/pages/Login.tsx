@@ -96,6 +96,25 @@ export function Login() {
             zijn exporteerbaar voor dossierbeheer.
           </p>
         </div>
+
+        <div className="mt-6 text-center">
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
+            <Link to="/algemene-voorwaarden" className="hover:text-gray-900">
+              Algemene Voorwaarden
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link to="/privacybeleid" className="hover:text-gray-900">
+              Privacybeleid
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link to="/contact" className="hover:text-gray-900">
+              Contact & Support
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500 mt-3">
+            © 2026 Co-Ouderschap. Alle rechten voorbehouden.
+          </p>
+        </div>
       </div>
     </div>
   );
