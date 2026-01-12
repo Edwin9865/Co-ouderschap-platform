@@ -98,6 +98,8 @@ export function HelperFamilySelector() {
             );
 
             unreadCount = messagesWithReplies.filter((msg: any) => {
+              const isGroupMessage = msg.recipient_id === null;
+
               let needsMyResponse = false;
               if (msg.status === 'MOET_BEANTWOORDEN') {
                 if (msg.recipient_id === user.id) {
@@ -107,6 +109,11 @@ export function HelperFamilySelector() {
 
               const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) => {
                 if (r.status !== 'MOET_BEANTWOORDEN') return false;
+
+                if (isGroupMessage) {
+                  return false;
+                }
+
                 if (r.recipient_id === user.id) {
                   return true;
                 }

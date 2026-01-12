@@ -102,17 +102,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const actionableCount = messagesWithReplies.filter(message => {
       if (message.closed) return false;
 
+      const isParentGroupMessage = message.recipient_id === null;
+
       let needsMyResponse = false;
       if (message.status === 'MOET_BEANTWOORDEN') {
         if (message.recipient_id === user.id) {
           needsMyResponse = true;
-        } else if (message.recipient_id === null && message.sender_id !== user.id && !isHelperMode) {
+        } else if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
           const hasResponded = Array.isArray(message.has_responded_users) &&
                                message.has_responded_users.includes(user.id);
           needsMyResponse = !hasResponded;
         }
       } else if (message.status === 'BEANTWOORD') {
-        if (message.recipient_id === null && message.sender_id !== user.id && !isHelperMode) {
+        if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
           const hasResponded = Array.isArray(message.has_responded_users) &&
                                message.has_responded_users.includes(user.id);
           needsMyResponse = !hasResponded;
@@ -121,6 +123,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) => {
         if (r.status !== 'MOET_BEANTWOORDEN') return false;
+
+        if (isHelperMode && isParentGroupMessage) {
+          return false;
+        }
 
         if (r.recipient_id === user.id) {
           return true;
