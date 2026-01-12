@@ -75,7 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     const { data } = await supabase
       .from('helper_messages')
-      .select('id, recipient_id, sender_id, status, closed, parent_message_id, created_at')
+      .select('id, recipient_id, sender_id, status, closed, parent_message_id, created_at, has_responded_users')
       .eq('family_id', currentFamily.id)
       .is('parent_message_id', null);
 
@@ -102,15 +102,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
     const actionableCount = messagesWithReplies.filter(message => {
       if (message.closed) return false;
 
-      const needsMyResponse = message.status === 'MOET_BEANTWOORDEN' &&
-                              (message.recipient_id === user.id ||
-                               (message.recipient_id === null && message.sender_id !== user.id));
+      let needsMyResponse = false;
+      if (message.status === 'MOET_BEANTWOORDEN') {
+        if (message.recipient_id === user.id) {
+          needsMyResponse = true;
+        } else if (message.recipient_id === null && message.sender_id !== user.id) {
+          const hasResponded = Array.isArray(message.has_responded_users) &&
+                               message.has_responded_users.includes(user.id);
+          needsMyResponse = !hasResponded;
+        }
+      }
 
-      const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) =>
-        r.status === 'MOET_BEANTWOORDEN' &&
-        (r.recipient_id === user.id ||
-         (r.recipient_id === null && r.sender_id !== user.id))
-      );
+      const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) => {
+        if (r.status !== 'MOET_BEANTWOORDEN') return false;
+
+        if (r.recipient_id === user.id) {
+          return true;
+        } else if (r.recipient_id === null && r.sender_id !== user.id) {
+          const hasResponded = Array.isArray(message.has_responded_users) &&
+                               message.has_responded_users.includes(user.id);
+          return !hasResponded;
+        }
+        return false;
+      });
 
       return needsMyResponse || hasRepliesThatNeedMyResponse;
     }).length;

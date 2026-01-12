@@ -170,11 +170,15 @@ export function Vragen() {
             : [];
 
           if (!currentResponders.includes(user.id)) {
+            const newResponders = [...currentResponders, user.id];
+            const parentCount = parents.length;
+            const newStatus = newResponders.length >= parentCount ? 'BEANTWOORD' : 'MOET_BEANTWOORDEN';
+
             await supabase
               .from('helper_messages')
               .update({
-                has_responded_users: [...currentResponders, user.id],
-                status: 'BEANTWOORD'
+                has_responded_users: newResponders,
+                status: newStatus
               })
               .eq('id', parentMessageId);
           }
@@ -444,8 +448,13 @@ export function Vragen() {
                   statusColor = 'bg-amber-100 text-amber-800';
                 }
               } else {
-                messageStatus = 'Moet beantwoorden';
-                statusColor = 'bg-red-100 text-red-800';
+                if (isGroupMessage && !isHelperMode && respondedParentIds.includes(user?.id || '')) {
+                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                  statusColor = 'bg-amber-100 text-amber-800';
+                } else {
+                  messageStatus = 'Moet beantwoorden';
+                  statusColor = 'bg-red-100 text-red-800';
+                }
               }
             } else if (message.status === 'BEANTWOORD') {
               if (iAmSender && isGroupMessage && isHelperMode) {

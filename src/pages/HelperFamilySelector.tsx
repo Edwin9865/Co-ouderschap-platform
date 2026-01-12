@@ -74,7 +74,7 @@ export function HelperFamilySelector() {
 
           const { data: allMessages } = await supabase
             .from('helper_messages')
-            .select('id, sender_id, recipient_id, status, closed, parent_message_id')
+            .select('id, sender_id, recipient_id, status, closed, parent_message_id, has_responded_users')
             .eq('family_id', family.id)
             .eq('closed', false)
             .is('parent_message_id', null);
@@ -98,15 +98,29 @@ export function HelperFamilySelector() {
             );
 
             unreadCount = messagesWithReplies.filter((msg: any) => {
-              const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
-                                      (msg.recipient_id === user.id ||
-                                       (msg.recipient_id === null && msg.sender_id !== user.id));
+              let needsMyResponse = false;
+              if (msg.status === 'MOET_BEANTWOORDEN') {
+                if (msg.recipient_id === user.id) {
+                  needsMyResponse = true;
+                } else if (msg.recipient_id === null && msg.sender_id !== user.id) {
+                  const hasResponded = Array.isArray(msg.has_responded_users) &&
+                                       msg.has_responded_users.includes(user.id);
+                  needsMyResponse = !hasResponded;
+                }
+              }
 
-              const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
-                r.status === 'MOET_BEANTWOORDEN' &&
-                (r.recipient_id === user.id ||
-                 (r.recipient_id === null && r.sender_id !== user.id))
-              );
+              const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) => {
+                if (r.status !== 'MOET_BEANTWOORDEN') return false;
+
+                if (r.recipient_id === user.id) {
+                  return true;
+                } else if (r.recipient_id === null && r.sender_id !== user.id) {
+                  const hasResponded = Array.isArray(msg.has_responded_users) &&
+                                       msg.has_responded_users.includes(user.id);
+                  return !hasResponded;
+                }
+                return false;
+              });
 
               return needsMyResponse || hasRepliesThatNeedMyResponse;
             }).length;
