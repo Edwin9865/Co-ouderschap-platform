@@ -41,12 +41,25 @@ export function Export() {
     setError(null);
 
     try {
+      console.log('Starting export with:', {
+        familyId: currentFamily.id,
+        exportType,
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+      });
+
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
+
+      if (!session?.access_token) {
+        throw new Error('Geen geldige sessie. Log opnieuw in.');
+      }
+
+      console.log('Calling edge function:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -58,12 +71,38 @@ export function Export() {
         }),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Export mislukt');
+        const contentType = response.headers.get('content-type');
+        let errorMessage = 'Export mislukt';
+
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            console.error('Error response:', errorData);
+            errorMessage = errorData.error || errorMessage;
+            if (errorData.details) {
+              errorMessage += ` (${errorData.details})`;
+            }
+          } catch (e) {
+            console.error('Failed to parse error JSON:', e);
+            const text = await response.text();
+            console.error('Error response text:', text);
+            errorMessage = text || errorMessage;
+          }
+        } else {
+          const text = await response.text();
+          console.error('Non-JSON error response:', text);
+          errorMessage = text || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const html = await response.text();
+      console.log('Received HTML, length:', html.length);
 
       const printWindow = window.open('', '_blank');
       if (printWindow) {

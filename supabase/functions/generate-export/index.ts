@@ -28,7 +28,11 @@ Deno.serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const authHeader = req.headers.get('Authorization');
 
+    console.log('Export function called');
+    console.log('Has auth header:', !!authHeader);
+
     if (!authHeader) {
+      console.error('No authorization header');
       return new Response(
         JSON.stringify({ error: 'Geen authenticatie header gevonden' }),
         {
@@ -38,26 +42,26 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    });
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
       console.error('User authentication error:', userError);
       return new Response(
-        JSON.stringify({ error: 'Authenticatie mislukt', details: userError?.message }),
+        JSON.stringify({
+          error: 'Authenticatie mislukt',
+          details: userError?.message || 'Geen gebruiker gevonden'
+        }),
         {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
+
+    console.log('User authenticated:', user.id);
 
     const { familyId, exportType, childId, startDate, endDate }: ExportRequest = await req.json();
 
@@ -76,7 +80,7 @@ Deno.serve(async (req: Request) => {
     if (familyError) {
       console.error('Family member check error:', familyError);
       return new Response(
-        JSON.stringify({ error: 'Fout bij controleren van familielid' }),
+        JSON.stringify({ error: 'Fout bij controleren van familielid', details: familyError.message }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -85,6 +89,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!familyMember) {
+      console.error('User is not a member of family:', { userId: user.id, familyId });
       return new Response(
         JSON.stringify({ error: 'Je hebt geen toegang tot deze familie' }),
         {
@@ -94,11 +99,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('User has access to family');
+
     const { data: family, error: famError } = await serviceSupabase
       .from('families')
       .select('*')
       .eq('id', familyId)
-      .single();
+      .maybeSingle();
 
     if (famError) {
       console.error('Family fetch error:', famError);
@@ -114,6 +121,8 @@ Deno.serve(async (req: Request) => {
     if (exportType === 'child' && childId) {
       childrenToExport = childrenToExport.filter(c => c.id === childId);
     }
+
+    console.log('Fetching data...');
 
     const { data: events } = await serviceSupabase
       .from('events')
@@ -201,6 +210,8 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(100);
 
+    console.log('Generating HTML...');
+
     const html = generateHTML({
       family,
       children: childrenToExport,
@@ -213,6 +224,8 @@ Deno.serve(async (req: Request) => {
       exportDate: new Date().toLocaleDateString('nl-NL'),
     });
 
+    console.log('Export successful, HTML length:', html.length);
+
     return new Response(html, {
       status: 200,
       headers: {
@@ -223,7 +236,10 @@ Deno.serve(async (req: Request) => {
   } catch (error: any) {
     console.error('Export error:', error);
     return new Response(
-      JSON.stringify({ error: error?.message || 'Onbekende fout bij exporteren' }),
+      JSON.stringify({
+        error: error?.message || 'Onbekende fout bij exporteren',
+        stack: error?.stack
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -295,13 +311,13 @@ function generateHTML(data: any): string {
                 display: none;
             }
         }
-        
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
@@ -309,33 +325,33 @@ function generateHTML(data: any): string {
             background: #ffffff;
             padding: 20px;
         }
-        
+
         .container {
             max-width: 1000px;
             margin: 0 auto;
         }
-        
+
         .header {
             border-bottom: 3px solid #1e293b;
             padding-bottom: 20px;
             margin-bottom: 30px;
         }
-        
+
         .header h1 {
             font-size: 32px;
             color: #1e293b;
             margin-bottom: 10px;
         }
-        
+
         .header .meta {
             color: #64748b;
             font-size: 14px;
         }
-        
+
         .section {
             margin-bottom: 40px;
         }
-        
+
         .section-title {
             font-size: 24px;
             color: #1e293b;
@@ -343,7 +359,7 @@ function generateHTML(data: any): string {
             padding-bottom: 10px;
             margin-bottom: 20px;
         }
-        
+
         .card {
             background: #f8fafc;
             border: 1px solid #e2e8f0;
@@ -351,26 +367,26 @@ function generateHTML(data: any): string {
             padding: 16px;
             margin-bottom: 16px;
         }
-        
+
         .card-title {
             font-size: 18px;
             font-weight: 600;
             color: #1e293b;
             margin-bottom: 8px;
         }
-        
+
         .card-meta {
             font-size: 13px;
             color: #64748b;
             margin-bottom: 12px;
         }
-        
+
         .card-content {
             font-size: 14px;
             color: #475569;
             line-height: 1.6;
         }
-        
+
         .badge {
             display: inline-block;
             padding: 4px 12px;
@@ -379,32 +395,32 @@ function generateHTML(data: any): string {
             font-weight: 500;
             margin-right: 8px;
         }
-        
+
         .badge-blue {
             background: #dbeafe;
             color: #1e40af;
         }
-        
+
         .badge-green {
             background: #d1fae5;
             color: #065f46;
         }
-        
+
         .badge-yellow {
             background: #fef3c7;
             color: #92400e;
         }
-        
+
         .badge-red {
             background: #fee2e2;
             color: #991b1b;
         }
-        
+
         .badge-gray {
             background: #f1f5f9;
             color: #475569;
         }
-        
+
         .child-tag {
             display: inline-flex;
             align-items: center;
@@ -414,26 +430,26 @@ function generateHTML(data: any): string {
             font-weight: 500;
             margin-right: 6px;
         }
-        
+
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 12px;
         }
-        
+
         th, td {
             text-align: left;
             padding: 8px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 13px;
         }
-        
+
         th {
             background: #f1f5f9;
             font-weight: 600;
             color: #1e293b;
         }
-        
+
         .footer {
             margin-top: 60px;
             padding-top: 20px;
@@ -442,7 +458,7 @@ function generateHTML(data: any): string {
             color: #64748b;
             font-size: 12px;
         }
-        
+
         .print-button {
             position: fixed;
             top: 20px;
@@ -457,7 +473,7 @@ function generateHTML(data: any): string {
             cursor: pointer;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         .print-button:hover {
             background: #334155;
         }
@@ -465,17 +481,17 @@ function generateHTML(data: any): string {
 </head>
 <body>
     <button class="print-button no-print" onclick="window.print()">Afdrukken naar PDF</button>
-    
+
     <div class="container">
         <div class="header">
             <h1>Co-Parenting Dossier Export</h1>
             <div class="meta">
-                <strong>Familie:</strong> ${family?.name || 'Onbekend'} | 
-                <strong>Export datum:</strong> ${exportDate} | 
+                <strong>Familie:</strong> ${family?.name || 'Onbekend'} |
+                <strong>Export datum:</strong> ${exportDate} |
                 <strong>Type:</strong> ${exportType === 'full' ? 'Volledig dossier' : exportType === 'child' ? 'Per kind' : 'Datumbereik'}
             </div>
         </div>
-        
+
         ${children && children.length > 0 ? `
         <div class="section">
             <h2 class="section-title">Kinderen (${children.length})</h2>
@@ -493,7 +509,7 @@ function generateHTML(data: any): string {
             `).join('')}
         </div>
         ` : ''}
-        
+
         ${events && events.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Agenda (${events.length} afspraken)</h2>
@@ -513,7 +529,7 @@ function generateHTML(data: any): string {
             `).join('')}
         </div>
         ` : ''}
-        
+
         ${logEntries && logEntries.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Logboek (${logEntries.length} items)</h2>
@@ -533,7 +549,7 @@ function generateHTML(data: any): string {
             `).join('')}
         </div>
         ` : ''}
-        
+
         ${requests && requests.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Verzoeken (${requests.length})</h2>
@@ -555,7 +571,7 @@ function generateHTML(data: any): string {
             `).join('')}
         </div>
         ` : ''}
-        
+
         ${questions && questions.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Vragen aan hulpverleners (${questions.length})</h2>
@@ -590,7 +606,7 @@ function generateHTML(data: any): string {
             `).join('')}
         </div>
         ` : ''}
-        
+
         ${auditLogs && auditLogs.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Audit Trail (laatste 100 wijzigingen)</h2>
@@ -616,7 +632,7 @@ function generateHTML(data: any): string {
             </table>
         </div>
         ` : ''}
-        
+
         <div class="footer">
             <p><strong>Co-Parenting App</strong> | Geëxporteerd op ${exportDate}</p>
             <p style="margin-top: 8px;">Dit document bevat vertrouwelijke informatie en is bedoeld voor juridisch gebruik.</p>
