@@ -458,25 +458,40 @@ export function Vragen() {
             if (message.closed) {
               messageStatus = 'Gesloten';
               statusColor = 'bg-gray-100 text-gray-800';
-            } else if (message.recipient_id === null) {
+            } else {
               const iAmSender = message.sender_id === user?.id;
+              const iAmRecipient = message.recipient_id === user?.id;
+              const isGroupMessage = message.recipient_id === null;
 
-              if (iAmSender) {
-                if (hasNewResponses) {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
-                } else if (message.status === 'MOET_BEANTWOORDEN') {
-                  if (respondedCount === 0) {
-                    messageStatus = `Wacht op antwoord (0/${parentCount})`;
-                    statusColor = 'bg-gray-200 text-gray-700';
-                  } else if (respondedCount < parentCount) {
-                    messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
-                    statusColor = 'bg-amber-100 text-amber-800';
+              if (isUnread || hasUnreadReplies) {
+                messageStatus = 'Nieuw';
+                statusColor = 'bg-blue-100 text-blue-800';
+              } else if (message.status === 'NIEUW') {
+                messageStatus = 'Nieuw';
+                statusColor = 'bg-blue-100 text-blue-800';
+              } else if (message.status === 'MOET_BEANTWOORDEN') {
+                if (iAmSender) {
+                  if (isGroupMessage) {
+                    if (respondedCount === 0) {
+                      messageStatus = `Wacht op antwoord (0/${parentCount})`;
+                      statusColor = 'bg-gray-200 text-gray-700';
+                    } else if (respondedCount < parentCount) {
+                      messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
+                      statusColor = 'bg-amber-100 text-amber-800';
+                    } else {
+                      messageStatus = 'Volledig beantwoord';
+                      statusColor = 'bg-green-100 text-green-800';
+                    }
                   } else {
-                    messageStatus = 'Volledig beantwoord';
-                    statusColor = 'bg-green-100 text-green-800';
+                    messageStatus = 'Wacht op antwoord';
+                    statusColor = 'bg-gray-200 text-gray-700';
                   }
-                } else if (message.status === 'BEANTWOORD') {
+                } else {
+                  messageStatus = 'Moet beantwoorden';
+                  statusColor = 'bg-red-100 text-red-800';
+                }
+              } else if (message.status === 'BEANTWOORD') {
+                if (iAmSender && isGroupMessage) {
                   if (respondedCount >= parentCount) {
                     messageStatus = 'Volledig beantwoord';
                     statusColor = 'bg-green-100 text-green-800';
@@ -485,50 +500,9 @@ export function Vragen() {
                     statusColor = 'bg-green-100 text-green-800';
                   }
                 } else {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
-                }
-              } else {
-                if (isUnread || hasUnreadReplies) {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
-                } else if (message.status === 'MOET_BEANTWOORDEN') {
-                  messageStatus = 'Moet beantwoorden';
-                  statusColor = 'bg-red-100 text-red-800';
-                } else if (message.status === 'BEANTWOORD') {
                   messageStatus = 'Beantwoord';
                   statusColor = 'bg-green-100 text-green-800';
-                } else {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
                 }
-              }
-            } else {
-              const iAmRecipient = message.recipient_id === user?.id;
-              const iAmSender = message.sender_id === user?.id;
-
-              if (isUnread || hasUnreadReplies) {
-                messageStatus = 'Nieuw';
-                statusColor = 'bg-blue-100 text-blue-800';
-              } else if (message.status === 'NIEUW') {
-                if (iAmRecipient) {
-                  messageStatus = 'Nieuw';
-                  statusColor = 'bg-blue-100 text-blue-800';
-                } else {
-                  messageStatus = 'Verzonden';
-                  statusColor = 'bg-gray-200 text-gray-700';
-                }
-              } else if (message.status === 'MOET_BEANTWOORDEN') {
-                if (iAmRecipient) {
-                  messageStatus = 'Moet beantwoorden';
-                  statusColor = 'bg-red-100 text-red-800';
-                } else {
-                  messageStatus = 'Wacht op antwoord';
-                  statusColor = 'bg-gray-200 text-gray-700';
-                }
-              } else if (message.status === 'BEANTWOORD') {
-                messageStatus = 'Beantwoord';
-                statusColor = 'bg-green-100 text-green-800';
               } else {
                 messageStatus = 'Nieuw';
                 statusColor = 'bg-blue-100 text-blue-800';
