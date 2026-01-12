@@ -457,13 +457,9 @@ export function Vragen() {
                 }
               }
             } else if (message.status === 'BEANTWOORD') {
-              if (iAmSender && isGroupMessage && isHelperMode) {
+              if (isGroupMessage) {
                 messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                if (respondedCount < parentCount) {
-                  statusColor = 'bg-amber-100 text-amber-800';
-                } else {
-                  statusColor = 'bg-green-100 text-green-800';
-                }
+                statusColor = 'bg-green-100 text-green-800';
               } else {
                 messageStatus = 'Beantwoord';
                 statusColor = 'bg-green-100 text-green-800';

@@ -88,7 +88,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       data.map(async (msg: any) => {
         const { data: replies } = await supabase
           .from('helper_messages')
-          .select('id, sender_id, recipient_id, status, created_at')
+          .select('id, sender_id, recipient_id, status, created_at, has_responded_users')
           .eq('parent_message_id', msg.id)
           .order('created_at', { ascending: true });
 
@@ -119,8 +119,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         if (r.recipient_id === user.id) {
           return true;
         } else if (r.recipient_id === null && r.sender_id !== user.id) {
-          const hasResponded = Array.isArray(message.has_responded_users) &&
-                               message.has_responded_users.includes(user.id);
+          const hasResponded = Array.isArray(r.has_responded_users) &&
+                               r.has_responded_users.includes(user.id);
           return !hasResponded;
         }
         return false;
