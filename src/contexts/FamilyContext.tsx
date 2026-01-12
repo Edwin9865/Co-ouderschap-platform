@@ -92,14 +92,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
     if (user.account_type === 'HELPER') {
       const selectedFamilyId = localStorage.getItem('helper_selected_family');
-      if (selectedFamilyId) {
-        if (familyMemberships.length === 0) {
-          return;
-        }
+      if (selectedFamilyId && familyMemberships.length > 0) {
         const helperMembership = familyMemberships.find(m => m.family_id === selectedFamilyId);
         if (helperMembership && currentFamily?.id !== selectedFamilyId) {
           fetchFamilyData(selectedFamilyId);
           return;
+        } else if (!helperMembership) {
+          localStorage.removeItem('helper_selected_family');
         }
       }
       setLoading(false);
@@ -111,6 +110,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (!currentMembershipExists) {
         const firstFamily = familyMemberships[0];
         fetchFamilyData(firstFamily.family_id);
+      } else {
+        setLoading(false);
       }
     } else {
       setCurrentFamily(null);
