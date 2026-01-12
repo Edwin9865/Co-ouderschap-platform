@@ -21,6 +21,7 @@ import { Koppelen } from './pages/settings/Koppelen';
 import { Abonnement } from './pages/settings/Abonnement';
 import { Meldingen } from './pages/settings/Meldingen';
 import { AccountSettings } from './pages/settings/AccountSettings';
+import { About } from './pages/settings/About';
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { isAndroid } from './lib/capacitor';
@@ -207,6 +208,17 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Meldingen />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/instellingen/about"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <About />
                   </Layout>
                 </ProtectedRoute>
               }

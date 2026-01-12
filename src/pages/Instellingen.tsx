@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Crown, Link as LinkIcon, Bell, ChevronRight, UserCircle } from 'lucide-react';
+import { Crown, Link as LinkIcon, Bell, ChevronRight, UserCircle, Info } from 'lucide-react';
 
 export function Instellingen() {
   const menuItems = [
@@ -34,6 +34,14 @@ export function Instellingen() {
       link: '/instellingen/meldingen',
       color: 'text-green-600',
       bgColor: 'bg-green-100',
+    },
+    {
+      icon: Info,
+      title: 'Over de app',
+      description: 'Versie-informatie, algemene voorwaarden en privacybeleid',
+      link: '/instellingen/about',
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100',
     },
   ];
 
