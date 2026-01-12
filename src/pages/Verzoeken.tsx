@@ -7,6 +7,7 @@ import type { Request, RequestProposal, User } from '../lib/types';
 
 type RequestWithProposals = Request & {
   proposals: Array<RequestProposal & { proposer: User }>;
+  creator?: User;
 };
 
 export function Verzoeken() {
@@ -36,7 +37,7 @@ export function Verzoeken() {
 
     const { data } = await supabase
       .from('requests')
-      .select('*')
+      .select('*, creator:users!requests_created_by_fkey(*)')
       .eq('family_id', currentFamily.id)
       .order('created_at', { ascending: false });
 
@@ -296,7 +297,7 @@ export function Verzoeken() {
                       </span>
                     </div>
                     <div className="text-sm text-gray-500">
-                      Aangemaakt op {new Date(request.created_at).toLocaleString('nl-NL')}
+                      Aangemaakt door {request.creator?.name || 'Onbekend'} op {new Date(request.created_at).toLocaleString('nl-NL')}
                     </div>
                     {request.description && (
                       <div className="mt-2 text-gray-700 whitespace-pre-wrap">
