@@ -168,6 +168,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: 'Logboek', href: '/logboek', icon: BookOpen },
         { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare },
         { name: 'Vragen', href: '/vragen', icon: HelpCircle, badge: unreadMessagesCount },
+        { name: 'Instellingen', href: '/instellingen', icon: Settings },
       ]
     : [
         { name: 'Dashboard', href: '/dashboard', icon: Home },

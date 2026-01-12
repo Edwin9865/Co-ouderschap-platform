@@ -348,8 +348,8 @@ export function Hulpverleners() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Hulpverleners</h1>
-        <p className="mt-2 text-gray-600">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Hulpverleners</h1>
+        <p className="mt-2 text-sm sm:text-base text-gray-600">
           Beheer hulpverleners en communiceer met hen
         </p>
       </div>

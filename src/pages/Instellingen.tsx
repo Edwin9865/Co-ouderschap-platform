@@ -1,8 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Crown, Link as LinkIcon, Bell, ChevronRight, UserCircle, Info } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Instellingen() {
-  const menuItems = [
+  const { user } = useAuth();
+  const isHelper = user?.account_type === 'HELPER';
+
+  const parentMenuItems = [
     {
       icon: UserCircle,
       title: 'Account',
@@ -45,11 +49,42 @@ export function Instellingen() {
     },
   ];
 
+  const helperMenuItems = [
+    {
+      icon: UserCircle,
+      title: 'Account',
+      description: 'Beheer je persoonlijke gegevens, email en wachtwoord',
+      link: '/instellingen/account',
+      color: 'text-slate-600',
+      bgColor: 'bg-slate-100',
+    },
+    {
+      icon: Bell,
+      title: 'Meldingen',
+      description: 'Pas je notificatie voorkeuren aan',
+      link: '/instellingen/meldingen',
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+    },
+    {
+      icon: Info,
+      title: 'Over de app',
+      description: 'Versie-informatie, algemene voorwaarden en privacybeleid',
+      link: '/instellingen/about',
+      color: 'text-gray-600',
+      bgColor: 'bg-gray-100',
+    },
+  ];
+
+  const menuItems = isHelper ? helperMenuItems : parentMenuItems;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Instellingen</h1>
-        <p className="text-gray-600">Beheer je account en familieinstellingen</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Instellingen</h1>
+        <p className="text-sm sm:text-base text-gray-600">
+          {isHelper ? 'Beheer je account instellingen' : 'Beheer je account en familieinstellingen'}
+        </p>
       </div>
 
       <div className="grid gap-4">
