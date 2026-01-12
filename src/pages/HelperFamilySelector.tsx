@@ -67,18 +67,10 @@ export function HelperFamilySelector() {
             .eq('family_id', family.id)
             .eq('status', 'ACTIVE');
 
-          const { data: visibilityRecords } = await supabase
-            .from('child_visibility')
-            .select('child_id')
-            .eq('user_id', user.id);
-
-          const visibleChildIds = visibilityRecords?.map(v => v.child_id) || [];
-
           const { data: children } = await supabase
             .from('children')
             .select('*')
-            .eq('family_id', family.id)
-            .in('id', visibleChildIds);
+            .eq('family_id', family.id);
 
           const { data: myMessages } = await supabase
             .from('helper_messages')
@@ -145,7 +137,7 @@ export function HelperFamilySelector() {
 
   const selectFamily = async (familyId: string) => {
     localStorage.setItem('helper_selected_family', familyId);
-    window.location.href = '/dashboard';
+    navigate('/dashboard');
   };
 
   const copyInviteCode = async () => {

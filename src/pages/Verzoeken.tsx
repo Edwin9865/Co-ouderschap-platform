@@ -189,10 +189,10 @@ export function Verzoeken() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Verzoeken</h1>
-          <p className="mt-2 text-gray-600">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Verzoeken</h1>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
             {isHelper
               ? 'Overzicht van verzoeken tussen ouders'
               : 'Gestructureerde communicatie tussen ouders'
@@ -202,7 +202,7 @@ export function Verzoeken() {
         {!showCreate && isParent && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700"
+            className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 whitespace-nowrap"
           >
             <Plus className="w-5 h-5" />
             <span>Nieuw verzoek</span>
