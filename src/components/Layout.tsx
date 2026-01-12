@@ -288,14 +288,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <aside
           className={`${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] md:max-h-none overflow-y-auto transition-transform duration-300 ease-in-out flex flex-col`}
+          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out flex flex-col`}
         >
-          <nav className="p-4 space-y-1 flex-1 flex-shrink-0">
+          <nav className="p-3 space-y-0.5 flex-1">
             {familyMemberships.length > 1 && !isHelperMode && (
               <Link
                 to="/families"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg"
               >
                 <Users className="w-5 h-5" />
                 <span>Gezinnen</span>
@@ -306,7 +306,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 to={item.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg relative ${
+                className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg relative ${
                   isActive(item.href)
                     ? 'bg-slate-100 text-slate-900 font-medium'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -323,11 +323,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="md:hidden p-4 border-t border-gray-200 flex-shrink-0">
-            <div className="space-y-2">
+          <div className="md:hidden px-3 py-2 border-t border-gray-200">
+            <div className="space-y-1.5">
               {isHelperMode && currentFamily && (
-                <div className="px-4 py-2 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200 mb-3">
-                  <div className="font-semibold mb-1">{currentFamily.name}</div>
+                <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
+                  <div className="font-semibold mb-0.5">{currentFamily.name}</div>
                   <button
                     onClick={() => {
                       handleBackToFamilies();
@@ -340,11 +340,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
               {subscription && !isHelperMode && (
-                <div className="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg mb-3">
+                <div className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg">
                   {subscription.plan}
                 </div>
               )}
-              <div className="px-4 py-2 text-sm text-gray-600">
+              <div className="px-3 py-1.5 text-sm text-gray-600">
                 Ingelogd als <span className="font-medium">{user?.name}</span>
               </div>
             </div>
