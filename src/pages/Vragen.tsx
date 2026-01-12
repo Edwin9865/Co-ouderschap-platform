@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Send, Users as UsersIcon, User, X } from 'lucide-react';
+import { Plus, Send, Users as UsersIcon, User, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface HelperMessage {
   id: string;
@@ -42,6 +42,7 @@ export function Vragen() {
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const [formData, setFormData] = useState({
     subject: '',
@@ -254,6 +255,33 @@ export function Vragen() {
 
   const canSendTo = isHelperMode ? parents : helpers;
 
+  const monthNames = [
+    'Januari', 'Februari', 'Maart', 'April', 'Mei', 'Juni',
+    'Juli', 'Augustus', 'September', 'Oktober', 'November', 'December'
+  ];
+
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+  };
+
+  const getMessagesForMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const monthStart = new Date(year, month, 1, 0, 0, 0);
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);
+
+    return messages.filter(message => {
+      const messageDate = new Date(message.created_at);
+      return messageDate >= monthStart && messageDate <= monthEnd;
+    });
+  };
+
+  const monthlyMessages = getMessagesForMonth();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -351,13 +379,31 @@ export function Vragen() {
         </div>
       )}
 
+      <div className="flex items-center justify-between mb-4 bg-white rounded-lg border border-gray-200 p-4">
+        <button
+          onClick={previousMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <h2 className="text-lg font-semibold text-gray-900">
+          {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+        </h2>
+        <button
+          onClick={nextMonth}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+
       <div className="space-y-4">
-        {messages.length === 0 ? (
+        {monthlyMessages.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
-            Nog geen berichten
+            Geen berichten in deze maand
           </div>
         ) : (
-          messages.map((message) => {
+          monthlyMessages.map((message) => {
             const isGroupMessage = message.recipient_id === null && message.sender_id !== user?.id;
             const hasUserResponded = isGroupMessage &&
               Array.isArray(message.has_responded_users) &&
