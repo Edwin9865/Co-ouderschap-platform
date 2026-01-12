@@ -85,11 +85,19 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, [user, currentFamily]);
 
   useEffect(() => {
-    if (user?.account_type === 'HELPER') {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    if (user.account_type === 'HELPER') {
       const selectedFamilyId = localStorage.getItem('helper_selected_family');
       if (selectedFamilyId) {
+        if (familyMemberships.length === 0) {
+          return;
+        }
         const helperMembership = familyMemberships.find(m => m.family_id === selectedFamilyId);
-        if (helperMembership) {
+        if (helperMembership && currentFamily?.id !== selectedFamilyId) {
           fetchFamilyData(selectedFamilyId);
           return;
         }
@@ -111,7 +119,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setMembers([]);
       setLoading(false);
     }
-  }, [familyMemberships, currentFamily?.id, user?.account_type]);
+  }, [familyMemberships, currentFamily?.id, user]);
 
   const selectFamily = (familyId: string) => {
     if (familyMemberships.find(m => m.family_id === familyId)) {

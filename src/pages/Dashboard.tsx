@@ -178,17 +178,17 @@ export function Dashboard() {
         );
 
         const unanswered = messagesWithReplies.filter((msg: any) => {
-          const parentNeedsAttention = (msg.status === 'NIEUW' || msg.status === 'MOET_BEANTWOORDEN') &&
-                                        (msg.recipient_id === user.id ||
-                                         (msg.recipient_id === null && msg.sender_id !== user.id));
+          const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
+                                  (msg.recipient_id === user.id ||
+                                   (msg.recipient_id === null && msg.sender_id !== user.id));
 
-          const hasUnreadReplies = msg.replies?.some((r: any) =>
-            (r.status === 'NIEUW' || r.status === 'MOET_BEANTWOORDEN') &&
+          const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
+            r.status === 'MOET_BEANTWOORDEN' &&
             (r.recipient_id === user.id ||
              (r.recipient_id === null && r.sender_id !== user.id))
           );
 
-          return parentNeedsAttention || hasUnreadReplies;
+          return needsMyResponse || hasRepliesThatNeedMyResponse;
         });
 
         setUnansweredMessages(unanswered);
@@ -224,17 +224,17 @@ export function Dashboard() {
         );
 
         const parentUnanswered = parentMessagesWithReplies.filter((msg: any) => {
-          const parentNeedsAttention = (msg.status === 'NIEUW' || msg.status === 'MOET_BEANTWOORDEN') &&
-                                        (msg.recipient_id === user.id ||
-                                         (msg.recipient_id === null && msg.sender_id !== user.id));
+          const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
+                                  (msg.recipient_id === user.id ||
+                                   (msg.recipient_id === null && msg.sender_id !== user.id));
 
-          const hasUnreadReplies = msg.replies?.some((r: any) =>
-            (r.status === 'NIEUW' || r.status === 'MOET_BEANTWOORDEN') &&
+          const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
+            r.status === 'MOET_BEANTWOORDEN' &&
             (r.recipient_id === user.id ||
              (r.recipient_id === null && r.sender_id !== user.id))
           );
 
-          return parentNeedsAttention || hasUnreadReplies;
+          return needsMyResponse || hasRepliesThatNeedMyResponse;
         });
 
         setUnansweredMessages(parentUnanswered);

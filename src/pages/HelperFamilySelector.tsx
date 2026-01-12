@@ -112,7 +112,7 @@ export function HelperFamilySelector() {
             .select('id, status, closed')
             .eq('family_id', family.id)
             .eq('closed', false)
-            .in('status', ['NIEUW', 'MOET_BEANTWOORDEN'])
+            .eq('status', 'MOET_BEANTWOORDEN')
             .or(`recipient_id.eq.${user.id},and(recipient_id.is.null,sender_id.neq.${user.id})`)
             .is('parent_message_id', null);
 
