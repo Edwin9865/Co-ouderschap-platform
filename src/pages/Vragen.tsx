@@ -433,42 +433,42 @@ export function Vragen() {
             if (message.closed) {
               messageStatus = 'Gesloten';
               statusColor = 'bg-gray-100 text-gray-800';
-            } else if (message.status === 'MOET_BEANTWOORDEN') {
-              if (iAmSender) {
-                if (isHelperMode) {
-                  if (isGroupMessage) {
-                    messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
-                    statusColor = 'bg-amber-100 text-amber-800';
-                  } else {
-                    messageStatus = 'Wacht op antwoord';
-                    statusColor = 'bg-amber-100 text-amber-800';
-                  }
+            } else if (isGroupMessage) {
+              const allParentsResponded = respondedCount >= parentCount;
+              const iHaveResponded = respondedParentIds.includes(user?.id || '');
+
+              if (isHelperMode) {
+                if (allParentsResponded) {
+                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                  statusColor = 'bg-green-100 text-green-800';
                 } else {
-                  messageStatus = 'Wacht op hulpverlener';
+                  messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
                   statusColor = 'bg-amber-100 text-amber-800';
                 }
               } else {
-                if (isGroupMessage && !isHelperMode && respondedParentIds.includes(user?.id || '')) {
+                if (iHaveResponded) {
                   messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                  statusColor = 'bg-amber-100 text-amber-800';
+                  statusColor = allParentsResponded ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
                 } else {
                   messageStatus = 'Moet beantwoorden';
                   statusColor = 'bg-red-100 text-red-800';
                 }
               }
-            } else if (message.status === 'BEANTWOORD') {
-              if (isGroupMessage && !isHelperMode) {
-                if (respondedParentIds.includes(user?.id || '')) {
-                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                  statusColor = 'bg-green-100 text-green-800';
+            } else {
+              if (message.status === 'MOET_BEANTWOORDEN') {
+                if (iAmSender) {
+                  if (isHelperMode) {
+                    messageStatus = 'Wacht op antwoord';
+                    statusColor = 'bg-amber-100 text-amber-800';
+                  } else {
+                    messageStatus = 'Wacht op hulpverlener';
+                    statusColor = 'bg-amber-100 text-amber-800';
+                  }
                 } else {
                   messageStatus = 'Moet beantwoorden';
                   statusColor = 'bg-red-100 text-red-800';
                 }
-              } else if (isGroupMessage && isHelperMode) {
-                messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                statusColor = 'bg-green-100 text-green-800';
-              } else {
+              } else if (message.status === 'BEANTWOORD') {
                 messageStatus = 'Beantwoord';
                 statusColor = 'bg-green-100 text-green-800';
               }

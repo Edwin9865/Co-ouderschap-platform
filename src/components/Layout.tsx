@@ -106,13 +106,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       if (message.status === 'MOET_BEANTWOORDEN') {
         if (message.recipient_id === user.id) {
           needsMyResponse = true;
-        } else if (message.recipient_id === null && message.sender_id !== user.id) {
+        } else if (message.recipient_id === null && message.sender_id !== user.id && !isHelperMode) {
           const hasResponded = Array.isArray(message.has_responded_users) &&
                                message.has_responded_users.includes(user.id);
           needsMyResponse = !hasResponded;
         }
       } else if (message.status === 'BEANTWOORD') {
-        if (message.recipient_id === null && message.sender_id !== user.id) {
+        if (message.recipient_id === null && message.sender_id !== user.id && !isHelperMode) {
           const hasResponded = Array.isArray(message.has_responded_users) &&
                                message.has_responded_users.includes(user.id);
           needsMyResponse = !hasResponded;
@@ -124,7 +124,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
         if (r.recipient_id === user.id) {
           return true;
-        } else if (r.recipient_id === null && r.sender_id !== user.id) {
+        } else if (r.recipient_id === null && r.sender_id !== user.id && !isHelperMode) {
           const hasResponded = Array.isArray(r.has_responded_users) &&
                                r.has_responded_users.includes(user.id);
           return !hasResponded;
@@ -136,7 +136,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }).length;
 
     setUnreadMessagesCount(actionableCount);
-  }, [currentFamily, user]);
+  }, [currentFamily, user, isHelperMode]);
 
   useEffect(() => {
     fetchUnreadMessages();

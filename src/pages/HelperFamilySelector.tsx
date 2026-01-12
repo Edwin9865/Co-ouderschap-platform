@@ -102,28 +102,13 @@ export function HelperFamilySelector() {
               if (msg.status === 'MOET_BEANTWOORDEN') {
                 if (msg.recipient_id === user.id) {
                   needsMyResponse = true;
-                } else if (msg.recipient_id === null && msg.sender_id !== user.id) {
-                  const hasResponded = Array.isArray(msg.has_responded_users) &&
-                                       msg.has_responded_users.includes(user.id);
-                  needsMyResponse = !hasResponded;
-                }
-              } else if (msg.status === 'BEANTWOORD') {
-                if (msg.recipient_id === null && msg.sender_id !== user.id) {
-                  const hasResponded = Array.isArray(msg.has_responded_users) &&
-                                       msg.has_responded_users.includes(user.id);
-                  needsMyResponse = !hasResponded;
                 }
               }
 
               const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) => {
                 if (r.status !== 'MOET_BEANTWOORDEN') return false;
-
                 if (r.recipient_id === user.id) {
                   return true;
-                } else if (r.recipient_id === null && r.sender_id !== user.id) {
-                  const hasResponded = Array.isArray(r.has_responded_users) &&
-                                       r.has_responded_users.includes(user.id);
-                  return !hasResponded;
                 }
                 return false;
               });
