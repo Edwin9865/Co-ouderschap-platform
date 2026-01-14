@@ -1,29 +1,20 @@
 import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Download, Lock, FileText, AlertCircle, Monitor } from 'lucide-react';
+import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { Capacitor } from '@capacitor/core';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const canExport = canAccessFeature('export');
-
-  const openExportInNewWindow = (html: string) => {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  };
 
   const handleExport = async () => {
     if (!canExport) {
@@ -48,7 +39,6 @@ export function Export() {
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       console.log('Starting export with:', {
@@ -114,8 +104,13 @@ export function Export() {
       const html = await response.text();
       console.log('Received HTML, length:', html.length);
 
-      openExportInNewWindow(html);
-      setSuccess('Export geopend. Gebruik de "Afdrukken naar PDF" knop om de PDF op te slaan.');
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+      }
     } catch (err: any) {
       console.error('Export error:', err);
       setError(err.message || 'Er is een fout opgetreden bij het exporteren');
@@ -123,56 +118,6 @@ export function Export() {
       setLoading(false);
     }
   };
-
-  if (Capacitor.isNativePlatform()) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Export</h1>
-          <p className="mt-2 text-gray-600">
-            Exporteer je dossier naar PDF voor archivering of delen met derden
-          </p>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <div className="flex items-start">
-            <Monitor className="w-6 h-6 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-            <div>
-              <h3 className="font-semibold text-blue-900 mb-2">Alleen beschikbaar via webbrowser</h3>
-              <p className="text-sm text-blue-800 mb-3">
-                De export functie werkt alleen als je inlogt via een webbrowser op je PC of laptop.
-              </p>
-              <p className="text-sm text-blue-800">
-                Log in op de webversie van de app om PDF exports te genereren van je dossier.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Hoe werkt het?</h3>
-          <ol className="space-y-3 text-sm text-gray-700">
-            <li className="flex items-start">
-              <span className="font-semibold text-slate-600 mr-3">1.</span>
-              <span>Open de app in je webbrowser op een PC of laptop</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-semibold text-slate-600 mr-3">2.</span>
-              <span>Log in met dezelfde account</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-semibold text-slate-600 mr-3">3.</span>
-              <span>Ga naar Export in het menu</span>
-            </li>
-            <li className="flex items-start">
-              <span className="font-semibold text-slate-600 mr-3">4.</span>
-              <span>Genereer en download je PDF export</span>
-            </li>
-          </ol>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -190,18 +135,6 @@ export function Export() {
             <div>
               <h3 className="font-semibold text-red-900 mb-1">Fout bij exporteren</h3>
               <p className="text-sm text-red-800">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <FileText className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
-            <div>
-              <h3 className="font-semibold text-green-900 mb-1">Export succesvol</h3>
-              <p className="text-sm text-green-800">{success}</p>
             </div>
           </div>
         </div>
