@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
+import { Download, Lock, FileText, AlertCircle, Monitor } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { Capacitor } from '@capacitor/core';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
@@ -122,6 +123,56 @@ export function Export() {
       setLoading(false);
     }
   };
+
+  if (Capacitor.isNativePlatform()) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Export</h1>
+          <p className="mt-2 text-gray-600">
+            Exporteer je dossier naar PDF voor archivering of delen met derden
+          </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <Monitor className="w-6 h-6 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-2">Alleen beschikbaar via webbrowser</h3>
+              <p className="text-sm text-blue-800 mb-3">
+                De export functie werkt alleen als je inlogt via een webbrowser op je PC of laptop.
+              </p>
+              <p className="text-sm text-blue-800">
+                Log in op de webversie van de app om PDF exports te genereren van je dossier.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Hoe werkt het?</h3>
+          <ol className="space-y-3 text-sm text-gray-700">
+            <li className="flex items-start">
+              <span className="font-semibold text-slate-600 mr-3">1.</span>
+              <span>Open de app in je webbrowser op een PC of laptop</span>
+            </li>
+            <li className="flex items-start">
+              <span className="font-semibold text-slate-600 mr-3">2.</span>
+              <span>Log in met dezelfde account</span>
+            </li>
+            <li className="flex items-start">
+              <span className="font-semibold text-slate-600 mr-3">3.</span>
+              <span>Ga naar Export in het menu</span>
+            </li>
+            <li className="flex items-start">
+              <span className="font-semibold text-slate-600 mr-3">4.</span>
+              <span>Genereer en download je PDF export</span>
+            </li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
