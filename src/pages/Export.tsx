@@ -9,20 +9,12 @@ export function Export() {
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const canExport = canAccessFeature('export');
-
-  const openExportInNewWindow = (html: string) => {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 100);
-  };
 
   const handleExport = async () => {
     if (!canExport) {
@@ -47,7 +39,6 @@ export function Export() {
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       console.log('Starting export with:', {
@@ -113,8 +104,13 @@ export function Export() {
       const html = await response.text();
       console.log('Received HTML, length:', html.length);
 
-      openExportInNewWindow(html);
-      setSuccess('Export geopend. Gebruik de "Afdrukken naar PDF" knop om de PDF op te slaan.');
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+      }
     } catch (err: any) {
       console.error('Export error:', err);
       setError(err.message || 'Er is een fout opgetreden bij het exporteren');
@@ -139,18 +135,6 @@ export function Export() {
             <div>
               <h3 className="font-semibold text-red-900 mb-1">Fout bij exporteren</h3>
               <p className="text-sm text-red-800">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <FileText className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
-            <div>
-              <h3 className="font-semibold text-green-900 mb-1">Export succesvol</h3>
-              <p className="text-sm text-green-800">{success}</p>
             </div>
           </div>
         </div>
