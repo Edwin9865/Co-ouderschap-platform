@@ -10,20 +10,37 @@ export class NotificationService {
   private familyId: string | null = null;
   private subscriptions: (() => void)[] = [];
   private foregroundUnsubscribe: (() => void) | null = null;
+  private initializationInProgress: boolean = false;
 
   async initialize(userId: string, familyId: string) {
+    if (this.initializationInProgress) {
+      console.log('Notification service initialization already in progress');
+      return;
+    }
+
+    this.initializationInProgress = true;
     this.userId = userId;
     this.familyId = familyId;
 
-    await this.loadSettings();
+    try {
+      await this.loadSettings();
 
-    if (this.settings?.push_notifications_enabled) {
-      await this.initializeFCM();
-    }
+      if (this.settings?.push_notifications_enabled) {
+        this.initializeFCM().catch(error => {
+          console.error('Non-blocking FCM initialization failed:', error);
+        });
+      }
 
-    if (this.settings?.browser_notifications_enabled) {
-      await this.requestNotificationPermission();
-      this.setupRealtimeSubscriptions();
+      if (this.settings?.browser_notifications_enabled) {
+        this.requestNotificationPermission().catch(error => {
+          console.error('Non-blocking notification permission request failed:', error);
+        });
+        this.setupRealtimeSubscriptions();
+      }
+    } catch (error) {
+      console.error('Error during notification service initialization:', error);
+    } finally {
+      this.initializationInProgress = false;
     }
   }
 
@@ -40,18 +57,32 @@ export class NotificationService {
   }
 
   private async initializeNativePush() {
-    let permStatus = await PushNotifications.checkPermissions();
+    try {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Native push initialization timed out')), 15000)
+      );
 
-    if (permStatus.receive === 'prompt') {
-      permStatus = await PushNotifications.requestPermissions();
+      await Promise.race([
+        (async () => {
+          let permStatus = await PushNotifications.checkPermissions();
+
+          if (permStatus.receive === 'prompt') {
+            permStatus = await PushNotifications.requestPermissions();
+          }
+
+          if (permStatus.receive !== 'granted') {
+            console.log('Push notification permission denied');
+            return;
+          }
+
+          await PushNotifications.register();
+        })(),
+        timeoutPromise
+      ]);
+    } catch (error) {
+      console.error('Native push initialization error:', error);
+      throw error;
     }
-
-    if (permStatus.receive !== 'granted') {
-      console.log('Push notification permission denied');
-      return;
-    }
-
-    await PushNotifications.register();
 
     PushNotifications.addListener('registration', async (token) => {
       console.log('Native push token:', token.value);

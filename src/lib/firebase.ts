@@ -10,25 +10,57 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-let app;
-let messaging;
+let app: any = null;
+let messaging: any = null;
+let initializationPromise: Promise<{ app: any; messaging: any }> | null = null;
+
+const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ]);
+};
 
 export const initializeFirebase = async () => {
-  if (!app) {
-    app = initializeApp(firebaseConfig);
+  if (initializationPromise) {
+    return initializationPromise;
   }
 
-  const supported = await isSupported();
-  if (supported && !messaging) {
-    messaging = getMessaging(app);
-  }
+  initializationPromise = (async () => {
+    try {
+      if (!app) {
+        app = initializeApp(firebaseConfig);
+      }
 
-  return { app, messaging };
+      const supported = await withTimeout(
+        isSupported(),
+        5000,
+        'Firebase messaging support check timed out'
+      );
+
+      if (supported && !messaging) {
+        messaging = getMessaging(app);
+      }
+
+      return { app, messaging };
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+      return { app: null, messaging: null };
+    }
+  })();
+
+  return initializationPromise;
 };
 
 export const requestFCMToken = async (): Promise<string | null> => {
   try {
-    const { messaging } = await initializeFirebase();
+    const { messaging } = await withTimeout(
+      initializeFirebase(),
+      10000,
+      'Firebase initialization timed out while requesting FCM token'
+    );
 
     if (!messaging) {
       console.log('FCM not supported in this browser');
@@ -37,17 +69,31 @@ export const requestFCMToken = async (): Promise<string | null> => {
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
-    const permission = await Notification.requestPermission();
+    const permission = await withTimeout(
+      Notification.requestPermission(),
+      5000,
+      'Notification permission request timed out'
+    );
+
     if (permission !== 'granted') {
       console.log('Notification permission denied');
       return null;
     }
 
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration: registration
-    });
+    const registration = await withTimeout(
+      navigator.serviceWorker.register('/firebase-messaging-sw.js'),
+      8000,
+      'Service worker registration timed out'
+    );
+
+    const token = await withTimeout(
+      getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: registration
+      }),
+      10000,
+      'FCM token request timed out'
+    );
 
     console.log('FCM token obtained:', token);
     return token;
@@ -59,7 +105,11 @@ export const requestFCMToken = async (): Promise<string | null> => {
 
 export const onForegroundMessage = async (callback: (payload: any) => void) => {
   try {
-    const { messaging } = await initializeFirebase();
+    const { messaging } = await withTimeout(
+      initializeFirebase(),
+      8000,
+      'Firebase initialization timed out while setting up foreground listener'
+    );
 
     if (!messaging) {
       return () => {};
