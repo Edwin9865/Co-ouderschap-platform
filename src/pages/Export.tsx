@@ -9,12 +9,20 @@ export function Export() {
   const { session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
   const canExport = canAccessFeature('export');
+
+  const openExportInNewWindow = (html: string) => {
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  };
 
   const handleExport = async () => {
     if (!canExport) {
@@ -39,14 +47,28 @@ export function Export() {
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
+      console.log('Starting export with:', {
+        familyId: currentFamily.id,
+        exportType,
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+      });
+
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
+
+      if (!session?.access_token) {
+        throw new Error('Geen geldige sessie. Log opnieuw in.');
+      }
+
+      console.log('Calling edge function:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -58,20 +80,41 @@ export function Export() {
         }),
       });
 
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Export mislukt');
+        const contentType = response.headers.get('content-type');
+        let errorMessage = 'Export mislukt';
+
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const errorData = await response.json();
+            console.error('Error response:', errorData);
+            errorMessage = errorData.error || errorMessage;
+            if (errorData.details) {
+              errorMessage += ` (${errorData.details})`;
+            }
+          } catch (e) {
+            console.error('Failed to parse error JSON:', e);
+            const text = await response.text();
+            console.error('Error response text:', text);
+            errorMessage = text || errorMessage;
+          }
+        } else {
+          const text = await response.text();
+          console.error('Non-JSON error response:', text);
+          errorMessage = text || errorMessage;
+        }
+
+        throw new Error(errorMessage);
       }
 
       const html = await response.text();
+      console.log('Received HTML, length:', html.length);
 
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-      } else {
-        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
-      }
+      openExportInNewWindow(html);
+      setSuccess('Export geopend. Gebruik de "Afdrukken naar PDF" knop om de PDF op te slaan.');
     } catch (err: any) {
       console.error('Export error:', err);
       setError(err.message || 'Er is een fout opgetreden bij het exporteren');
@@ -96,6 +139,18 @@ export function Export() {
             <div>
               <h3 className="font-semibold text-red-900 mb-1">Fout bij exporteren</h3>
               <p className="text-sm text-red-800">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <FileText className="w-5 h-5 text-green-600 mt-0.5 mr-3" />
+            <div>
+              <h3 className="font-semibold text-green-900 mb-1">Export succesvol</h3>
+              <p className="text-sm text-green-800">{success}</p>
             </div>
           </div>
         </div>

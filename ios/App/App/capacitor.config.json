@@ -23,5 +23,12 @@
 			"style": "LIGHT",
 			"backgroundColor": "#ffffff"
 		}
-	}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"FilesystemPlugin",
+		"PushNotificationsPlugin",
+		"SharePlugin",
+		"StatusBarPlugin"
+	]
 }
