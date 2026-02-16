@@ -7,6 +7,7 @@ import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Download, Lock, FileText, AlertCircle, X, Printer } from 'lucide-react';
 import { isNative } from '../lib/capacitor';
+import { supabase } from '../lib/supabase';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
@@ -58,17 +59,27 @@ export function Export() {
     setError(null);
 
     try {
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-      if (!session?.access_token) {
+      if (!currentSession) {
         throw new Error('Geen geldige sessie. Log opnieuw in.');
       }
+
+      console.log('Export request:', {
+        familyId: currentFamily.id,
+        exportType,
+        childId: selectedChild,
+        hasAccessToken: !!currentSession.access_token,
+      });
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
 
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${currentSession.access_token}`,
           'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           familyId: currentFamily.id,
