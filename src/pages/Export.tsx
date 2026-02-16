@@ -1,8 +1,12 @@
-import { useState } from 'react';
+// DEBUG: Export.tsx - Rewritten from scratch - 2026-02-13
+// Mobile: fullscreen overlay with iframe + print button
+// Web: opens in new window
+
+import { useState, useRef, useCallback } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Download, Lock, FileText, AlertCircle, X, Printer } from 'lucide-react';
+import { isNative } from '../lib/capacitor';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
@@ -13,8 +17,21 @@ export function Export() {
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [exportHtml, setExportHtml] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const canExport = canAccessFeature('export');
+
+  const handlePrint = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
+    }
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+    setExportHtml(null);
+  }, []);
 
   const handleExport = async () => {
     if (!canExport) {
@@ -41,20 +58,11 @@ export function Export() {
     setError(null);
 
     try {
-      console.log('Starting export with:', {
-        familyId: currentFamily.id,
-        exportType,
-        hasSession: !!session,
-        hasAccessToken: !!session?.access_token,
-      });
-
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
 
       if (!session?.access_token) {
         throw new Error('Geen geldige sessie. Log opnieuw in.');
       }
-
-      console.log('Calling edge function:', apiUrl);
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -71,9 +79,6 @@ export function Export() {
         }),
       });
 
-      console.log('Response status:', response.status, response.statusText);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
         let errorMessage = 'Export mislukt';
@@ -81,20 +86,16 @@ export function Export() {
         if (contentType && contentType.includes('application/json')) {
           try {
             const errorData = await response.json();
-            console.error('Error response:', errorData);
             errorMessage = errorData.error || errorMessage;
             if (errorData.details) {
               errorMessage += ` (${errorData.details})`;
             }
-          } catch (e) {
-            console.error('Failed to parse error JSON:', e);
+          } catch {
             const text = await response.text();
-            console.error('Error response text:', text);
             errorMessage = text || errorMessage;
           }
         } else {
           const text = await response.text();
-          console.error('Non-JSON error response:', text);
           errorMessage = text || errorMessage;
         }
 
@@ -102,17 +103,19 @@ export function Export() {
       }
 
       const html = await response.text();
-      console.log('Received HTML, length:', html.length);
 
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
+      if (isNative()) {
+        setExportHtml(html);
       } else {
-        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(html);
+          printWindow.document.close();
+        } else {
+          throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+        }
       }
     } catch (err: any) {
-      console.error('Export error:', err);
       setError(err.message || 'Er is een fout opgetreden bij het exporteren');
     } finally {
       setLoading(false);
@@ -266,7 +269,7 @@ export function Export() {
             className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
             <Download className="w-5 h-5" />
-            <span>{loading ? 'Bezig met exporteren...' : 'PDF genereren'}</span>
+            <span>{loading ? 'Bezig met exporteren...' : (isNative() ? 'Export bekijken' : 'PDF genereren')}</span>
           </button>
         </div>
       </div>
@@ -317,6 +320,34 @@ export function Export() {
           </li>
         </ul>
       </div>
+
+      {exportHtml && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-800 text-white">
+            <button
+              onClick={handleClosePreview}
+              className="flex items-center space-x-2 text-white hover:text-gray-300"
+            >
+              <X className="w-5 h-5" />
+              <span>Sluiten</span>
+            </button>
+            <h2 className="text-lg font-semibold">Export voorbeeld</h2>
+            <button
+              onClick={handlePrint}
+              className="flex items-center space-x-2 bg-white text-slate-800 px-3 py-1.5 rounded-lg hover:bg-gray-100"
+            >
+              <Printer className="w-4 h-4" />
+              <span>PDF opslaan</span>
+            </button>
+          </div>
+          <iframe
+            ref={iframeRef}
+            srcDoc={exportHtml}
+            className="flex-1 w-full border-0"
+            title="Export preview"
+          />
+        </div>
+      )}
     </div>
   );
 }

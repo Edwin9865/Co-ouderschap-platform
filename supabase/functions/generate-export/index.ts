@@ -10,8 +10,41 @@ interface ExportRequest {
   familyId: string;
   exportType: 'full' | 'child' | 'date_range';
   childId?: string;
-  startDate?: string;
-  endDate?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string;   // YYYY-MM-DD
+}
+
+type DateRange = {
+  startIso: string; // inclusive
+  endIso: string;   // inclusive
+  startYmd: string;
+  endYmd: string;
+};
+
+function parseDateRange(startDate?: string, endDate?: string): DateRange | null {
+  if (!startDate || !endDate) return null;
+
+  // Interpret input dates as full-day inclusive range.
+  // NOTE: We use UTC to avoid device timezone drifting.
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T23:59:59.999Z`);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  if (start.getTime() > end.getTime()) return null;
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+    startYmd: startDate,
+    endYmd: endDate,
+  };
+}
+
+function jsonError(status: number, error: string, details?: string) {
+  return new Response(JSON.stringify({ error, ...(details ? { details } : {}) }), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,13 +66,7 @@ Deno.serve(async (req: Request) => {
 
     if (!authHeader) {
       console.error('No authorization header');
-      return new Response(
-        JSON.stringify({ error: 'Geen authenticatie header gevonden' }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return jsonError(401, 'Geen authenticatie header gevonden');
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -49,23 +76,34 @@ Deno.serve(async (req: Request) => {
 
     if (userError || !user) {
       console.error('User authentication error:', userError);
-      return new Response(
-        JSON.stringify({
-          error: 'Authenticatie mislukt',
-          details: userError?.message || 'Geen gebruiker gevonden'
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+      return jsonError(
+        401,
+        'Authenticatie mislukt',
+        userError?.message || 'Geen gebruiker gevonden'
       );
     }
 
     console.log('User authenticated:', user.id);
 
-    const { familyId, exportType, childId, startDate, endDate }: ExportRequest = await req.json();
+    const body: ExportRequest = await req.json();
+    const { familyId, exportType, childId, startDate, endDate } = body;
 
-    console.log('Export request:', { familyId, exportType, userId: user.id });
+    console.log('Export request:', { familyId, exportType, childId, startDate, endDate, userId: user.id });
+
+    if (!familyId) return jsonError(400, 'familyId is verplicht');
+    if (!exportType) return jsonError(400, 'exportType is verplicht');
+
+    if (exportType === 'child' && !childId) {
+      return jsonError(400, 'childId is verplicht bij exportType=child');
+    }
+
+    const range: DateRange | null = exportType === 'date_range'
+      ? parseDateRange(startDate, endDate)
+      : null;
+
+    if (exportType === 'date_range' && !range) {
+      return jsonError(400, 'Ongeldig datumbereik (startDate/endDate)');
+    }
 
     const serviceSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -79,24 +117,12 @@ Deno.serve(async (req: Request) => {
 
     if (familyError) {
       console.error('Family member check error:', familyError);
-      return new Response(
-        JSON.stringify({ error: 'Fout bij controleren van familielid', details: familyError.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return jsonError(500, 'Fout bij controleren van familielid', familyError.message);
     }
 
     if (!familyMember) {
       console.error('User is not a member of family:', { userId: user.id, familyId });
-      return new Response(
-        JSON.stringify({ error: 'Je hebt geen toegang tot deze familie' }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      return jsonError(403, 'Je hebt geen toegang tot deze familie');
     }
 
     console.log('User has access to family');
@@ -111,78 +137,156 @@ Deno.serve(async (req: Request) => {
       console.error('Family fetch error:', famError);
     }
 
-    const { data: children } = await serviceSupabase
+    // Helpers
+    const applyChildFilter = (q: any) => {
+      if (exportType === 'child' && childId) return q.eq('child_id', childId);
+      return q;
+    };
+
+    const applyDateRangeOnColumn = (q: any, column: string) => {
+      if (exportType === 'date_range' && range) {
+        return q.gte(column, range.startIso).lte(column, range.endIso);
+      }
+      return q;
+    };
+
+    // CHILDREN (server-side)
+    let childrenQ = serviceSupabase
       .from('children')
       .select('*')
       .eq('family_id', familyId)
       .order('first_name');
 
-    let childrenToExport = children || [];
     if (exportType === 'child' && childId) {
-      childrenToExport = childrenToExport.filter(c => c.id === childId);
+      childrenQ = childrenQ.eq('id', childId);
     }
+
+    const { data: children } = await childrenQ;
+    const childrenToExport = children || [];
 
     console.log('Fetching data...');
 
-    const { data: events } = await serviceSupabase
+    // EVENTS with overlap logic for date_range:
+    // include event if overlaps [start,end]:
+    // start_at <= end AND (end_at is null OR end_at >= start)
+    let eventsQ = serviceSupabase
       .from('events')
       .select('id, family_id, child_id, type, title, description, start_at, end_at, location, status, created_at, children(first_name, color)')
-      .eq('family_id', familyId)
-      .order('start_at', { ascending: false });
+      .eq('family_id', familyId);
 
-    const { data: logEntries } = await serviceSupabase
+    eventsQ = applyChildFilter(eventsQ);
+
+    if (exportType === 'date_range' && range) {
+      eventsQ = eventsQ.lte('start_at', range.endIso);
+      eventsQ = eventsQ.or(`end_at.is.null,end_at.gte.${range.startIso}`);
+    }
+
+    const { data: events } = await eventsQ.order('start_at', { ascending: false });
+
+    // LOG ENTRIES (occurred_at within range)
+    let logsQ = serviceSupabase
       .from('log_entries')
-      .select('id, title, category, details, occurred_at, created_by, deleted_at, children(first_name, color)')
-      .eq('family_id', familyId)
-      .order('occurred_at', { ascending: false });
+      .select('id, title, category, details, occurred_at, created_by, deleted_at, child_id, children(first_name, color)')
+      .eq('family_id', familyId);
+
+    logsQ = applyChildFilter(logsQ);
+    logsQ = applyDateRangeOnColumn(logsQ, 'occurred_at');
+
+    const { data: logEntries } = await logsQ.order('occurred_at', { ascending: false });
 
     const logEntriesWithUsers = await Promise.all(
       (logEntries || []).map(async (log) => {
-        const { data: user } = await serviceSupabase
+        const { data: u } = await serviceSupabase
           .from('users')
           .select('name')
           .eq('id', log.created_by)
           .maybeSingle();
-        return { ...log, user_name: user?.name || 'Onbekend' };
+        return { ...log, user_name: u?.name || 'Onbekend' };
       })
     );
 
-    const { data: requests } = await serviceSupabase
+    // REQUESTS (created_at within range)
+    let requestsQ = serviceSupabase
       .from('requests')
       .select('id, title, type, description, status, created_at, created_by, child_id, children(first_name, color)')
-      .eq('family_id', familyId)
-      .order('created_at', { ascending: false });
+      .eq('family_id', familyId);
+
+    requestsQ = applyChildFilter(requestsQ);
+    requestsQ = applyDateRangeOnColumn(requestsQ, 'created_at');
+
+    const { data: requests } = await requestsQ.order('created_at', { ascending: false });
 
     const requestsWithUsers = await Promise.all(
-      (requests || []).map(async (req) => {
-        const { data: user } = await serviceSupabase
+      (requests || []).map(async (r) => {
+        const { data: u } = await serviceSupabase
           .from('users')
           .select('name')
-          .eq('id', req.created_by)
+          .eq('id', r.created_by)
           .maybeSingle();
-        return { ...req, user_name: user?.name || 'Onbekend' };
+        return { ...r, user_name: u?.name || 'Onbekend' };
       })
     );
 
-    const { data: questions } = await serviceSupabase
-      .from('questions')
-      .select('id, title, question_text, status, created_at, helper_id')
-      .eq('family_id', familyId)
-      .order('created_at', { ascending: false });
+    // QUESTIONS (created_at within range)
+    // NOTE: This assumes questions has child_id (based on your earlier draft it didn't),
+    // so we try with child_id first, then fallback without if schema doesn't have it.
+    let questions: any[] = [];
+    let questionsErr: any = null;
+
+    {
+      let q1 = serviceSupabase
+        .from('questions')
+        .select('id, title, question_text, status, created_at, helper_id, child_id')
+        .eq('family_id', familyId);
+
+      q1 = applyChildFilter(q1);
+      q1 = applyDateRangeOnColumn(q1, 'created_at');
+
+      const res1 = await q1.order('created_at', { ascending: false });
+      questions = res1.data || [];
+      questionsErr = res1.error;
+
+      if (questionsErr) {
+        const msg = String(questionsErr.message || '').toLowerCase();
+        if (msg.includes('child_id')) {
+          // Retry without child_id
+          let q2 = serviceSupabase
+            .from('questions')
+            .select('id, title, question_text, status, created_at, helper_id')
+            .eq('family_id', familyId);
+
+          // only date_range can still be applied
+          q2 = applyDateRangeOnColumn(q2, 'created_at');
+
+          const res2 = await q2.order('created_at', { ascending: false });
+          questions = res2.data || [];
+          questionsErr = res2.error;
+        }
+      }
+
+      if (questionsErr) {
+        console.error('Questions fetch error:', questionsErr);
+      }
+    }
 
     const questionsWithDetails = await Promise.all(
-      (questions || []).map(async (question) => {
+      (questions || []).map(async (question: any) => {
         const { data: helper } = await serviceSupabase
           .from('users')
           .select('name')
           .eq('id', question.helper_id)
           .maybeSingle();
 
-        const { data: answers } = await serviceSupabase
+        let answersQ = serviceSupabase
           .from('answers')
           .select('id, answer_text, created_at, parent_id')
           .eq('question_id', question.id)
           .order('created_at');
+
+        // If date_range, filter answers by created_at too (keeps export consistent)
+        answersQ = applyDateRangeOnColumn(answersQ, 'created_at');
+
+        const { data: answers } = await answersQ;
 
         const answersWithUsers = await Promise.all(
           (answers || []).map(async (answer) => {
@@ -203,10 +307,15 @@ Deno.serve(async (req: Request) => {
       })
     );
 
-    const { data: auditLogs } = await serviceSupabase
+    // AUDIT LOGS (created_at within range)
+    let auditQ = serviceSupabase
       .from('audit_logs')
       .select('*')
-      .eq('family_id', familyId)
+      .eq('family_id', familyId);
+
+    auditQ = applyDateRangeOnColumn(auditQ, 'created_at');
+
+    const { data: auditLogs } = await auditQ
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -238,7 +347,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         error: error?.message || 'Onbekende fout bij exporteren',
-        stack: error?.stack
+        stack: error?.stack,
       }),
       {
         status: 500,
