@@ -199,8 +199,7 @@ Deno.serve(async (req: Request) => {
 
     if (exportType === 'date_range' && range) {
       console.log('Applying date range to events:', range.startIso, 'to', range.endIso);
-      eventsQ = eventsQ.lte('start_at', range.endIso);
-      eventsQ = eventsQ.or(`end_at.is.null,end_at.gte.${range.startIso}`);
+      eventsQ = eventsQ.gte('start_at', range.startIso).lte('start_at', range.endIso);
     }
 
     eventsQ = eventsQ.order('start_at', { ascending: false });
