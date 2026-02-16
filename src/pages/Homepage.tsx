@@ -126,7 +126,7 @@ export function Homepage() {
               </h1>
 
               <p className="mt-5 text-lg sm:text-xl text-slate-600 leading-relaxed">
-                Communiceer duidelijk, deel agenda’s en leg belangrijke momenten vast — op één plek.
+                TESTESTTEST:::Communiceer duidelijk, deel agenda’s en leg belangrijke momenten vast — op één plek.
                 Ontworpen om misverstanden te verminderen en kinderen voorspelbaarheid te geven.
               </p>
 
