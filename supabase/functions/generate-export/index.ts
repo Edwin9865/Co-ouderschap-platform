@@ -137,62 +137,64 @@ Deno.serve(async (req: Request) => {
       console.error('Family fetch error:', famError);
     }
 
-    // Helpers
-    const applyChildFilter = (q: any) => {
-      if (exportType === 'child' && childId) return q.eq('child_id', childId);
-      return q;
-    };
+    console.log('Fetching data with filters:', { exportType, childId, range: range ? `${range.startYmd} to ${range.endYmd}` : null });
 
-    const applyDateRangeOnColumn = (q: any, column: string) => {
-      if (exportType === 'date_range' && range) {
-        return q.gte(column, range.startIso).lte(column, range.endIso);
-      }
-      return q;
-    };
-
-    // CHILDREN (server-side)
+    // CHILDREN
     let childrenQ = serviceSupabase
       .from('children')
       .select('*')
-      .eq('family_id', familyId)
-      .order('first_name');
+      .eq('family_id', familyId);
 
     if (exportType === 'child' && childId) {
+      console.log('Applying child filter to children query:', childId);
       childrenQ = childrenQ.eq('id', childId);
     }
 
+    childrenQ = childrenQ.order('first_name');
     const { data: children } = await childrenQ;
     const childrenToExport = children || [];
+    console.log(`Fetched ${childrenToExport.length} children`);
 
-    console.log('Fetching data...');
-
-    // EVENTS with overlap logic for date_range:
-    // include event if overlaps [start,end]:
-    // start_at <= end AND (end_at is null OR end_at >= start)
+    // EVENTS
     let eventsQ = serviceSupabase
       .from('events')
       .select('id, family_id, child_id, type, title, description, start_at, end_at, location, status, created_at, children(first_name, color)')
       .eq('family_id', familyId);
 
-    eventsQ = applyChildFilter(eventsQ);
+    if (exportType === 'child' && childId) {
+      console.log('Applying child filter to events:', childId);
+      eventsQ = eventsQ.eq('child_id', childId);
+    }
 
     if (exportType === 'date_range' && range) {
+      console.log('Applying date range to events:', range.startIso, 'to', range.endIso);
       eventsQ = eventsQ.lte('start_at', range.endIso);
       eventsQ = eventsQ.or(`end_at.is.null,end_at.gte.${range.startIso}`);
     }
 
-    const { data: events } = await eventsQ.order('start_at', { ascending: false });
+    eventsQ = eventsQ.order('start_at', { ascending: false });
+    const { data: events } = await eventsQ;
+    console.log(`Fetched ${events?.length || 0} events`);
 
-    // LOG ENTRIES (occurred_at within range)
+    // LOG ENTRIES
     let logsQ = serviceSupabase
       .from('log_entries')
       .select('id, title, category, details, occurred_at, created_by, deleted_at, child_id, children(first_name, color)')
       .eq('family_id', familyId);
 
-    logsQ = applyChildFilter(logsQ);
-    logsQ = applyDateRangeOnColumn(logsQ, 'occurred_at');
+    if (exportType === 'child' && childId) {
+      console.log('Applying child filter to log entries:', childId);
+      logsQ = logsQ.eq('child_id', childId);
+    }
 
-    const { data: logEntries } = await logsQ.order('occurred_at', { ascending: false });
+    if (exportType === 'date_range' && range) {
+      console.log('Applying date range to log entries:', range.startIso, 'to', range.endIso);
+      logsQ = logsQ.gte('occurred_at', range.startIso).lte('occurred_at', range.endIso);
+    }
+
+    logsQ = logsQ.order('occurred_at', { ascending: false });
+    const { data: logEntries } = await logsQ;
+    console.log(`Fetched ${logEntries?.length || 0} log entries`);
 
     const logEntriesWithUsers = await Promise.all(
       (logEntries || []).map(async (log) => {
@@ -205,16 +207,25 @@ Deno.serve(async (req: Request) => {
       })
     );
 
-    // REQUESTS (created_at within range)
+    // REQUESTS
     let requestsQ = serviceSupabase
       .from('requests')
       .select('id, title, type, description, status, created_at, created_by, child_id, children(first_name, color)')
       .eq('family_id', familyId);
 
-    requestsQ = applyChildFilter(requestsQ);
-    requestsQ = applyDateRangeOnColumn(requestsQ, 'created_at');
+    if (exportType === 'child' && childId) {
+      console.log('Applying child filter to requests:', childId);
+      requestsQ = requestsQ.eq('child_id', childId);
+    }
 
-    const { data: requests } = await requestsQ.order('created_at', { ascending: false });
+    if (exportType === 'date_range' && range) {
+      console.log('Applying date range to requests:', range.startIso, 'to', range.endIso);
+      requestsQ = requestsQ.gte('created_at', range.startIso).lte('created_at', range.endIso);
+    }
+
+    requestsQ = requestsQ.order('created_at', { ascending: false });
+    const { data: requests } = await requestsQ;
+    console.log(`Fetched ${requests?.length || 0} requests`);
 
     const requestsWithUsers = await Promise.all(
       (requests || []).map(async (r) => {
@@ -227,9 +238,7 @@ Deno.serve(async (req: Request) => {
       })
     );
 
-    // QUESTIONS (created_at within range)
-    // NOTE: This assumes questions has child_id (based on your earlier draft it didn't),
-    // so we try with child_id first, then fallback without if schema doesn't have it.
+    // QUESTIONS
     let questions: any[] = [];
     let questionsErr: any = null;
 
@@ -239,26 +248,36 @@ Deno.serve(async (req: Request) => {
         .select('id, title, question_text, status, created_at, helper_id, child_id')
         .eq('family_id', familyId);
 
-      q1 = applyChildFilter(q1);
-      q1 = applyDateRangeOnColumn(q1, 'created_at');
+      if (exportType === 'child' && childId) {
+        console.log('Applying child filter to questions:', childId);
+        q1 = q1.eq('child_id', childId);
+      }
 
-      const res1 = await q1.order('created_at', { ascending: false });
+      if (exportType === 'date_range' && range) {
+        console.log('Applying date range to questions:', range.startIso, 'to', range.endIso);
+        q1 = q1.gte('created_at', range.startIso).lte('created_at', range.endIso);
+      }
+
+      q1 = q1.order('created_at', { ascending: false });
+      const res1 = await q1;
       questions = res1.data || [];
       questionsErr = res1.error;
 
       if (questionsErr) {
         const msg = String(questionsErr.message || '').toLowerCase();
         if (msg.includes('child_id')) {
-          // Retry without child_id
+          console.log('Questions table does not have child_id, retrying without filter');
           let q2 = serviceSupabase
             .from('questions')
             .select('id, title, question_text, status, created_at, helper_id')
             .eq('family_id', familyId);
 
-          // only date_range can still be applied
-          q2 = applyDateRangeOnColumn(q2, 'created_at');
+          if (exportType === 'date_range' && range) {
+            q2 = q2.gte('created_at', range.startIso).lte('created_at', range.endIso);
+          }
 
-          const res2 = await q2.order('created_at', { ascending: false });
+          q2 = q2.order('created_at', { ascending: false });
+          const res2 = await q2;
           questions = res2.data || [];
           questionsErr = res2.error;
         }
@@ -267,6 +286,7 @@ Deno.serve(async (req: Request) => {
       if (questionsErr) {
         console.error('Questions fetch error:', questionsErr);
       }
+      console.log(`Fetched ${questions.length} questions`);
     }
 
     const questionsWithDetails = await Promise.all(
@@ -280,12 +300,13 @@ Deno.serve(async (req: Request) => {
         let answersQ = serviceSupabase
           .from('answers')
           .select('id, answer_text, created_at, parent_id')
-          .eq('question_id', question.id)
-          .order('created_at');
+          .eq('question_id', question.id);
 
-        // If date_range, filter answers by created_at too (keeps export consistent)
-        answersQ = applyDateRangeOnColumn(answersQ, 'created_at');
+        if (exportType === 'date_range' && range) {
+          answersQ = answersQ.gte('created_at', range.startIso).lte('created_at', range.endIso);
+        }
 
+        answersQ = answersQ.order('created_at');
         const { data: answers } = await answersQ;
 
         const answersWithUsers = await Promise.all(
@@ -307,17 +328,20 @@ Deno.serve(async (req: Request) => {
       })
     );
 
-    // AUDIT LOGS (created_at within range)
+    // AUDIT LOGS
     let auditQ = serviceSupabase
       .from('audit_logs')
       .select('*')
       .eq('family_id', familyId);
 
-    auditQ = applyDateRangeOnColumn(auditQ, 'created_at');
+    if (exportType === 'date_range' && range) {
+      console.log('Applying date range to audit logs:', range.startIso, 'to', range.endIso);
+      auditQ = auditQ.gte('created_at', range.startIso).lte('created_at', range.endIso);
+    }
 
-    const { data: auditLogs } = await auditQ
-      .order('created_at', { ascending: false })
-      .limit(100);
+    auditQ = auditQ.order('created_at', { ascending: false }).limit(100);
+    const { data: auditLogs } = await auditQ;
+    console.log(`Fetched ${auditLogs?.length || 0} audit logs`);
 
     console.log('Generating HTML...');
 
