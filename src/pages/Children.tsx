@@ -24,13 +24,35 @@ export function Children() {
   const [shareWithCoParents, setShareWithCoParents] = useState(true);
   const [childVisibilities, setChildVisibilities] = useState<Record<string, ChildVisibility[]>>({});
   const [showVisibilityModal, setShowVisibilityModal] = useState<string | null>(null);
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
 
   const coParents = members.filter((m) => m.user_id !== user?.id && m.role === 'PARENT');
   const helpers = members.filter((m) => m.role === 'HELPER');
 
   useEffect(() => {
     fetchChildVisibilities();
+    fetchCreatorNames();
   }, [children]);
+
+  const fetchCreatorNames = async () => {
+    if (children.length === 0) return;
+
+    const creatorIds = [...new Set(children.map((c) => c.created_by).filter(Boolean))];
+    if (creatorIds.length === 0) return;
+
+    const { data: creators } = await supabase
+      .from('users')
+      .select('id, name')
+      .in('id', creatorIds);
+
+    if (creators) {
+      const namesMap = creators.reduce((acc, creator) => {
+        acc[creator.id] = creator.name;
+        return acc;
+      }, {} as Record<string, string>);
+      setCreatorNames(namesMap);
+    }
+  };
 
   const fetchChildVisibilities = async () => {
     if (children.length === 0) return;
@@ -122,7 +144,7 @@ export function Children() {
   const handleUpdate = async (childId: string) => {
     setLoading(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('children')
         .update({
           first_name: firstName,
@@ -130,6 +152,12 @@ export function Children() {
           color: color,
         })
         .eq('id', childId);
+
+      if (error) {
+        alert('Fout bij opslaan: Alleen de ouder die dit kind heeft aangemaakt kan het bewerken.');
+        console.error('Update error:', error);
+        return;
+      }
 
       await refreshFamily();
       setEditingChild(null);
@@ -146,37 +174,71 @@ export function Children() {
 
     setLoading(true);
     try {
-      await supabase.from('children').delete().eq('id', childId);
+      const { error } = await supabase.from('children').delete().eq('id', childId);
+
+      if (error) {
+        alert('Fout bij verwijderen: Alleen de ouder die dit kind heeft aangemaakt kan het verwijderen.');
+        console.error('Delete error:', error);
+        return;
+      }
+
       await refreshFamily();
     } finally {
       setLoading(false);
     }
   };
 
+  // Permission check: only the creator can edit/delete the child
+  const isChildCreator = (child: typeof children[0]) => {
+    return child.created_by === user?.id;
+  };
+
   const toggleVisibility = async (childId: string, parentId: string) => {
     if (!user) return;
+
+    // Only creator can manage visibility
+    const child = children.find(c => c.id === childId);
+    if (child && !isChildCreator(child)) {
+      alert('Alleen de ouder die dit kind heeft aangemaakt kan de zichtbaarheid beheren.');
+      return;
+    }
 
     const currentVisibilities = childVisibilities[childId] || [];
     const hasVisibility = currentVisibilities.some((cv) => cv.user_id === parentId);
 
     if (hasVisibility) {
-      await supabase
+      const { error } = await supabase
         .from('child_visibility')
         .delete()
         .eq('child_id', childId)
         .eq('user_id', parentId);
+
+      if (error) {
+        console.error('Error removing visibility:', error);
+        alert('Fout bij het verwijderen van zichtbaarheid.');
+      }
     } else {
-      await supabase.from('child_visibility').insert({
+      const { error } = await supabase.from('child_visibility').insert({
         child_id: childId,
         user_id: parentId,
         granted_by: user.id,
       });
+
+      if (error) {
+        console.error('Error adding visibility:', error);
+        alert('Fout bij het toevoegen van zichtbaarheid.');
+      }
     }
 
     await fetchChildVisibilities();
   };
 
   const startEdit = (child: typeof children[0]) => {
+    // Only allow creator to edit
+    if (!isChildCreator(child)) {
+      alert('Alleen de ouder die dit kind heeft aangemaakt kan het bewerken.');
+      return;
+    }
     setEditingChild(child.id);
     setFirstName(child.first_name);
     setBirthYear(child.birth_year?.toString() || '');
@@ -364,78 +426,99 @@ export function Children() {
               Wie kan dit kind zien?
             </h3>
 
-            <div className="space-y-4 mb-6">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm font-medium text-gray-900">Jij ({user?.name})</span>
-                </div>
-              </div>
+            {(() => {
+              const modalChild = children.find(c => c.id === showVisibilityModal);
+              const canManage = modalChild && isChildCreator(modalChild);
 
-              {coParents.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Co-ouders</h4>
-                  <div className="space-y-2">
-                    {coParents.map((parent) => {
-                      const hasVisibility = (childVisibilities[showVisibilityModal] || []).some(
-                        (cv) => cv.user_id === parent.user_id
-                      );
-                      return (
-                        <button
-                          key={parent.user_id}
-                          onClick={() => toggleVisibility(showVisibilityModal, parent.user_id)}
-                          className="w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            {hasVisibility ? (
-                              <Eye className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-sm font-medium text-gray-900">{parent.user.name}</span>
-                          </div>
-                          <span className="text-xs text-gray-600">
-                            {hasVisibility ? 'Kan zien' : 'Kan niet zien'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              return (
+                <>
+                  {!canManage && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+                      Alleen de ouder die dit kind heeft aangemaakt kan de zichtbaarheid beheren.
+                    </div>
+                  )}
 
-              {helpers.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Hulpverleners</h4>
-                  <div className="space-y-2">
-                    {helpers.map((helper) => {
-                      const hasVisibility = (childVisibilities[showVisibilityModal] || []).some(
-                        (cv) => cv.user_id === helper.user_id
-                      );
-                      return (
-                        <button
-                          key={helper.user_id}
-                          onClick={() => toggleVisibility(showVisibilityModal, helper.user_id)}
-                          className="w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-2">
-                            {hasVisibility ? (
-                              <Eye className="w-4 h-4 text-green-600" />
-                            ) : (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
-                            )}
-                            <span className="text-sm font-medium text-gray-900">{helper.user.name}</span>
-                          </div>
-                          <span className="text-xs text-gray-600">
-                            {hasVisibility ? 'Kan zien' : 'Kan niet zien'}
-                          </span>
-                        </button>
-                      );
-                    })}
+                  <div className="space-y-4 mb-6">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-gray-600" />
+                        <span className="text-sm font-medium text-gray-900">Jij ({user?.name})</span>
+                      </div>
+                    </div>
+
+                    {coParents.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Co-ouders</h4>
+                        <div className="space-y-2">
+                          {coParents.map((parent) => {
+                            const hasVisibility = (childVisibilities[showVisibilityModal] || []).some(
+                              (cv) => cv.user_id === parent.user_id
+                            );
+                            return (
+                              <button
+                                key={parent.user_id}
+                                onClick={() => toggleVisibility(showVisibilityModal, parent.user_id)}
+                                disabled={!canManage}
+                                className={`w-full p-3 bg-gray-50 rounded-lg transition-colors flex items-center justify-between ${
+                                  canManage ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {hasVisibility ? (
+                                    <Eye className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <EyeOff className="w-4 h-4 text-gray-400" />
+                                  )}
+                                  <span className="text-sm font-medium text-gray-900">{parent.user.name}</span>
+                                </div>
+                                <span className="text-xs text-gray-600">
+                                  {hasVisibility ? 'Kan zien' : 'Kan niet zien'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {helpers.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Hulpverleners</h4>
+                        <div className="space-y-2">
+                          {helpers.map((helper) => {
+                            const hasVisibility = (childVisibilities[showVisibilityModal] || []).some(
+                              (cv) => cv.user_id === helper.user_id
+                            );
+                            return (
+                              <button
+                                key={helper.user_id}
+                                onClick={() => toggleVisibility(showVisibilityModal, helper.user_id)}
+                                disabled={!canManage}
+                                className={`w-full p-3 bg-gray-50 rounded-lg transition-colors flex items-center justify-between ${
+                                  canManage ? 'hover:bg-gray-100 cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {hasVisibility ? (
+                                    <Eye className="w-4 h-4 text-green-600" />
+                                  ) : (
+                                    <EyeOff className="w-4 h-4 text-gray-400" />
+                                  )}
+                                  <span className="text-sm font-medium text-gray-900">{helper.user.name}</span>
+                                </div>
+                                <span className="text-xs text-gray-600">
+                                  {hasVisibility ? 'Kan zien' : 'Kan niet zien'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                </>
+              );
+            })()}
 
             <button
               onClick={() => setShowVisibilityModal(null)}
@@ -590,9 +673,14 @@ export function Children() {
                       {child.birth_year && (
                         <p className="text-sm text-gray-600">Geboren in {child.birth_year}</p>
                       )}
+                      {child.created_by && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Aangemaakt door: {child.created_by === user?.id ? 'jij' : (creatorNames[child.created_by] || 'onbekend')}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  {isParent && (
+                  {isParent && isChildCreator(child) && (
                     <div className="flex space-x-2">
                       <button
                         onClick={() => startEdit(child)}
@@ -612,15 +700,26 @@ export function Children() {
                   )}
                 </div>
 
+                {!isChildCreator(child) && isParent && (
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                    Alleen {creatorNames[child.created_by] || 'de aanmaker'} kan dit kind bewerken of verwijderen.
+                  </div>
+                )}
+
                 {(coParents.length > 0 || helpers.length > 0) && isParent && (
                   <div className="border-t pt-3">
                     <button
                       onClick={() => setShowVisibilityModal(child.id)}
                       className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                      disabled={!isChildCreator(child)}
+                      title={!isChildCreator(child) ? 'Alleen de aanmaker kan zichtbaarheid beheren' : ''}
                     >
                       <Eye className="w-4 h-4" />
                       <span>Zichtbaar voor: {getVisibleParentNames(child.id)}</span>
                     </button>
+                    {!isChildCreator(child) && (
+                      <p className="text-xs text-gray-500 mt-1">Alleen de aanmaker kan delen beheren</p>
+                    )}
                   </div>
                 )}
               </>
