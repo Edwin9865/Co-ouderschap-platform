@@ -2,7 +2,6 @@
 import React, { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  Users,
   Menu,
   X,
   ArrowRight,
@@ -11,6 +10,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { isNative, isWeb } from "../lib/capacitor";
+import { Logo } from "./Logo";
 
 type NavItem = { label: string; to: string };
 
@@ -55,9 +55,7 @@ export function SiteHeader() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group" onClick={closeMobile}>
-          <div className="w-9 h-9 rounded-xl bg-blue-600/10 flex items-center justify-center border border-blue-100">
-            <Users className="w-5 h-5 text-blue-600" />
-          </div>
+          <Logo className="w-9 h-9 transition-transform group-hover:scale-105" />
           <span className="text-lg sm:text-xl font-extrabold text-slate-900">
             CoParenting
           </span>
