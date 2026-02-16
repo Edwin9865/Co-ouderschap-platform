@@ -209,7 +209,7 @@ Deno.serve(async (req: Request) => {
     // LOG ENTRIES
     let logsQ = serviceSupabase
       .from('log_entries')
-      .select('id, title, category, details, occurred_at, created_by, deleted_at, child_id, children(first_name, color)')
+      .select('id, title, category, details, occurred_at, created_by, created_at, updated_at, deleted_at, child_id, children(first_name, color)')
       .eq('family_id', familyId);
 
     if (exportType === 'child' && childId) {
@@ -233,7 +233,29 @@ Deno.serve(async (req: Request) => {
           .select('name')
           .eq('id', log.created_by)
           .maybeSingle();
-        return { ...log, user_name: u?.name || 'Onbekend' };
+
+        const { data: revisions } = await serviceSupabase
+          .from('log_entry_revisions')
+          .select('id, previous_data, edited_by, edited_at')
+          .eq('log_entry_id', log.id)
+          .order('edited_at', { ascending: false });
+
+        const revisionsWithUsers = await Promise.all(
+          (revisions || []).map(async (rev) => {
+            const { data: editor } = await serviceSupabase
+              .from('users')
+              .select('name')
+              .eq('id', rev.edited_by)
+              .maybeSingle();
+            return { ...rev, editor_name: editor?.name || 'Onbekend' };
+          })
+        );
+
+        return {
+          ...log,
+          user_name: u?.name || 'Onbekend',
+          revisions: revisionsWithUsers
+        };
       })
     );
 
@@ -703,11 +725,45 @@ function generateHTML(data: any): string {
                         <span class="badge badge-green">${categoryLabels[log.category] || log.category}</span>
                         ${log.children ? `<span class="child-tag" style="background: ${log.children.color}22; color: ${log.children.color};">${log.children.first_name}</span>` : ''}
                         <br>
-                        <strong>Datum:</strong> ${new Date(log.occurred_at).toLocaleString('nl-NL')} |
-                        <strong>Door:</strong> ${log.user_name || 'Onbekend'}
+                        <strong>Aangemaakt:</strong> ${new Date(log.created_at).toLocaleString('nl-NL')} door ${log.user_name || 'Onbekend'}<br>
+                        <strong>Gebeurtenis datum:</strong> ${new Date(log.occurred_at).toLocaleString('nl-NL')}
+                        ${log.updated_at !== log.created_at ? ` | <strong>Laatst bewerkt:</strong> ${new Date(log.updated_at).toLocaleString('nl-NL')}` : ''}
                         ${log.deleted_at ? ' | <span style="color: #dc2626;">VERWIJDERD</span>' : ''}
                     </div>
                     ${log.details ? `<div class="card-content">${log.details}</div>` : ''}
+
+                    ${log.revisions && log.revisions.length > 0 ? `
+                        <div class="card-content" style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #e2e8f0;">
+                            <strong style="color: #1e293b;">📝 Bewerkingsgeschiedenis (${log.revisions.length})</strong>
+                            <div style="margin-top: 8px;">
+                                ${log.revisions.map((rev: any, idx: number) => {
+                                  const prevData = rev.previous_data || {};
+                                  const changes = [];
+                                  if (prevData.title !== log.title && idx === 0) changes.push(`Titel gewijzigd`);
+                                  if (prevData.details !== log.details && idx === 0) changes.push(`Details gewijzigd`);
+                                  if (prevData.category !== log.category && idx === 0) changes.push(`Categorie gewijzigd`);
+
+                                  return `
+                                    <div style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 8px; border-radius: 4px;">
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
+                                            <strong>Bewerkt op:</strong> ${new Date(rev.edited_at).toLocaleString('nl-NL')} door ${rev.editor_name}
+                                        </div>
+                                        ${changes.length > 0 ? `<div style="font-size: 12px; color: #475569;">Wijzigingen: ${changes.join(', ')}</div>` : ''}
+                                        <details style="margin-top: 8px;">
+                                            <summary style="cursor: pointer; font-size: 12px; color: #64748b;">Vorige versie bekijken</summary>
+                                            <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px; font-size: 12px;">
+                                                <p><strong>Titel:</strong> ${prevData.title || 'N/A'}</p>
+                                                ${prevData.details ? `<p><strong>Details:</strong> ${prevData.details}</p>` : ''}
+                                                <p><strong>Categorie:</strong> ${categoryLabels[prevData.category] || prevData.category || 'N/A'}</p>
+                                                ${prevData.occurred_at ? `<p><strong>Datum:</strong> ${new Date(prevData.occurred_at).toLocaleString('nl-NL')}</p>` : ''}
+                                            </div>
+                                        </details>
+                                    </div>
+                                  `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `).join('')}
         </div>

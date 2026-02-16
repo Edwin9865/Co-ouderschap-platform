@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LogEntry, LogEntryRevision } from '../lib/types';
+import { LogHistoryViewer } from '../components/LogHistoryViewer';
 
 const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -27,13 +28,13 @@ export function Logboek() {
   const { currentFamily, children, isParent, canAccessFeature } = useFamily();
   const { user } = useAuth();
   const [entries, setEntries] = useState<LogEntry[]>([]);
-  const [revisions, setRevisions] = useState<Record<string, LogEntryRevision[]>>({});
   const [showCreate, setShowCreate] = useState(false);
   const [editingEntry, setEditingEntry] = useState<string | null>(null);
   const [selectedChild, setSelectedChild] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewingHistory, setViewingHistory] = useState<LogEntry | null>(null);
 
   const [formData, setFormData] = useState({
     category: 'other' as LogEntry['category'],
@@ -84,15 +85,6 @@ export function Logboek() {
     return data.filter(entry => new Date(entry.occurred_at) >= thirtyDaysAgo);
   };
 
-  const loadRevisions = async (entryId: string) => {
-    const { data } = await supabase
-      .from('log_entry_revisions')
-      .select('*')
-      .eq('log_entry_id', entryId)
-      .order('edited_at', { ascending: false });
-
-    setRevisions(prev => ({ ...prev, [entryId]: data || [] }));
-  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -559,7 +551,7 @@ export function Logboek() {
                     {isParent && (
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => loadRevisions(entry.id)}
+                          onClick={() => setViewingHistory(entry)}
                           className="p-2 text-gray-600 hover:text-slate-700 hover:bg-gray-100 rounded-lg"
                           title="Geschiedenis bekijken"
                         >
@@ -580,21 +572,6 @@ export function Logboek() {
                       </div>
                     )}
                   </div>
-
-                  {revisions[entry.id] && revisions[entry.id].length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                        Bewerkingsgeschiedenis
-                      </h4>
-                      <div className="space-y-2">
-                        {revisions[entry.id].map((revision) => (
-                          <div key={revision.id} className="text-sm text-gray-600 p-2 bg-gray-50 rounded">
-                            Bewerkt op {new Date(revision.edited_at).toLocaleString('nl-NL')}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
               </div>
@@ -602,6 +579,13 @@ export function Logboek() {
           })
         )}
       </div>
+
+      {viewingHistory && (
+        <LogHistoryViewer
+          entry={viewingHistory}
+          onClose={() => setViewingHistory(null)}
+        />
+      )}
     </div>
   );
 }
