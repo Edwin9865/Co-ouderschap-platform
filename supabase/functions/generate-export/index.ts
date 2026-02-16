@@ -59,30 +59,49 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const authHeader = req.headers.get('Authorization');
 
-    console.log('Export function called');
-    console.log('Has auth header:', !!authHeader);
+    console.log('========== EXPORT FUNCTION DEBUG ==========');
+    console.log('Request URL:', req.url);
+    console.log('Request method:', req.method);
+
+    const authHeader = req.headers.get('Authorization');
+    const apikeyHeader = req.headers.get('apikey');
+    const contentType = req.headers.get('Content-Type');
+
+    console.log('Headers received:');
+    console.log('- Authorization:', authHeader ? `Bearer ${authHeader.substring(7, 20)}...` : 'MISSING');
+    console.log('- apikey:', apikeyHeader ? `${apikeyHeader.substring(0, 20)}...` : 'MISSING');
+    console.log('- Content-Type:', contentType);
 
     if (!authHeader) {
-      console.error('No authorization header');
+      console.error('❌ No authorization header');
       return jsonError(401, 'Geen authenticatie header gevonden');
     }
 
     const token = authHeader.replace('Bearer ', '');
+    console.log('Token extracted, length:', token.length);
 
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       global: {
         headers: {
           Authorization: authHeader,
         },
       },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
     });
 
-    const { data: { user }, error: userError } = await authClient.auth.getUser();
+    console.log('Calling getUser with service role client...');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    if (userError || !user) {
-      console.error('User authentication error:', userError);
+    if (userError) {
+      console.error('❌ User authentication error:', {
+        message: userError.message,
+        status: userError.status,
+        name: userError.name,
+      });
       return jsonError(
         401,
         'Authenticatie mislukt',
@@ -90,7 +109,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('User authenticated:', user.id);
+    if (!user) {
+      console.error('❌ No user returned from getUser');
+      return jsonError(401, 'Geen gebruiker gevonden');
+    }
+
+    console.log('✅ User authenticated successfully:', user.id);
 
     const body: ExportRequest = await req.json();
     const { familyId, exportType, childId, startDate, endDate } = body;
