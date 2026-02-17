@@ -232,7 +232,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <img
                   src="/ChatGPT_Image_17_feb_2026,_09_48_08.png"
                   alt="CoParenting Logo"
-                  className="w-8 h-8 object-contain"
+                  className="w-10 h-10 object-contain"
                 />
                 <div className="flex flex-col">
                   <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
@@ -385,7 +385,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               </div>
               <p className="text-center text-xs text-gray-500 mt-4">
-                © 2026 Co-Ouderschap. Alle rechten voorbehouden.
+                © 2026 CoParenting. Alle rechten voorbehouden.
               </p>
             </div>
           </footer>

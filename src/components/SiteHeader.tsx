@@ -54,8 +54,8 @@ export function SiteHeader() {
     <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group" onClick={closeMobile}>
-          <Logo className="w-9 h-9 transition-transform group-hover:scale-105" />
+        <Link to="/" className="flex items-center gap-3 group" onClick={closeMobile}>
+          <Logo className="w-12 h-12 transition-transform group-hover:scale-105" />
           <div className="flex flex-col">
             <span className="text-lg sm:text-xl font-extrabold text-slate-900 leading-tight">
               CoParenting

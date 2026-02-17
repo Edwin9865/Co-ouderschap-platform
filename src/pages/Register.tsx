@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Users, UserCircle, Stethoscope } from 'lucide-react';
+import { UserCircle, Stethoscope } from 'lucide-react';
+import { Logo } from '../components/Logo';
 
 export function Register() {
   const [email, setEmail] = useState('');
@@ -32,11 +33,14 @@ export function Register() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-800 rounded-2xl mb-4">
-            <Users className="w-8 h-8 text-white" />
+          <div className="flex justify-center mb-4">
+            <Logo className="w-20 h-20" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Co-Ouderschap Platform</h1>
-          <p className="text-gray-600">Objectief dossier en communicatieplatform</p>
+          <div className="flex flex-col items-center">
+            <h1 className="text-3xl font-bold text-gray-900 leading-tight">CoParenting</h1>
+            <p className="text-sm text-gray-600 font-medium mt-1">-samen opvoeden-</p>
+          </div>
+          <p className="text-gray-600 mt-3">Objectief dossier en communicatieplatform</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
@@ -161,7 +165,7 @@ export function Register() {
             </Link>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            © 2026 Co-Ouderschap. Alle rechten voorbehouden.
+            © 2026 CoParenting. Alle rechten voorbehouden.
           </p>
         </div>
       </div>
