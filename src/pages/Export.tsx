@@ -59,9 +59,16 @@ export function Export() {
     setError(null);
 
     try {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      // CRITICAL FIX: Refresh session to ensure we have a valid token
+      console.log('Refreshing session before export...');
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
 
-      if (!currentSession) {
+      if (refreshError) {
+        console.error('Session refresh error:', refreshError);
+        throw new Error('Sessie verlopen. Ververs de pagina en probeer opnieuw.');
+      }
+
+      if (!refreshedSession) {
         throw new Error('Geen geldige sessie. Log opnieuw in.');
       }
 
@@ -69,7 +76,8 @@ export function Export() {
         familyId: currentFamily.id,
         exportType,
         childId: selectedChild,
-        hasAccessToken: !!currentSession.access_token,
+        hasAccessToken: !!refreshedSession.access_token,
+        tokenExpiry: refreshedSession.expires_at ? new Date(refreshedSession.expires_at * 1000).toISOString() : 'unknown',
       });
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
@@ -77,7 +85,7 @@ export function Export() {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${currentSession.access_token}`,
+          'Authorization': `Bearer ${refreshedSession.access_token}`,
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
@@ -94,7 +102,16 @@ export function Export() {
         const contentType = response.headers.get('content-type');
         let errorMessage = 'Export mislukt';
 
-        if (contentType && contentType.includes('application/json')) {
+        // Special handling for 401 errors
+        if (response.status === 401) {
+          console.error('401 Unauthorized error - Token details:', {
+            hasToken: !!refreshedSession?.access_token,
+            tokenLength: refreshedSession?.access_token?.length || 0,
+            expiresAt: refreshedSession?.expires_at,
+            familyId: currentFamily.id,
+          });
+          errorMessage = 'Authenticatie mislukt. Ververs de pagina en probeer opnieuw.';
+        } else if (contentType && contentType.includes('application/json')) {
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
