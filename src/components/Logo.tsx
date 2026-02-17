@@ -7,7 +7,7 @@ interface LogoProps {
 export function Logo({ className = "w-9 h-9" }: LogoProps) {
   return (
     <img
-      src="/logo.png"
+      src="/logo.webp"
       alt="CoParenting Logo"
       className={className}
     />
