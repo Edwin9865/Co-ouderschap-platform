@@ -230,11 +230,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center">
               <Link to="/dashboard" className="flex items-center space-x-3">
                 <img
-                  src="/ChatGPT_Image_17_feb_2026,_09_48_08.png"
+                  src="/logo.png"
                   alt="CoParenting Logo"
-                  className="w-10 h-10 object-contain"
+                  className="w-20 h-20 object-contain"
                 />
-                <div className="flex flex-col">
+                <div className="flex flex-col items-center">
                   <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
                   <div className="text-[10px] text-gray-600 font-medium -mt-0.5">-samen opvoeden-</div>
                 </div>

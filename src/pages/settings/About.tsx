@@ -68,7 +68,7 @@ export function About() {
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 hover:border-purple-300 transition-colors">
           <button
-            onClick={() => window.location.href = 'mailto:support@coparenting-app.nl'}
+            onClick={() => window.open('/contact', '_blank')}
             className="w-full p-6 text-left"
           >
             <div className="flex items-center gap-4">

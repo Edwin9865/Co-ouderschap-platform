@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Users } from "lucide-react";
+import { Logo } from "./Logo";
 
 export function SiteFooter() {
   return (
@@ -10,11 +11,16 @@ export function SiteFooter() {
         <div className="grid gap-10 md:grid-cols-4">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 rounded-xl bg-blue-600/15 border border-blue-500/20 flex items-center justify-center">
-                <Users className="w-5 h-5 text-blue-300" />
-              </div>
-              <span className="text-lg font-bold text-white">CoParenting</span>
-            </div>
+              <Logo className="w-20 h-20 transition-transform group-hover:scale-105" />
+             <div className="flex flex-col items-center">
+            <span className="text-lg sm:text-xl text-white font-extrabold text-slate-900 leading-tight">
+              CoParenting
+            </span>
+            <span className="text-[10px] sm:text-xs text-slate-600 font-medium -mt-0.5">
+              -samen opvoeden-
+            </span>
+          </div></div>
+            
             <p className="text-sm leading-relaxed text-slate-400">
               Rust, overzicht en duidelijke afspraken voor moderne co-ouders.  
               Communiceer, plan en leg belangrijke momenten veilig vast.
