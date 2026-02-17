@@ -170,32 +170,48 @@ Deno.serve(async (req: Request) => {
 
     console.log('Fetching data with filters:', { exportType, childId, range: range ? `${range.startYmd} to ${range.endYmd}` : null });
 
-    // CHILDREN
-    let childrenQ = serviceSupabase
-      .from('children')
-      .select('*')
-      .eq('family_id', familyId);
+    // CHILDREN - Only children user has/had access to via visibility history
+    const { data: accessibleChildren, error: childAccessError } = await serviceSupabase
+      .rpc('get_accessible_children_for_export', {
+        check_user_id: user.id,
+        check_family_id: familyId
+      });
 
-    if (exportType === 'child' && childId) {
-      console.log('Applying child filter to children query:', childId);
-      childrenQ = childrenQ.eq('id', childId);
+    if (childAccessError) {
+      console.error('Error fetching accessible children:', childAccessError);
+      return jsonError(500, 'Fout bij ophalen van kinderen', childAccessError.message);
     }
 
-    childrenQ = childrenQ.order('first_name');
-    const { data: children } = await childrenQ;
-    const childrenToExport = children || [];
-    console.log(`Fetched ${childrenToExport.length} children`);
+    let childrenToExport = accessibleChildren || [];
 
-    // EVENTS
+    // Apply child filter if specified
+    if (exportType === 'child' && childId) {
+      console.log('Applying child filter to accessible children:', childId);
+      childrenToExport = childrenToExport.filter((c: any) => c.child_id === childId);
+    }
+
+    console.log(`Fetched ${childrenToExport.length} accessible children (including historical)`);
+
+    // Get child IDs and their visibility periods for filtering
+    const childIdsWithPeriods = new Map();
+    for (const child of childrenToExport) {
+      const { data: periods } = await serviceSupabase
+        .rpc('get_visibility_periods', {
+          check_child_id: child.child_id,
+          check_user_id: user.id
+        });
+      childIdsWithPeriods.set(child.child_id, periods || []);
+    }
+
+    const childIds = Array.from(childIdsWithPeriods.keys());
+    console.log(`Child IDs with access:`, childIds);
+
+    // EVENTS - Filter by visibility periods
     let eventsQ = serviceSupabase
       .from('events')
-      .select('id, family_id, child_id, type, title, description, start_at, end_at, location, status, created_at, children(first_name, color)')
-      .eq('family_id', familyId);
-
-    if (exportType === 'child' && childId) {
-      console.log('Applying child filter to events:', childId);
-      eventsQ = eventsQ.eq('child_id', childId);
-    }
+      .select('id, family_id, child_id, type, title, description, start_at, end_at, location, status, created_at')
+      .eq('family_id', familyId)
+      .in('child_id', childIds);
 
     if (exportType === 'date_range' && range) {
       console.log('Applying date range to events:', range.startIso, 'to', range.endIso);
@@ -203,19 +219,41 @@ Deno.serve(async (req: Request) => {
     }
 
     eventsQ = eventsQ.order('start_at', { ascending: false });
-    const { data: events } = await eventsQ;
-    console.log(`Fetched ${events?.length || 0} events`);
+    const { data: allEvents } = await eventsQ;
 
-    // LOG ENTRIES
+    // Filter events by visibility periods
+    const events = (allEvents || []).filter((event: any) => {
+      if (!event.child_id) return false;
+
+      const periods = childIdsWithPeriods.get(event.child_id) || [];
+      return periods.some((period: any) => {
+        const eventTime = new Date(event.created_at).getTime();
+        const grantedTime = new Date(period.granted_at).getTime();
+        const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
+
+        return eventTime >= grantedTime && eventTime <= revokedTime;
+      });
+    });
+
+    // Add child info back
+    const eventsWithChildren = await Promise.all(
+      events.map(async (event: any) => {
+        const child = childrenToExport.find((c: any) => c.child_id === event.child_id);
+        return {
+          ...event,
+          children: child ? { first_name: child.first_name, color: child.color } : null
+        };
+      })
+    );
+
+    console.log(`Fetched ${eventsWithChildren.length} events (filtered by visibility periods)`);
+
+    // LOG ENTRIES - Filter by visibility periods (CRITICAL BUG FIX)
     let logsQ = serviceSupabase
       .from('log_entries')
-      .select('id, title, category, details, occurred_at, created_by, created_at, updated_at, deleted_at, child_id, children(first_name, color)')
-      .eq('family_id', familyId);
-
-    if (exportType === 'child' && childId) {
-      console.log('Applying child filter to log entries:', childId);
-      logsQ = logsQ.eq('child_id', childId);
-    }
+      .select('id, title, category, details, occurred_at, created_by, created_at, updated_at, deleted_at, child_id')
+      .eq('family_id', familyId)
+      .in('child_id', childIds);
 
     if (exportType === 'date_range' && range) {
       console.log('Applying date range to log entries:', range.startIso, 'to', range.endIso);
@@ -223,11 +261,30 @@ Deno.serve(async (req: Request) => {
     }
 
     logsQ = logsQ.order('occurred_at', { ascending: false });
-    const { data: logEntries } = await logsQ;
-    console.log(`Fetched ${logEntries?.length || 0} log entries`);
+    const { data: allLogEntries } = await logsQ;
+
+    // CRITICAL: Filter log entries by visibility periods
+    // Only show logs created DURING the period when user had access to the child
+    const logEntries = (allLogEntries || []).filter((log: any) => {
+      if (!log.child_id) return false;
+
+      const periods = childIdsWithPeriods.get(log.child_id) || [];
+      return periods.some((period: any) => {
+        const logTime = new Date(log.created_at).getTime();
+        const grantedTime = new Date(period.granted_at).getTime();
+        const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
+
+        // Log must be created within the visibility period
+        return logTime >= grantedTime && logTime <= revokedTime;
+      });
+    });
+
+    console.log(`Fetched ${logEntries?.length || 0} log entries (filtered by visibility periods, removed ${(allLogEntries?.length || 0) - logEntries.length} entries outside access period)`);
 
     const logEntriesWithUsers = await Promise.all(
       (logEntries || []).map(async (log) => {
+        const child = childrenToExport.find((c: any) => c.child_id === log.child_id);
+
         const { data: u } = await serviceSupabase
           .from('users')
           .select('name')
@@ -254,21 +311,18 @@ Deno.serve(async (req: Request) => {
         return {
           ...log,
           user_name: u?.name || 'Onbekend',
-          revisions: revisionsWithUsers
+          revisions: revisionsWithUsers,
+          children: child ? { first_name: child.first_name, color: child.color } : null
         };
       })
     );
 
-    // REQUESTS
+    // REQUESTS - Filter by visibility periods
     let requestsQ = serviceSupabase
       .from('requests')
-      .select('id, title, type, description, status, created_at, created_by, child_id, children(first_name, color)')
-      .eq('family_id', familyId);
-
-    if (exportType === 'child' && childId) {
-      console.log('Applying child filter to requests:', childId);
-      requestsQ = requestsQ.eq('child_id', childId);
-    }
+      .select('id, title, type, description, status, created_at, created_by, child_id')
+      .eq('family_id', familyId)
+      .in('child_id', childIds);
 
     if (exportType === 'date_range' && range) {
       console.log('Applying date range to requests:', range.startIso, 'to', range.endIso);
@@ -276,21 +330,42 @@ Deno.serve(async (req: Request) => {
     }
 
     requestsQ = requestsQ.order('created_at', { ascending: false });
-    const { data: requests } = await requestsQ;
-    console.log(`Fetched ${requests?.length || 0} requests`);
+    const { data: allRequests } = await requestsQ;
+
+    // Filter requests by visibility periods
+    const requests = (allRequests || []).filter((request: any) => {
+      if (!request.child_id) return false;
+
+      const periods = childIdsWithPeriods.get(request.child_id) || [];
+      return periods.some((period: any) => {
+        const requestTime = new Date(request.created_at).getTime();
+        const grantedTime = new Date(period.granted_at).getTime();
+        const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
+
+        return requestTime >= grantedTime && requestTime <= revokedTime;
+      });
+    });
+
+    console.log(`Fetched ${requests?.length || 0} requests (filtered by visibility periods)`);
 
     const requestsWithUsers = await Promise.all(
       (requests || []).map(async (r) => {
+        const child = childrenToExport.find((c: any) => c.child_id === r.child_id);
+
         const { data: u } = await serviceSupabase
           .from('users')
           .select('name')
           .eq('id', r.created_by)
           .maybeSingle();
-        return { ...r, user_name: u?.name || 'Onbekend' };
+        return {
+          ...r,
+          user_name: u?.name || 'Onbekend',
+          children: child ? { first_name: child.first_name, color: child.color } : null
+        };
       })
     );
 
-    // QUESTIONS
+    // QUESTIONS - Filter by visibility periods if child_id exists
     let questions: any[] = [];
     let questionsErr: any = null;
 
@@ -300,9 +375,8 @@ Deno.serve(async (req: Request) => {
         .select('id, title, question_text, status, created_at, helper_id, child_id')
         .eq('family_id', familyId);
 
-      if (exportType === 'child' && childId) {
-        console.log('Applying child filter to questions:', childId);
-        q1 = q1.eq('child_id', childId);
+      if (childIds.length > 0) {
+        q1 = q1.in('child_id', childIds);
       }
 
       if (exportType === 'date_range' && range) {
@@ -312,13 +386,13 @@ Deno.serve(async (req: Request) => {
 
       q1 = q1.order('created_at', { ascending: false });
       const res1 = await q1;
-      questions = res1.data || [];
+      const allQuestions = res1.data || [];
       questionsErr = res1.error;
 
       if (questionsErr) {
         const msg = String(questionsErr.message || '').toLowerCase();
         if (msg.includes('child_id')) {
-          console.log('Questions table does not have child_id, retrying without filter');
+          console.log('Questions table does not have child_id, fetching all family questions');
           let q2 = serviceSupabase
             .from('questions')
             .select('id, title, question_text, status, created_at, helper_id')
@@ -332,13 +406,41 @@ Deno.serve(async (req: Request) => {
           const res2 = await q2;
           questions = res2.data || [];
           questionsErr = res2.error;
+        } else {
+          // Filter questions by visibility periods if child_id exists
+          questions = allQuestions.filter((question: any) => {
+            if (!question.child_id) return true; // Include questions without child_id
+
+            const periods = childIdsWithPeriods.get(question.child_id) || [];
+            return periods.some((period: any) => {
+              const questionTime = new Date(question.created_at).getTime();
+              const grantedTime = new Date(period.granted_at).getTime();
+              const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
+
+              return questionTime >= grantedTime && questionTime <= revokedTime;
+            });
+          });
         }
+      } else {
+        // Filter questions by visibility periods if child_id exists
+        questions = allQuestions.filter((question: any) => {
+          if (!question.child_id) return true; // Include questions without child_id
+
+          const periods = childIdsWithPeriods.get(question.child_id) || [];
+          return periods.some((period: any) => {
+            const questionTime = new Date(question.created_at).getTime();
+            const grantedTime = new Date(period.granted_at).getTime();
+            const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
+
+            return questionTime >= grantedTime && questionTime <= revokedTime;
+          });
+        });
       }
 
       if (questionsErr) {
         console.error('Questions fetch error:', questionsErr);
       }
-      console.log(`Fetched ${questions.length} questions`);
+      console.log(`Fetched ${questions.length} questions (filtered by visibility periods)`);
     }
 
     const questionsWithDetails = await Promise.all(
@@ -400,13 +502,14 @@ Deno.serve(async (req: Request) => {
     const html = generateHTML({
       family,
       children: childrenToExport,
-      events: events || [],
+      events: eventsWithChildren || [],
       logEntries: logEntriesWithUsers || [],
       requests: requestsWithUsers || [],
       questions: questionsWithDetails || [],
       auditLogs: auditLogs || [],
       exportType,
       exportDate: new Date().toLocaleDateString('nl-NL'),
+      userEmail: user.email || 'Onbekend',
     });
 
     console.log('Export successful, HTML length:', html.length);
@@ -434,7 +537,7 @@ Deno.serve(async (req: Request) => {
 });
 
 function generateHTML(data: any): string {
-  const { family, children, events, logEntries, requests, questions, auditLogs, exportType, exportDate } = data;
+  const { family, children, events, logEntries, requests, questions, auditLogs, exportType, exportDate, userEmail } = data;
 
   const categoryLabels: Record<string, string> = {
     health: 'Gezondheid',
@@ -672,8 +775,13 @@ function generateHTML(data: any): string {
             <h1>Co-Parenting Dossier Export</h1>
             <div class="meta">
                 <strong>Familie:</strong> ${family?.name || 'Onbekend'} |
+                <strong>Export voor:</strong> ${userEmail} |
                 <strong>Export datum:</strong> ${exportDate} |
                 <strong>Type:</strong> ${exportType === 'full' ? 'Volledig dossier' : exportType === 'child' ? 'Per kind' : 'Datumbereik'}
+            </div>
+            <div class="meta" style="margin-top: 8px; padding: 8px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 4px;">
+                ℹ️ Deze export bevat alleen gegevens uit de periode waarin u toegang had tot de betreffende kinderen.
+                Gegevens die na het ontkoppelen zijn toegevoegd, worden niet getoond.
             </div>
         </div>
 
@@ -688,7 +796,10 @@ function generateHTML(data: any): string {
                         </span>
                     </div>
                     <div class="card-content">
-                        ${child.birth_year ? `<strong>Geboortejaar:</strong> ${child.birth_year}` : ''}
+                        ${child.birth_year ? `<strong>Geboortejaar:</strong> ${child.birth_year}<br>` : ''}
+                        <strong>Toegang verleend:</strong> ${new Date(child.earliest_access).toLocaleDateString('nl-NL')}
+                        ${child.latest_revoke ? ` | <strong>Toegang ingetrokken:</strong> ${new Date(child.latest_revoke).toLocaleDateString('nl-NL')}` : ' | <span style="color: #16a34a;">Actief</span>'}
+                        ${child.deleted_at ? `<br><span style="color: #dc2626;">Kind verwijderd op: ${new Date(child.deleted_at).toLocaleDateString('nl-NL')}</span>` : ''}
                     </div>
                 </div>
             `).join('')}

@@ -290,10 +290,15 @@ export function Export() {
           <FileText className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
           <div>
             <h3 className="font-semibold text-blue-900 mb-1">Over exports</h3>
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-blue-800 mb-2">
               Exports bevatten alle opgeslagen gegevens, inclusief verwijderde items,
               bewerkingsgeschiedenis en volledige communicatie. Deze PDF's zijn geschikt voor
               juridisch gebruik en archivering.
+            </p>
+            <p className="text-sm text-blue-800 font-medium">
+              ⏱️ Tijdsperiode filtering: U ziet alleen gegevens uit de periode waarin u toegang had
+              tot het betreffende kind. Gegevens die na ontkoppeling zijn toegevoegd, worden niet
+              getoond.
             </p>
           </div>
         </div>
