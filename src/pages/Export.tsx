@@ -1,13 +1,14 @@
 // DEBUG: Export.tsx - Rewritten from scratch - 2026-02-13
-// Mobile: fullscreen overlay with iframe + print button
+// Mobile: generates PDF and opens share screen
 // Web: opens in new window
 
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
-import { Download, Lock, FileText, AlertCircle, X, Printer } from 'lucide-react';
+import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
 import { isNative } from '../lib/capacitor';
 import { supabase } from '../lib/supabase';
+import { PdfGenerator } from '@capgo/capacitor-pdf-generator';
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
@@ -18,21 +19,8 @@ export function Export() {
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [exportHtml, setExportHtml] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const canExport = canAccessFeature('export');
-
-  const handlePrint = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (iframe?.contentWindow) {
-      iframe.contentWindow.print();
-    }
-  }, []);
-
-  const handleClosePreview = useCallback(() => {
-    setExportHtml(null);
-  }, []);
 
   const handleExport = async () => {
     if (!canExport) {
@@ -133,7 +121,21 @@ export function Export() {
       const html = await response.text();
 
       if (isNative()) {
-        setExportHtml(html);
+        // Mobile: Generate PDF and open share screen
+        console.log('Generating PDF for mobile...');
+
+        const pdfResult = await PdfGenerator.fromHtml({
+          html: html,
+          fileName: `CoParenting-Export-${new Date().toISOString().split('T')[0]}.pdf`,
+          documentSize: 'A4',
+          type: 'share',
+        });
+
+        console.log('PDF generated:', pdfResult);
+
+        // The PDF is automatically shared via the native share screen when type is 'share'
+        // If type was 'base64' or 'file', we would need to manually call Share.share()
+
       } else {
         const printWindow = window.open('', '_blank');
         if (printWindow) {
@@ -353,34 +355,6 @@ export function Export() {
           </li>
         </ul>
       </div>
-
-      {exportHtml && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-800 text-white">
-            <button
-              onClick={handleClosePreview}
-              className="flex items-center space-x-2 text-white hover:text-gray-300"
-            >
-              <X className="w-5 h-5" />
-              <span>Sluiten</span>
-            </button>
-            <h2 className="text-lg font-semibold">Export voorbeeld</h2>
-            <button
-              onClick={handlePrint}
-              className="flex items-center space-x-2 bg-white text-slate-800 px-3 py-1.5 rounded-lg hover:bg-gray-100"
-            >
-              <Printer className="w-4 h-4" />
-              <span>PDF opslaan</span>
-            </button>
-          </div>
-          <iframe
-            ref={iframeRef}
-            srcDoc={exportHtml}
-            className="flex-1 w-full border-0"
-            title="Export preview"
-          />
-        </div>
-      )}
     </div>
   );
 }
