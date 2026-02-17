@@ -368,18 +368,7 @@ export function HelperFamilySelector() {
 
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">
-              Verzoek toegang tot een gezin
-            </h2>
-            {!showRequestForm && (
-              <button
-                onClick={() => setShowRequestForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Nieuw verzoek
-              </button>
-            )}
+            
           </div>
 
           {showRequestForm && (
@@ -527,7 +516,7 @@ export function HelperFamilySelector() {
               Nog geen gezinnen gekoppeld
             </h2>
             <p className="text-gray-600 mb-6">
-              Dien een verzoek in bij een gezin om toegang te krijgen tot hun dossier
+              
             </p>
           </div>
         ) : (
