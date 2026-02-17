@@ -4,10 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.coparenting.app',
   appName: 'CoParenting',
   webDir: 'dist',
-  server: {
-    androidScheme: 'https',
-    cleartext: true
-  },
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']

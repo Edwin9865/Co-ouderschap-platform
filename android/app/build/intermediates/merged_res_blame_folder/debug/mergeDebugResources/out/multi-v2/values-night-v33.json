@@ -1,10 +1,10 @@
 {
     "logs": [
         {
-            "outputFile": "com.coparenting.app-mergeDebugResources-40:/values-night-v33/values-night-v33.xml",
+            "outputFile": "com.coparenting.app-mergeDebugResources-39:/values-night-v33/values-night-v33.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\c5960b074ed892890a063831312e0f83\\transformed\\core-splashscreen-1.2.0\\res\\values-night-v33\\values-night-v33.xml",
+                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\4f5eb2e1ae45a07736e2f6ed862ea36a\\transformed\\core-splashscreen-1.2.0\\res\\values-night-v33\\values-night-v33.xml",
                     "from": {
                         "startLines": "2",
                         "startColumns": "4",
