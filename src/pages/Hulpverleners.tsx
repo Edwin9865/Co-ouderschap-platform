@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Lock, MessageSquare, Send, Users as UsersIcon, User as UserIcon, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Lock, MessageSquare, Send, Users as UsersIcon, User as UserIcon, CheckCircle2, UserCheck, X, Clock, LogOut } from 'lucide-react';
 import type { FamilyMember } from '../lib/types';
 
 interface HelperMessage {
@@ -35,15 +35,32 @@ interface HelperMessage {
   replies?: HelperMessage[];
 }
 
+interface HelperRequest {
+  id: string;
+  helper_id: string;
+  family_id: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  message: string | null;
+  requested_at: string;
+  responded_at: string | null;
+  responded_by: string | null;
+  helper: {
+    id: string;
+    name: string;
+    email: string;
+  };
+}
+
 export function Hulpverleners() {
   const { currentFamily, members, refreshFamily, isParent, canAccessFeature } = useFamily();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'helpers' | 'messages'>('messages');
+  const [activeTab, setActiveTab] = useState<'helpers' | 'messages' | 'requests'>('messages');
   const [showAdd, setShowAdd] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [messages, setMessages] = useState<HelperMessage[]>([]);
+  const [helperRequests, setHelperRequests] = useState<HelperRequest[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [showNewMessage, setShowNewMessage] = useState(false);
@@ -94,15 +111,33 @@ export function Hulpverleners() {
     }
   }, [currentFamily, user]);
 
+  const fetchHelperRequests = useCallback(async () => {
+    if (!currentFamily) return;
+
+    const { data } = await supabase
+      .from('helper_requests')
+      .select(`
+        *,
+        helper:users!helper_requests_helper_id_fkey(id, name, email)
+      `)
+      .eq('family_id', currentFamily.id)
+      .order('requested_at', { ascending: false });
+
+    if (data) {
+      setHelperRequests(data as any);
+    }
+  }, [currentFamily]);
+
   useEffect(() => {
     fetchMessages();
-  }, [fetchMessages]);
+    fetchHelperRequests();
+  }, [fetchMessages, fetchHelperRequests]);
 
   useEffect(() => {
     if (!currentFamily) return;
 
     const subscription = supabase
-      .channel(`helper_messages_${currentFamily.id}`)
+      .channel(`helper_data_${currentFamily.id}`)
       .on(
         'postgres_changes',
         {
@@ -115,59 +150,57 @@ export function Hulpverleners() {
           fetchMessages();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'helper_requests',
+          filter: `family_id=eq.${currentFamily.id}`,
+        },
+        () => {
+          fetchHelperRequests();
+        }
+      )
       .subscribe();
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [currentFamily, fetchMessages]);
+  }, [currentFamily, fetchMessages, fetchHelperRequests]);
 
-  const handleAddHelper = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentFamily || !inviteCode) return;
-
-    if (!canAddHelper) {
-      setError('Upgrade naar PLUS of PRO om hulpverleners toe te voegen');
-      return;
-    }
+  const handleApproveRequest = async (requestId: string) => {
+    if (!confirm('Weet je zeker dat je deze hulpverlener wilt goedkeuren?')) return;
 
     setLoading(true);
-    setError('');
-
     try {
-      const { data: helper } = await supabase
-        .from('users')
-        .select('*')
-        .eq('helper_invite_code', inviteCode.toUpperCase())
-        .eq('account_type', 'HELPER')
-        .maybeSingle();
+      await supabase
+        .from('helper_requests')
+        .update({ status: 'APPROVED' })
+        .eq('id', requestId);
 
-      if (!helper) {
-        setError('Geen hulpverlener gevonden met deze koppelcode');
-        return;
-      }
-
-      const { error: memberError } = await supabase.from('family_members').insert({
-        family_id: currentFamily.id,
-        user_id: helper.id,
-        role: 'HELPER',
-        status: 'ACTIVE',
-      });
-
-      if (memberError) {
-        if (memberError.code === '23505') {
-          setError('Deze hulpverlener is al toegevoegd');
-        } else {
-          throw memberError;
-        }
-        return;
-      }
-
+      await fetchHelperRequests();
       await refreshFamily();
-      setInviteCode('');
-      setShowAdd(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Fout bij toevoegen hulpverlener');
+      alert(err instanceof Error ? err.message : 'Fout bij goedkeuren verzoek');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!confirm('Weet je zeker dat je dit verzoek wilt afwijzen?')) return;
+
+    setLoading(true);
+    try {
+      await supabase
+        .from('helper_requests')
+        .update({ status: 'REJECTED' })
+        .eq('id', requestId);
+
+      await fetchHelperRequests();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Fout bij afwijzen verzoek');
     } finally {
       setLoading(false);
     }
@@ -339,6 +372,8 @@ export function Hulpverleners() {
     return needsMyResponse || hasRepliesThatNeedMyResponse;
   }).length;
 
+  const pendingRequestsCount = helperRequests.filter(r => r.status === 'PENDING').length;
+
   return (
     <div className="space-y-6">
       <div>
@@ -369,6 +404,24 @@ export function Hulpverleners() {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab('requests')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'requests'
+                ? 'border-slate-800 text-slate-900'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <UserCheck className="w-4 h-4" />
+              Verzoeken
+              {pendingRequestsCount > 0 && (
+                <span className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {pendingRequestsCount}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab('helpers')}
             className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'helpers'
@@ -384,21 +437,96 @@ export function Hulpverleners() {
         </nav>
       </div>
 
-      {activeTab === 'helpers' && (
+      {activeTab === 'requests' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div></div>
-            {!showAdd && (
-              <button
-                onClick={() => setShowAdd(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Hulpverlener toevoegen</span>
-              </button>
-            )}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-900">
+              Hulpverleners kunnen een verzoek indienen om toegang te krijgen tot dit gezin.
+              Hier kun je hun verzoeken goedkeuren of afwijzen.
+            </p>
           </div>
 
+          <div className="space-y-4">
+            {helperRequests.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                Geen verzoeken ontvangen
+              </div>
+            ) : (
+              helperRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="bg-white rounded-lg border border-gray-200 p-6"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {request.helper.name}
+                        </h3>
+                        {request.status === 'PENDING' && (
+                          <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            In afwachting
+                          </span>
+                        )}
+                        {request.status === 'APPROVED' && (
+                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1">
+                            <UserCheck className="w-3 h-3" />
+                            Goedgekeurd
+                          </span>
+                        )}
+                        {request.status === 'REJECTED' && (
+                          <span className="px-3 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium flex items-center gap-1">
+                            <X className="w-3 h-3" />
+                            Afgewezen
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{request.helper.email}</p>
+                      {request.message && (
+                        <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded">
+                          {request.message}
+                        </p>
+                      )}
+                      <div className="text-xs text-gray-500">
+                        Verzoek ingediend op {new Date(request.requested_at).toLocaleString('nl-NL')}
+                        {request.responded_at && (
+                          <span>
+                            {' • '}Behandeld op {new Date(request.responded_at).toLocaleString('nl-NL')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {request.status === 'PENDING' && (
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => handleApproveRequest(request.id)}
+                          disabled={loading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <UserCheck className="w-4 h-4" />
+                          Goedkeuren
+                        </button>
+                        <button
+                          onClick={() => handleRejectRequest(request.id)}
+                          disabled={loading}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Afwijzen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'helpers' && (
+        <div className="space-y-6">
           {!canAddHelper && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
               <div className="flex items-start">
@@ -411,64 +539,6 @@ export function Hulpverleners() {
                   </p>
                 </div>
               </div>
-            </div>
-          )}
-
-          {showAdd && canAddHelper && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Hulpverlener toevoegen</h2>
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-              <form onSubmit={handleAddHelper} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Koppelcode hulpverlener
-                  </label>
-                  <input
-                    type="text"
-                    value={inviteCode}
-                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                    placeholder="Bijv. A1B2C3D4"
-                    maxLength={8}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent font-mono text-lg tracking-wider uppercase"
-                    required
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Vraag de hulpverlener om hun 8-cijferige koppelcode
-                  </p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-900">
-                    Hulpverleners krijgen read-only toegang tot alle gegevens in dit gezin. Ze kunnen
-                    vragen stellen maar geen data wijzigen.
-                  </p>
-                </div>
-
-                <div className="flex space-x-3">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-                  >
-                    {loading ? 'Bezig...' : 'Toevoegen'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAdd(false);
-                      setInviteCode('');
-                      setError('');
-                    }}
-                    className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                  >
-                    Annuleren
-                  </button>
-                </div>
-              </form>
             </div>
           )}
 

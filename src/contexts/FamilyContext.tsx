@@ -94,10 +94,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const selectedFamilyId = localStorage.getItem('helper_selected_family');
       if (selectedFamilyId && familyMemberships.length > 0) {
         const helperMembership = familyMemberships.find(m => m.family_id === selectedFamilyId);
-        if (helperMembership && currentFamily?.id !== selectedFamilyId) {
-          fetchFamilyData(selectedFamilyId);
-          return;
-        } else if (!helperMembership) {
+        if (helperMembership) {
+          if (!currentFamily || currentFamily.id !== selectedFamilyId) {
+            fetchFamilyData(selectedFamilyId);
+            return;
+          }
+        } else {
           localStorage.removeItem('helper_selected_family');
         }
       }

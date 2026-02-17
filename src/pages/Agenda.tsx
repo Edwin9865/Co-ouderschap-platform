@@ -364,8 +364,8 @@ export function Agenda() {
               return (
                 <div
                   key={event.id}
-                  onClick={() => handleEditClick(event)}
-                  className="text-xs p-1 rounded truncate cursor-pointer transition-opacity hover:opacity-80"
+                  onClick={isParent ? () => handleEditClick(event) : undefined}
+                  className={`text-xs p-1 rounded truncate transition-opacity ${isParent ? 'cursor-pointer hover:opacity-80' : ''}`}
                   style={colors ? {
                     backgroundColor: colors.backgroundColor,
                   } : { backgroundColor: '#f1f5f9' }}
@@ -448,8 +448,8 @@ export function Agenda() {
               return (
                 <div
                   key={event.id}
-                  onClick={() => handleEditClick(event)}
-                  className="bg-white rounded-lg border border-gray-200 p-6 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={isParent ? () => handleEditClick(event) : undefined}
+                  className={`bg-white rounded-lg border border-gray-200 p-6 ${isParent ? 'cursor-pointer hover:shadow-md' : ''} transition-shadow`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -497,7 +497,7 @@ export function Agenda() {
                         )}
                       </div>
                     </div>
-                    <Edit2 className="w-5 h-5 text-gray-400" />
+                    {isParent && <Edit2 className="w-5 h-5 text-gray-400" />}
                   </div>
                 </div>
               );
