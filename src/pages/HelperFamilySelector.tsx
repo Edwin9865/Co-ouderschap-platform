@@ -194,15 +194,28 @@ export function HelperFamilySelector() {
     setError('');
 
     try {
-      const { data: family } = await supabase
-        .from('families')
-        .select('id, name')
-        .eq('invite_code', familyCode.toUpperCase())
-        .eq('status', 'ACTIVE')
+      const codeToLookup = familyCode.trim().toUpperCase();
+
+      const { data: inviteCode } = await supabase
+        .from('family_invite_codes')
+        .select('family_id, families!inner(id, name, status)')
+        .eq('code', codeToLookup)
+        .is('used_at', null)
         .maybeSingle();
 
-      if (!family) {
+      if (!inviteCode || !inviteCode.families) {
         setError('Geen gezin gevonden met deze koppelcode');
+        setLoading(false);
+        return;
+      }
+
+      const family = {
+        id: inviteCode.families.id,
+        name: inviteCode.families.name
+      };
+
+      if (inviteCode.families.status !== 'ACTIVE') {
+        setError('Dit gezin is niet meer actief');
         setLoading(false);
         return;
       }
