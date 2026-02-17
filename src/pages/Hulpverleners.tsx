@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Lock, MessageSquare, Send, Users as UsersIcon, User as UserIcon, CheckCircle2, UserCheck, X, Clock, LogOut, Copy, Link2 } from 'lucide-react';
+import { Plus, Trash2, Lock, MessageSquare, Send, Users as UsersIcon, User as UserIcon, CheckCircle2, UserCheck, X, Clock, LogOut, Copy, Link2, AlertCircle } from 'lucide-react';
 import type { FamilyMember } from '../lib/types';
 
 interface HelperMessage {
@@ -52,7 +52,7 @@ interface HelperRequest {
 }
 
 export function Hulpverleners() {
-  const { currentFamily, members, refreshFamily, isParent, canAccessFeature } = useFamily();
+  const { currentFamily, members, refreshFamily, isParent, canAccessFeature, loading: familyLoading } = useFamily();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'helpers' | 'messages' | 'requests' | 'connect'>('messages');
   const [showAdd, setShowAdd] = useState(false);
@@ -614,29 +614,49 @@ export function Hulpverleners() {
                 <p className="text-sm text-gray-600 mb-4">
                   Deel deze code met hulpverleners zodat zij een verzoek kunnen indienen om toegang te krijgen tot dit gezin.
                 </p>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4">
-                    <p className="text-3xl font-mono font-bold text-slate-800 tracking-wider text-center">
-                      {currentFamily?.invite_code || 'Laden...'}
-                    </p>
+
+                {familyLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-gray-500">Laden...</div>
                   </div>
-                  <button
-                    onClick={copyFamilyCode}
-                    className="px-6 py-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
-                  >
-                    {copiedFamilyCode ? (
-                      <>
-                        <CheckCircle2 className="w-5 h-5" />
-                        Gekopieerd
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-5 h-5" />
-                        Kopieer
-                      </>
-                    )}
-                  </button>
-                </div>
+                ) : !currentFamily ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
+                      <div>
+                        <h3 className="font-semibold text-amber-900 mb-1">Geen gezin beschikbaar</h3>
+                        <p className="text-sm text-amber-800">
+                          Je moet eerst een gezin aanmaken of gekoppeld zijn aan een gezin om een koppelcode te kunnen delen.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4">
+                      <p className="text-3xl font-mono font-bold text-slate-800 tracking-wider text-center">
+                        {currentFamily.invite_code}
+                      </p>
+                    </div>
+                    <button
+                      onClick={copyFamilyCode}
+                      disabled={!currentFamily.invite_code}
+                      className="px-6 py-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {copiedFamilyCode ? (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          Gekopieerd
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-5 h-5" />
+                          Kopieer
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
