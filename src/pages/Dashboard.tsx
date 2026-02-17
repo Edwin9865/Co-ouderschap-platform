@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -25,7 +25,8 @@ const getColorStyles = (hexColor: string) => {
 };
 
 export function Dashboard() {
-  const { currentFamily, children, subscription, isHelper, isHelperMode, members } = useFamily();
+  const navigate = useNavigate();
+  const { currentFamily, children, subscription, isHelper, isHelperMode, members, loading: familyLoading } = useFamily();
   const { user } = useAuth();
   const [recentEvents, setRecentEvents] = useState<Event[]>([]);
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
@@ -37,11 +38,27 @@ export function Dashboard() {
   const [unansweredMessages, setUnansweredMessages] = useState<any[]>([]);
   const [pendingCouplingRequests, setPendingCouplingRequests] = useState<any[]>([]);
 
+  useEffect(() => {
+    if (isHelperMode && !familyLoading && !currentFamily) {
+      navigate('/families');
+    }
+  }, [isHelperMode, currentFamily, familyLoading, navigate]);
+
   const getChildColor = (childId: string | null) => {
     if (!childId) return null;
     const child = children.find(c => c.id === childId);
     return child ? getColorStyles(child.color || '#3b82f6') : null;
   };
+
+  if (isHelperMode && familyLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="text-lg text-gray-600">Gezin wordt geladen...</div>
+        </div>
+      </div>
+    );
+  }
 
   const generateRecurringEvents = (baseEvent: Event, maxDate: Date, maxInstances = 10): Event[] => {
     if (!baseEvent.recurrence_rule) return [baseEvent];
