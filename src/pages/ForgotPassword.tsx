@@ -52,24 +52,25 @@ export function ForgotPassword() {
             </div>
 
             <h2 className="text-2xl font-semibold text-gray-900 mb-4 text-center">
-              E-mail verzonden
+              Check je email
             </h2>
 
             <p className="text-gray-600 text-center mb-6">
-              Als er een account bestaat met het e-mailadres <strong>{email}</strong>, dan hebben we
-              een link gestuurd om je wachtwoord opnieuw in te stellen.
+              We hebben een email verstuurd naar <strong>{email}</strong> met instructies om je
+              wachtwoord opnieuw in te stellen.
             </p>
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-blue-900">
-                <strong>Let op:</strong> De link is 60 minuten geldig. Controleer ook je spam folder
-                als je de e-mail niet ziet.
+                <strong>Geen email ontvangen?</strong>
+                <br />
+                Controleer je spam folder. De email komt van onze notificatie service.
               </p>
             </div>
 
             <Link
               to="/login"
-              className="flex items-center justify-center gap-2 w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-medium"
+              className="flex items-center justify-center gap-2 w-full py-3 text-slate-600 hover:text-slate-800 font-medium"
             >
               <ArrowLeft className="w-4 h-4" />
               Terug naar inloggen
@@ -100,12 +101,12 @@ export function ForgotPassword() {
           </div>
 
           <p className="text-gray-600 mb-6">
-            Voer je e-mailadres in en we sturen je een link om je wachtwoord opnieuw in te stellen.
+            Voer je emailadres in en we sturen je een link om je wachtwoord opnieuw in te stellen.
           </p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
@@ -121,25 +122,25 @@ export function ForgotPassword() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                placeholder="jouw@email.nl"
                 required
                 disabled={loading}
+                placeholder="jouw@email.nl"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading || !email}
+              disabled={loading}
               className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {loading ? 'Bezig met verzenden...' : 'Verstuur reset link'}
+              {loading ? 'Bezig met versturen...' : 'Verstuur reset link'}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <Link
               to="/login"
-              className="text-sm text-slate-800 font-medium hover:underline inline-flex items-center gap-1"
+              className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800 hover:underline"
             >
               <ArrowLeft className="w-4 h-4" />
               Terug naar inloggen
