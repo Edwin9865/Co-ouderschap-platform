@@ -557,18 +557,24 @@ export function Logboek() {
                         >
                           <History className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => startEdit(entry)}
-                          className="p-2 text-gray-600 hover:text-slate-700 hover:bg-gray-100 rounded-lg"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleSoftDelete(entry.id)}
-                          className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {entry.created_by === user?.id && (
+                          <>
+                            <button
+                              onClick={() => startEdit(entry)}
+                              className="p-2 text-gray-600 hover:text-slate-700 hover:bg-gray-100 rounded-lg"
+                              title="Bewerken"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSoftDelete(entry.id)}
+                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                              title="Archiveren"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
