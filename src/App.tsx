@@ -9,6 +9,8 @@ import { Layout } from "./components/Layout";
 
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
 import { Families } from "./pages/Families";
 import { HelperFamilySelector } from "./pages/HelperFamilySelector";
 import { Dashboard } from "./pages/Dashboard";
@@ -86,6 +88,8 @@ function App() {
             {/* ---------------- Public routes (web + native) ---------------- */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
             <Route path="/privacybeleid" element={<Privacybeleid />} />
             <Route path="/contact" element={<ContactSupport />} />

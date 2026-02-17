@@ -64,9 +64,17 @@ export function Login() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Wachtwoord
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Wachtwoord
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-slate-600 hover:text-slate-800 hover:underline"
+                >
+                  Wachtwoord vergeten?
+                </Link>
+              </div>
               <input
                 type="password"
                 value={password}

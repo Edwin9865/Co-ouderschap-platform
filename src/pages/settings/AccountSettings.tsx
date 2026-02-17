@@ -1,7 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { User, Mail, Lock, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+
+interface ValidationErrors {
+  length?: string;
+  uppercase?: string;
+  number?: string;
+  special?: string;
+  match?: string;
+}
 
 export function AccountSettings() {
   const { user, refreshUser } = useAuth();
@@ -11,8 +19,52 @@ export function AccountSettings() {
 
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  const [touched, setTouched] = useState({ password: false, confirm: false });
+
+  const validatePassword = (password: string): ValidationErrors => {
+    const errors: ValidationErrors = {};
+
+    if (password.length < 8) {
+      errors.length = 'Minimaal 8 karakters';
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      errors.uppercase = 'Minimaal 1 hoofdletter';
+    }
+
+    if (!/[0-9]/.test(password)) {
+      errors.number = 'Minimaal 1 cijfer';
+    }
+
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      errors.special = 'Minimaal 1 speciaal teken (!@#$%^&*...)';
+    }
+
+    return errors;
+  };
+
+  useEffect(() => {
+    if (touched.password && newPassword) {
+      const errors = validatePassword(newPassword);
+      setValidationErrors(errors);
+    }
+
+    if (touched.confirm && confirmPassword && newPassword !== confirmPassword) {
+      setValidationErrors((prev) => ({
+        ...prev,
+        match: 'Wachtwoorden komen niet overeen',
+      }));
+    } else {
+      setValidationErrors((prev) => {
+        const { match, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [newPassword, confirmPassword, touched]);
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -66,35 +118,61 @@ export function AccountSettings() {
   };
 
   const handleUpdatePassword = async () => {
-    if (!newPassword || !confirmPassword) {
-      setError('Vul alle velden in');
+    setError('');
+    setSuccess('');
+
+    // Check if all fields are filled
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setError('Vul alle wachtwoord velden in');
       return;
     }
 
+    // Validate password strength
+    const errors = validatePassword(newPassword);
+    if (Object.keys(errors).length > 0) {
+      setError('Nieuw wachtwoord voldoet niet aan de eisen');
+      setTouched({ password: true, confirm: true });
+      return;
+    }
+
+    // Check if passwords match
     if (newPassword !== confirmPassword) {
       setError('Wachtwoorden komen niet overeen');
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('Wachtwoord moet minimaal 6 karakters bevatten');
-      return;
-    }
-
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     try {
+      // First verify current password by trying to sign in with it
+      if (!user?.email) {
+        throw new Error('Geen e-mailadres gevonden');
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        throw new Error('Huidig wachtwoord is onjuist');
+      }
+
+      // If current password is correct, update to new password
       const { error: passwordError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (passwordError) throw passwordError;
 
+      // Clear all password fields
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setSuccess('Wachtwoord bijgewerkt');
+      setTouched({ password: false, confirm: false });
+      setValidationErrors({});
+
+      setSuccess('Wachtwoord succesvol gewijzigd');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Fout bij bijwerken wachtwoord');
@@ -102,6 +180,12 @@ export function AccountSettings() {
       setLoading(false);
     }
   };
+
+  const isPasswordValid = newPassword
+    ? Object.keys(validatePassword(newPassword)).length === 0
+    : false;
+  const isPasswordFormValid =
+    currentPassword && isPasswordValid && newPassword === confirmPassword;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -118,8 +202,8 @@ export function AccountSettings() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600" />
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-800">{error}</p>
         </div>
       )}
@@ -189,8 +273,8 @@ export function AccountSettings() {
 
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-900">
-                <strong>Let op:</strong> Bij het wijzigen van je e-mailadres ontvang je een bevestigingsmail.
-                Je moet deze bevestigen voordat de wijziging actief wordt.
+                <strong>Let op:</strong> Bij het wijzigen van je e-mailadres ontvang je een
+                bevestigingsmail. Je moet deze bevestigen voordat de wijziging actief wordt.
               </p>
             </div>
           </div>
@@ -204,6 +288,24 @@ export function AccountSettings() {
 
           <div className="space-y-4">
             <div>
+              <label
+                htmlFor="currentPassword"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Huidig wachtwoord
+              </label>
+              <input
+                id="currentPassword"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loading}
+                placeholder="Voer je huidige wachtwoord in"
+              />
+            </div>
+
+            <div>
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Nieuw wachtwoord
               </label>
@@ -212,14 +314,50 @@ export function AccountSettings() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  touched.password && Object.keys(validationErrors).length > 0
+                    ? 'border-red-300'
+                    : 'border-gray-300'
+                }`}
                 disabled={loading}
-                placeholder="Minimaal 6 karakters"
+                placeholder="Minimaal 8 karakters"
               />
+
+              {touched.password && newPassword && (
+                <div className="mt-2 space-y-1">
+                  {['length', 'uppercase', 'number', 'special'].map((key) => {
+                    const hasError = validationErrors[key as keyof ValidationErrors];
+                    return (
+                      <div
+                        key={key}
+                        className={`flex items-center gap-2 text-xs ${
+                          hasError ? 'text-red-600' : 'text-green-600'
+                        }`}
+                      >
+                        {hasError ? (
+                          <AlertCircle className="w-3 h-3" />
+                        ) : (
+                          <CheckCircle2 className="w-3 h-3" />
+                        )}
+                        <span>
+                          {key === 'length' && 'Minimaal 8 karakters'}
+                          {key === 'uppercase' && 'Minimaal 1 hoofdletter'}
+                          {key === 'number' && 'Minimaal 1 cijfer'}
+                          {key === 'special' && 'Minimaal 1 speciaal teken'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
                 Bevestig nieuw wachtwoord
               </label>
               <input
@@ -227,19 +365,47 @@ export function AccountSettings() {
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  touched.confirm && validationErrors.match ? 'border-red-300' : 'border-gray-300'
+                }`}
                 disabled={loading}
                 placeholder="Herhaal nieuw wachtwoord"
               />
+
+              {touched.confirm && validationErrors.match && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-red-600">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>{validationErrors.match}</span>
+                </div>
+              )}
+
+              {touched.confirm &&
+                confirmPassword &&
+                !validationErrors.match &&
+                newPassword === confirmPassword && (
+                  <div className="mt-2 flex items-center gap-2 text-xs text-green-600">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Wachtwoorden komen overeen</span>
+                  </div>
+                )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+              <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-900">
+                Een sterk wachtwoord bevat minimaal 8 karakters met een combinatie van hoofdletters,
+                kleine letters, cijfers en speciale tekens (!@#$%^&*...).
+              </p>
             </div>
 
             <button
               onClick={handleUpdatePassword}
-              disabled={loading || !newPassword || !confirmPassword}
+              disabled={loading || !isPasswordFormValid}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
-              Wachtwoord wijzigen
+              {loading ? 'Bezig...' : 'Wachtwoord wijzigen'}
             </button>
           </div>
         </div>
