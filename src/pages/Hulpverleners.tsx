@@ -130,10 +130,28 @@ export function Hulpverleners() {
     }
   }, [currentFamily]);
 
+  const fetchInviteCode = useCallback(async () => {
+    if (!currentFamily) return;
+
+    const { data } = await supabase
+      .from('family_invite_codes')
+      .select('code')
+      .eq('family_id', currentFamily.id)
+      .is('used_at', null)
+      .maybeSingle();
+
+    if (data) {
+      setInviteCode(data.code);
+    } else {
+      setInviteCode('');
+    }
+  }, [currentFamily]);
+
   useEffect(() => {
     fetchMessages();
     fetchHelperRequests();
-  }, [fetchMessages, fetchHelperRequests]);
+    fetchInviteCode();
+  }, [fetchMessages, fetchHelperRequests, fetchInviteCode]);
 
   useEffect(() => {
     if (!currentFamily) return;
@@ -221,8 +239,8 @@ export function Hulpverleners() {
   };
 
   const copyFamilyCode = async () => {
-    if (currentFamily?.invite_code) {
-      await navigator.clipboard.writeText(currentFamily.invite_code);
+    if (inviteCode) {
+      await navigator.clipboard.writeText(inviteCode);
       setCopiedFamilyCode(true);
       setTimeout(() => setCopiedFamilyCode(false), 2000);
     }
@@ -631,16 +649,28 @@ export function Hulpverleners() {
                       </div>
                     </div>
                   </div>
+                ) : !inviteCode ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
+                      <div>
+                        <h3 className="font-semibold text-amber-900 mb-1">Geen koppelcode beschikbaar</h3>
+                        <p className="text-sm text-amber-800">
+                          Er is geen actieve koppelcode voor dit gezin. Dit kan gebeuren als de code al gebruikt is.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-3">
                     <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4">
                       <p className="text-3xl font-mono font-bold text-slate-800 tracking-wider text-center">
-                        {currentFamily.invite_code}
+                        {inviteCode}
                       </p>
                     </div>
                     <button
                       onClick={copyFamilyCode}
-                      disabled={!currentFamily.invite_code}
+                      disabled={!inviteCode}
                       className="px-6 py-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {copiedFamilyCode ? (
