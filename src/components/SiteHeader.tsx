@@ -56,9 +56,14 @@ export function SiteHeader() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group" onClick={closeMobile}>
           <Logo className="w-9 h-9 transition-transform group-hover:scale-105" />
-          <span className="text-lg sm:text-xl font-extrabold text-slate-900">
-            CoParenting
-          </span>
+          <div className="flex flex-col">
+            <span className="text-lg sm:text-xl font-extrabold text-slate-900 leading-tight">
+              CoParenting
+            </span>
+            <span className="text-[10px] sm:text-xs text-slate-600 font-medium -mt-0.5">
+              -samen opvoeden-
+            </span>
+          </div>
           <span className="ml-2 hidden sm:inline-flex text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
             Beta
           </span>

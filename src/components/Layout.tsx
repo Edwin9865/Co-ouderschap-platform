@@ -229,10 +229,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/dashboard" className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-white" />
+                <img
+                  src="/ChatGPT_Image_17_feb_2026,_09_48_08.png"
+                  alt="CoParenting Logo"
+                  className="w-8 h-8 object-contain"
+                />
+                <div className="flex flex-col">
+                  <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
+                  <div className="text-[10px] text-gray-600 font-medium -mt-0.5">-samen opvoeden-</div>
                 </div>
-                <div className="text-lg font-semibold text-gray-900">Co-Ouderschap</div>
               </Link>
             </div>
 
