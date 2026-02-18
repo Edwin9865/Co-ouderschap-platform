@@ -1,42 +1,186 @@
+// src/pages/AboutUs.tsx
 import { Helmet } from 'react-helmet-async';
-import { Users, Heart, Shield, Calendar, FileText, MessageSquare, UserPlus, Sparkles, ArrowRight } from 'lucide-react';
+import { Users, Heart, Shield, Calendar, FileText, MessageSquare, UserPlus, Sparkles, ArrowRight, CheckCircle } from 'lucide-react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
+
+/* ─── Design tokens (zelfde als Homepage) ─── */
+const tk = {
+  sand:       "#f5f0e8",
+  sandDark:   "#ede7d9",
+  warm:       "#c8b89a",
+  slate:      "#2d3142",
+  slateLight: "#4a506b",
+  moss:       "#4a6741",
+  mossLight:  "#6b9467",
+  terra:      "#b07d5a",
+  cream:      "#faf8f4",
+  white:      "#ffffff",
+  text:       "#2d3142",
+  muted:      "#6b7080",
+  border:     "#e8e1d6",
+  borderLight:"#e5dfd4",
+};
+
+const globalStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
+
+  .au-page {
+    font-family: 'DM Sans', sans-serif;
+    background: #faf8f4;
+    color: #2d3142;
+    -webkit-font-smoothing: antialiased;
+  }
+  .au-serif { font-family: 'Lora', Georgia, serif; }
+
+  @keyframes au-fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .au-fade-up  { animation: au-fadeUp 0.65s ease both; }
+  .au-delay-1  { animation-delay: 0.10s; }
+  .au-delay-2  { animation-delay: 0.20s; }
+
+  .au-rule { border: none; border-top: 1px solid #e5dfd4; margin: 0; }
+
+  .au-card {
+    background: #ffffff;
+    border: 1px solid #e8e1d6;
+    border-radius: 20px;
+    padding: 36px;
+    transition: box-shadow 0.25s, transform 0.25s;
+  }
+  .au-card:hover {
+    box-shadow: 0 12px 40px rgba(45,49,66,0.09);
+    transform: translateY(-3px);
+  }
+
+  .au-icon-badge {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    background: #f5f0e8;
+    border: 1px solid #e0d8cc;
+  }
+
+  .au-btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #4a6741; color: #fff;
+    padding: 15px 30px; border-radius: 12px;
+    font-weight: 500; font-size: 16px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .au-btn-primary:hover {
+    background: #6b9467;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(74,103,65,0.28);
+  }
+
+  .au-btn-ghost {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: transparent; color: #2d3142;
+    padding: 15px 30px; border-radius: 12px;
+    font-weight: 500; font-size: 16px;
+    text-decoration: none;
+    border: 1.5px solid #d4ccc0;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .au-btn-ghost:hover {
+    border-color: #4a506b;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(45,49,66,0.08);
+  }
+
+  .au-btn-white {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #ffffff; color: #4a6741;
+    padding: 15px 30px; border-radius: 12px;
+    font-weight: 500; font-size: 16px;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .au-btn-white:hover {
+    background: #f0ece4;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.15);
+  }
+
+  .au-btn-ghost-light {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.08); color: #fff;
+    padding: 15px 30px; border-radius: 12px;
+    font-weight: 500; font-size: 16px;
+    text-decoration: none;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    transition: background 0.2s, transform 0.2s;
+  }
+  .au-btn-ghost-light:hover {
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+  }
+
+  .au-cta-wrap {
+    background: #2d3142;
+    border-radius: 32px;
+    padding: 72px 56px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .au-cta-wrap::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(74,103,65,0.35) 0%, transparent 65%),
+                radial-gradient(ellipse at 80% 20%, rgba(176,125,90,0.2) 0%, transparent 55%);
+    pointer-events: none;
+  }
+
+  .au-quote-block {
+    border-left: 3px solid #4a6741;
+    padding: 28px 32px;
+    background: #f5f0e8;
+    border-radius: 0 16px 16px 0;
+  }
+
+  .au-step-num {
+    font-family: 'Lora', serif;
+    font-size: 48px;
+    font-weight: 500;
+    color: #ede7d9;
+    line-height: 1;
+    user-select: none;
+  }
+
+  @media (max-width: 768px) {
+    .au-two-col   { grid-template-columns: 1fr !important; }
+    .au-three-col { grid-template-columns: 1fr !important; }
+    .au-cta-wrap  { padding: 48px 28px; }
+  }
+`;
 
 export function AboutUs() {
   return (
     <>
       <Helmet>
-        <title>Over Ons - Co-Parenting App voor Gescheiden Ouders | Samenwerking & Transparantie</title>
-        <meta
-          name="description"
-          content="Ontdek hoe onze co-parenting app tot stand is gekomen door samenwerking met ervaringsdeskundigen en hulpverleners. Een platform dat communicatie, planning en transparantie bevordert voor gescheiden ouders."
-        />
-        <meta
-          name="keywords"
-          content="co-parenting app, gescheiden ouders, co-ouderschap, ouderschap na scheiding, communicatie gescheiden ouders, omgangsregeling app, gedeeld ouderschap, hulpverleners, ervaringsdeskundigen"
-        />
+        <title>Over Ons - CoParenting · Rust en overzicht in co-ouderschap</title>
+        <meta name="description" content="Ontdek hoe CoParenting tot stand is gekomen door samenwerking met ervaringsdeskundigen en hulpverleners. Een platform dat communicatie, planning en transparantie bevordert voor gescheiden ouders." />
+        <meta name="keywords" content="co-parenting app, gescheiden ouders, co-ouderschap, ouderschap na scheiding, communicatie gescheiden ouders, omgangsregeling app, gedeeld ouderschap" />
         <link rel="canonical" href="https://coparenting.app/over-ons" />
-
-        <meta property="og:title" content="Over Ons - Co-Parenting App voor Gescheiden Ouders" />
-        <meta property="og:description" content="Een platform ontwikkeld met ervaringsdeskundigen en hulpverleners voor effectieve communicatie en samenwerking in co-ouderschap." />
+        <meta property="og:title" content="Over Ons - CoParenting" />
+        <meta property="og:description" content="Een platform ontwikkeld met ervaringsdeskundigen en hulpverleners voor effectieve communicatie in co-ouderschap." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://coparenting.app/over-ons" />
-
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "AboutPage",
             "mainEntity": {
               "@type": "Organization",
-              "name": "Co-Parenting App",
+              "name": "CoParenting",
               "description": "Platform voor effectieve communicatie en samenwerking tussen gescheiden ouders",
               "url": "https://coparenting.app",
               "foundingDate": "2024",
-              "founder": {
-                "@type": "Person",
-                "name": "Co-Parenting Team"
-              },
               "areaServed": "Nederland",
               "serviceType": "Co-parenting platform"
             }
@@ -44,367 +188,253 @@ export function AboutUs() {
         </script>
       </Helmet>
 
-      <div className="min-h-screen bg-white">
+      <div className="au-page">
+        <style>{globalStyles}</style>
         <SiteHeader />
 
         <main>
-          {/* Hero Section */}
-          <section className="relative overflow-hidden bg-gradient-to-br from-teal-600 via-emerald-600 to-teal-700 text-white py-20 sm:py-28">
-            <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
-            <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-white/10 blur-3xl" />
 
-            <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl">
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
-                  Over Ons
-                </h1>
-                <p className="text-xl sm:text-2xl text-teal-50 leading-relaxed">
-                  Een platform ontwikkeld met en voor ouders die gescheiden zijn en streven naar
-                  constructieve samenwerking in het belang van hun kinderen.
-                </p>
-              </div>
+          {/* ── HERO ── */}
+          <section style={{ background: tk.cream, padding: "80px 0 96px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 32px" }}>
+              <p className="au-fade-up" style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 20px" }}>
+                Ons verhaal
+              </p>
+              <h1 className="au-serif au-fade-up au-delay-1" style={{ fontSize: "clamp(44px, 5vw, 66px)", fontWeight: 500, lineHeight: 1.13, margin: "0 0 28px", color: tk.slate, maxWidth: 720 }}>
+                Gebouwd door mensen die{" "}
+                <em style={{ color: tk.moss, fontStyle: "italic" }}>het begrijpen</em>
+              </h1>
+              <p className="au-fade-up au-delay-2" style={{ fontSize: 18, lineHeight: 1.75, color: tk.muted, maxWidth: 580, margin: 0 }}>
+                CoParenting is niet bedacht achter een bureau. Het is ontwikkeld met en voor ouders
+                die zelf weten hoe uitdagend co-ouderschap kan zijn, en wat er écht nodig is.
+              </p>
             </div>
           </section>
 
-          {/* Missie Section */}
-          <section className="py-20 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-14 h-14 rounded-2xl bg-rose-100 border-2 border-rose-200 flex items-center justify-center">
-                    <Heart className="w-7 h-7 text-rose-600" />
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-                    Onze Missie
+          <hr className="au-rule" />
+
+          {/* ── MISSIE ── */}
+          <section style={{ background: tk.white, padding: "96px 32px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <div className="au-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 16px" }}>
+                    Waarom wij bestaan
+                  </p>
+                  <h2 className="au-serif" style={{ fontSize: "clamp(32px, 3.5vw, 48px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 24px" }}>
+                    Onze missie
                   </h2>
-                </div>
-                <div className="space-y-6 text-gray-700">
-                  <p className="text-lg sm:text-xl leading-relaxed">
+                  <p style={{ fontSize: 17, color: tk.muted, lineHeight: 1.8, margin: "0 0 20px" }}>
                     Wij geloven dat kinderen het recht hebben op een gezonde relatie met beide ouders,
                     ook na een scheiding. Onze missie is om gescheiden ouders te ondersteunen met tools
                     die effectieve communicatie bevorderen, transparantie waarborgen en conflicten
                     minimaliseren.
                   </p>
-                  <p className="text-lg sm:text-xl leading-relaxed">
+                  <p style={{ fontSize: 17, color: tk.muted, lineHeight: 1.8, margin: 0 }}>
                     Door het bieden van een gestructureerd platform helpen we ouders om zich te richten
                     op wat echt belangrijk is: het welzijn en de ontwikkeling van hun kinderen.
                   </p>
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Doelgroep Section */}
-          <section className="py-20 bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-center gap-4 mb-12">
-                  <div className="w-14 h-14 rounded-2xl bg-teal-100 border-2 border-teal-200 flex items-center justify-center">
-                    <Users className="w-7 h-7 text-teal-600" />
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-                    Voor Wie Is Deze App Bedoeld?
-                  </h2>
-                </div>
-                <div className="space-y-6">
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                      Gescheiden Ouders
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Of je nu een omgangsregeling hebt afgesproken, co-ouderschap uitvoert of in een
-                      complexe gezinssituatie zit: onze app biedt de structuur en overzicht die je
-                      nodig hebt om effectief samen te werken met je ex-partner.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                      Hulpverleners en Professionals
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Mediators, gezinstherapeuten, jeugdzorgwerkers en advocaten kunnen toegang
-                      krijgen tot het dossier van hun cliënten (met toestemming). Dit biedt waardevolle
-                      context en helpt bij het bieden van gerichte ondersteuning.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4">
-                      Nieuwe Partners en Stiefouders
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Ook nieuwe partners kunnen een rol spelen in de opvoeding. Via onze app blijven
-                      zij op de hoogte van afspraken en belangrijke informatie, zonder dat dit leidt
-                      tot miscommunicatie.
-                    </p>
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 16 }}>
+                  {[
+                    { icon: <Heart size={20} color={tk.moss} />,  text: "Kinderen voorop — altijd" },
+                    { icon: <Shield size={20} color={tk.moss} />, text: "Privacy en veiligheid als basis" },
+                    { icon: <Users size={20} color={tk.moss} />,  text: "Samenwerking, ook als het moeilijk is" },
+                  ].map(({ icon, text }) => (
+                    <div key={text} style={{ display: "flex", alignItems: "center", gap: 16, background: tk.sand, borderRadius: 16, padding: "20px 24px", border: `1px solid ${tk.borderLight}` }}>
+                      <div className="au-icon-badge">{icon}</div>
+                      <span style={{ fontSize: 16, fontWeight: 500, color: tk.slate }}>{text}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Ontstaan Section */}
-          <section className="py-20 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl mx-auto">
-                <div className="flex items-center gap-4 mb-12">
-                  <div className="w-14 h-14 rounded-2xl bg-amber-100 border-2 border-amber-200 flex items-center justify-center">
-                    <Sparkles className="w-7 h-7 text-amber-600" />
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900">
-                    Hoe Is Deze App Ontstaan?
-                  </h2>
-                </div>
-                <div className="space-y-8 text-base sm:text-lg text-gray-700 leading-relaxed">
-                  <p>
-                    De ontwikkeling van onze co-parenting app is begonnen vanuit een simpele maar
-                    belangrijke observatie: veel gescheiden ouders worstelen met communicatie,
-                    transparantie en het bijhouden van belangrijke informatie over hun kinderen.
-                  </p>
+          <hr className="au-rule" />
 
-                  <div className="bg-gradient-to-br from-teal-50 to-emerald-50 border-l-4 border-teal-600 p-8 rounded-r-3xl">
-                    <h3 className="font-bold text-gray-900 mb-4 text-xl">
-                      Samenwerking met Ervaringsdeskundigen
-                    </h3>
-                    <p>
+          {/* ── ONTSTAAN ── */}
+          <section style={{ background: tk.sand, padding: "96px 32px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <div style={{ maxWidth: 720 }}>
+                <p style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 16px" }}>
+                  Hoe het begon
+                </p>
+                <h2 className="au-serif" style={{ fontSize: "clamp(32px, 3.5vw, 48px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 32px" }}>
+                  Hoe is CoParenting ontstaan?
+                </h2>
+                <p style={{ fontSize: 17, color: tk.muted, lineHeight: 1.8, margin: "0 0 40px" }}>
+                  De ontwikkeling van CoParenting begon vanuit een simpele maar belangrijke observatie:
+                  veel gescheiden ouders worstelen met communicatie, transparantie en het bijhouden van
+                  belangrijke informatie over hun kinderen. Bestaande tools schoten tekort of waren
+                  niet gebouwd met deze specifieke situatie in gedachten.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 20 }}>
+                  <div className="au-quote-block">
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                      <div className="au-icon-badge"><Users size={20} color={tk.moss} /></div>
+                      <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: 0 }}>Samenwerking met ervaringsdeskundigen</h3>
+                    </div>
+                    <p style={{ fontSize: 15, color: tk.muted, lineHeight: 1.75, margin: 0 }}>
                       Vanaf dag één hebben we nauw samengewerkt met gescheiden ouders die zelf de
                       uitdagingen van co-ouderschap ervaren. Hun inzichten, frustraties en wensen
                       vormden de basis voor elke functie die we hebben ontwikkeld. Dit zorgt ervoor
-                      dat de app niet alleen technisch goed is, maar ook echt aansluit bij de
-                      dagelijkse realiteit van gescheiden gezinnen.
+                      dat de app aansluit bij de dagelijkse realiteit van gescheiden gezinnen.
                     </p>
                   </div>
 
-                  <div className="bg-gradient-to-br from-emerald-50 to-cyan-50 border-l-4 border-emerald-600 p-8 rounded-r-3xl">
-                    <h3 className="font-bold text-gray-900 mb-4 text-xl">
-                      Input van Hulpverleners
-                    </h3>
-                    <p>
-                      Daarnaast hebben we hulpverleners, mediators, gezinstherapeuten en
-                      jeugdzorgwerkers betrokken bij het ontwikkelproces. Zij brachten professionele
-                      expertise in over wat werkt en wat niet in conflictsituaties. Hun feedback heeft
-                      ons geholpen om functies te bouwen die niet alleen praktisch zijn, maar ook
-                      bijdragen aan de-escalatie en constructieve samenwerking.
+                  <div className="au-quote-block">
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                      <div className="au-icon-badge"><Sparkles size={20} color={tk.moss} /></div>
+                      <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: 0 }}>Input van hulpverleners</h3>
+                    </div>
+                    <p style={{ fontSize: 15, color: tk.muted, lineHeight: 1.75, margin: 0 }}>
+                      Mediators, gezinstherapeuten, jeugdzorgwerkers en advocaten werden betrokken bij
+                      het ontwikkelproces. Zij brachten professionele expertise in over wat werkt in
+                      conflictsituaties. Hun feedback hielp ons functies te bouwen die bijdragen aan
+                      de-escalatie en constructieve samenwerking.
                     </p>
                   </div>
+                </div>
+              </div>
+            </div>
+          </section>
 
-                  <p>
-                    Het resultaat is een platform dat zowel gebruiksvriendelijk als effectief is,
-                    gebouwd op echte ervaringen en wetenschappelijk onderbouwde principes voor
-                    gezonde co-ouderschap.
+          <hr className="au-rule" />
+
+          {/* ── VOOR WIE ── */}
+          <section style={{ background: tk.cream, padding: "96px 32px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <p style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 16px" }}>
+                Doelgroep
+              </p>
+              <h2 className="au-serif" style={{ fontSize: "clamp(32px, 3.5vw, 48px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 52px" }}>
+                Voor wie is CoParenting bedoeld?
+              </h2>
+              <div className="au-three-col" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+                {[
+                  {
+                    icon: <Users size={20} color={tk.moss} />,
+                    title: "Gescheiden ouders",
+                    desc: "Of je nu een omgangsregeling hebt afgesproken, co-ouderschap uitvoert of in een complexe gezinssituatie zit — CoParenting biedt de structuur en het overzicht om effectief samen te werken.",
+                  },
+                  {
+                    icon: <Heart size={20} color={tk.moss} />,
+                    title: "Hulpverleners & professionals",
+                    desc: "Mediators, gezinstherapeuten, jeugdzorgwerkers en advocaten kunnen toegang krijgen tot het dossier van hun cliënten (met toestemming) voor gerichte ondersteuning.",
+                  },
+                  {
+                    icon: <UserPlus size={20} color={tk.moss} />,
+                    title: "Nieuwe partners & stiefouders",
+                    desc: "Ook nieuwe partners kunnen een rol spelen in de opvoeding. Via CoParenting blijven zij op de hoogte van afspraken en informatie, zonder dat dit leidt tot miscommunicatie.",
+                  },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} className="au-card">
+                    <div className="au-icon-badge" style={{ marginBottom: 20 }}>{icon}</div>
+                    <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: "0 0 12px" }}>{title}</h3>
+                    <p style={{ fontSize: 15, color: tk.muted, lineHeight: 1.7, margin: 0 }}>{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <hr className="au-rule" />
+
+          {/* ── FUNCTIES ── */}
+          <section style={{ background: tk.white, padding: "96px 32px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <p style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 16px" }}>
+                Wat je krijgt
+              </p>
+              <h2 className="au-serif" style={{ fontSize: "clamp(32px, 3.5vw, 48px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 52px" }}>
+                Wat biedt CoParenting?
+              </h2>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 18 }}>
+                {[
+                  { icon: <Calendar size={20} color={tk.moss} />,     title: "Gedeelde agenda",        desc: "Plan afspraken, vakanties, ouderavonden en andere belangrijke momenten. Beide ouders hebben realtime inzicht en kunnen wijzigingen voorstellen via het verzoekensysteem." },
+                  { icon: <FileText size={20} color={tk.moss} />,     title: "Digitaal logboek",       desc: "Houd schoolresultaten, medische informatie, ontwikkelingsmijlpalen en bijzondere momenten bij. Alle informatie is toegankelijk voor beide ouders en exporteerbaar." },
+                  { icon: <MessageSquare size={20} color={tk.moss} />, title: "Verzoekensysteem",      desc: "Stel wijzigingsverzoeken in voor afspraken zonder directe confrontatie. Verzoeken kunnen worden goedgekeurd, afgewezen of aangepast. Alles wordt gedocumenteerd." },
+                  { icon: <UserPlus size={20} color={tk.moss} />,     title: "Hulpverlener-toegang",   desc: "Geef hulpverleners read-only toegang tot jullie dossier. Via het berichtensysteem kunnen zij ondersteunen en bemiddelen op basis van feitelijke informatie." },
+                  { icon: <Shield size={20} color={tk.moss} />,       title: "Privacy & veiligheid",   desc: "Jouw gegevens zijn volledig versleuteld en veilig opgeslagen. Je bepaalt zelf welke informatie je deelt en met wie. Alle acties worden gelogd voor transparantie." },
+                  { icon: <FileText size={20} color={tk.moss} />,     title: "Export-functionaliteit", desc: "Exporteer je logboek, agenda en andere gegevens naar PDF. Handig voor gesprekken met hulpverleners, rechtszaken of gewoon als back-up." },
+                ].map(({ icon, title, desc }) => (
+                  <div key={title} className="au-card">
+                    <div className="au-icon-badge" style={{ marginBottom: 20 }}>{icon}</div>
+                    <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: "0 0 10px" }}>{title}</h3>
+                    <p style={{ fontSize: 15, color: tk.muted, lineHeight: 1.7, margin: 0 }}>{desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          <hr className="au-rule" />
+
+          {/* ── WAAROM ── */}
+          <section style={{ background: tk.sand, padding: "96px 32px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <div className="au-two-col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 16px" }}>
+                    Toegevoegde waarde
+                  </p>
+                  <h2 className="au-serif" style={{ fontSize: "clamp(32px, 3.5vw, 46px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 24px" }}>
+                    Waarom kiezen voor CoParenting?
+                  </h2>
+                  <p style={{ fontSize: 17, color: tk.muted, lineHeight: 1.8, margin: 0 }}>
+                    Er zijn veel tools beschikbaar voor planning en communicatie. CoParenting is anders
+                    omdat het specifiek gebouwd is voor de realiteit van gescheiden ouders — met aandacht
+                    voor de-escalatie, transparantie en het welzijn van kinderen.
                   </p>
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Functies Section */}
-          <section className="py-20 bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-16 text-center">
-                  Wat Biedt Onze App?
-                </h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-teal-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-teal-50 border-2 border-teal-200 flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-7 h-7 text-teal-600" />
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 28 }}>
+                  {[
+                    { n: "01", title: "Alles op één plek",               desc: "In plaats van losse apps voor agenda, communicatie en documentatie, biedt CoParenting één geïntegreerd platform. Dit bespaart tijd en voorkomt dat informatie verloren gaat." },
+                    { n: "02", title: "Focus op de-escalatie",           desc: "Door gestructureerde communicatie via verzoeken worden veel conflicten vermeden. Ouders hoeven niet direct overleg te plegen over elke kleine wijziging." },
+                    { n: "03", title: "Transparantie voor alle betrokkenen", desc: "Hulpverleners en andere betrokkenen kunnen meekijken (met toestemming). Iedereen is op de hoogte en kan bijdragen aan een stabiele omgeving voor de kinderen." },
+                    { n: "04", title: "Bewijs en documentatie",          desc: "Alle communicatie en afspraken worden automatisch gedocumenteerd. Waardevol bij juridische procedures of gesprekken met mediators." },
+                    { n: "05", title: "Kindgericht",                     desc: "Alles in de app draait om het welzijn van de kinderen. Per kind informatie bijhouden houdt de focus op hun behoeften, in plaats van op het conflict." },
+                  ].map(({ n, title, desc }) => (
+                    <div key={n} style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+                      <div className="au-step-num" style={{ flexShrink: 0, minWidth: 48 }}>{n}</div>
+                      <div style={{ borderTop: `1px solid ${tk.borderLight}`, paddingTop: 12, flex: 1 }}>
+                        <h3 style={{ fontSize: 15, fontWeight: 500, color: tk.slate, margin: "0 0 8px" }}>{title}</h3>
+                        <p style={{ fontSize: 14, color: tk.muted, lineHeight: 1.7, margin: 0 }}>{desc}</p>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Gedeelde Agenda
-                      </h3>
                     </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Plan afspraken, vakanties, ouderavonden en andere belangrijke momenten. Beide
-                      ouders hebben realtime inzicht en kunnen wijzigingen voorstellen via het
-                      verzoekenssysteem.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-emerald-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-7 h-7 text-emerald-600" />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Digitaal Logboek
-                      </h3>
-                    </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Houd belangrijke gebeurtenissen bij zoals schoolresultaten, medische
-                      informatie, ontwikkelingsmijlpalen en bijzondere momenten. Alle informatie
-                      is toegankelijk voor beide ouders en kan geëxporteerd worden.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-cyan-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-cyan-50 border-2 border-cyan-200 flex items-center justify-center flex-shrink-0">
-                        <MessageSquare className="w-7 h-7 text-cyan-600" />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Verzoekenssysteem
-                      </h3>
-                    </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Stel wijzigingsverzoeken in voor afspraken zonder directe confrontatie.
-                      Verzoeken kunnen worden goedgekeurd, afgewezen of aangepast met een
-                      tegenvoorstel. Alles wordt gedocumenteerd.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-amber-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-amber-50 border-2 border-amber-200 flex items-center justify-center flex-shrink-0">
-                        <UserPlus className="w-7 h-7 text-amber-600" />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Hulpverlener Toegang
-                      </h3>
-                    </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Geef hulpverleners read-only toegang tot jullie dossier. Via het ingebouwde
-                      berichtensysteem kunnen jullie vragen stellen, advies vragen bij uitdagingen
-                      in de opvoeding, en ondersteuning krijgen wanneer jullie vastlopen.
-                      Hulpverleners kunnen proactief bemiddelen en ondersteunen op basis van
-                      feitelijke informatie.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-rose-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-rose-50 border-2 border-rose-200 flex items-center justify-center flex-shrink-0">
-                        <Shield className="w-7 h-7 text-rose-600" />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Privacy & Veiligheid
-                      </h3>
-                    </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Jouw gegevens zijn volledig versleuteld en veilig opgeslagen. Je bepaalt zelf
-                      welke informatie je deelt en met wie. Alle acties worden gelogd voor
-                      transparantie.
-                    </p>
-                  </div>
-
-                  <div className="bg-white rounded-3xl p-8 border-2 border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all hover:border-sky-200">
-                    <div className="flex items-center gap-4 mb-5">
-                      <div className="w-14 h-14 rounded-2xl bg-sky-50 border-2 border-sky-200 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-7 h-7 text-sky-600" />
-                      </div>
-                      <h3 className="text-xl font-bold text-gray-900">
-                        Export Functionaliteit
-                      </h3>
-                    </div>
-                    <p className="text-base text-gray-700 leading-relaxed">
-                      Exporteer je logboek, agenda en andere gegevens naar PDF. Handig voor gesprekken
-                      met hulpverleners, rechtszaken of gewoon als back-up van belangrijke
-                      informatie.
-                    </p>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
           </section>
 
-          {/* Toegevoegde Waarde Section */}
-          <section className="py-20 bg-white">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="max-w-3xl mx-auto">
-                <h2 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-12">
-                  Waarom Kiezen Voor Onze App?
+          {/* ── CTA ── */}
+          <section style={{ background: tk.cream, padding: "40px 32px 96px" }}>
+            <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+              <div className="au-cta-wrap">
+                <p style={{ position: "relative", zIndex: 1, fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.4)", margin: "0 0 20px" }}>
+                  Begin vandaag
+                </p>
+                <h2 className="au-serif" style={{ position: "relative", zIndex: 1, fontSize: "clamp(34px, 4vw, 54px)", fontWeight: 500, color: "#fff", lineHeight: 1.2, margin: "0 auto 20px", maxWidth: 560 }}>
+                  Klaar om te beginnen?
                 </h2>
-
-                <div className="space-y-8">
-                  <div className="border-l-4 border-teal-600 pl-8 py-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                      1. Alles Op Één Plek
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      In plaats van losse apps voor agenda, communicatie en documentatie, biedt onze
-                      app één geïntegreerd platform waar alles samenkomt. Dit bespaart tijd en
-                      voorkomt dat belangrijke informatie verloren gaat.
-                    </p>
-                  </div>
-
-                  <div className="border-l-4 border-emerald-600 pl-8 py-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                      2. Focus Op De-escalatie
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Door gestructureerde communicatie via verzoeken en duidelijke documentatie
-                      worden veel conflicten vermeden. Ouders hoeven niet direct met elkaar te
-                      overleggen over elke kleine wijziging, wat de emotionele lading verlaagt.
-                    </p>
-                  </div>
-
-                  <div className="border-l-4 border-cyan-600 pl-8 py-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                      3. Transparantie Voor Alle Betrokkenen
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Hulpverleners, nieuwe partners en andere betrokkenen kunnen (met toestemming)
-                      meekijken. Dit zorgt ervoor dat iedereen op de hoogte is en kan bijdragen aan
-                      een stabiele omgeving voor de kinderen.
-                    </p>
-                  </div>
-
-                  <div className="border-l-4 border-sky-600 pl-8 py-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                      4. Bewijs en Documentatie
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Alle communicatie en afspraken worden automatisch gedocumenteerd. Dit kan
-                      waardevol zijn bij juridische procedures of gesprekken met mediators en
-                      hulpverleners. Je hebt altijd een objectief overzicht van wat er is afgesproken.
-                    </p>
-                  </div>
-
-                  <div className="border-l-4 border-rose-600 pl-8 py-2">
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">
-                      5. Kindgericht
-                    </h3>
-                    <p className="text-base sm:text-lg text-gray-700 leading-relaxed">
-                      Alles in de app draait om het welzijn van de kinderen. Door per kind informatie
-                      bij te houden, blijft de focus op hun behoeften en ontwikkeling, in plaats van
-                      op het conflict tussen de ouders.
-                    </p>
-                  </div>
+                <p style={{ position: "relative", zIndex: 1, fontSize: 17, color: "rgba(255,255,255,0.6)", maxWidth: 420, margin: "0 auto 44px", lineHeight: 1.7 }}>
+                  Ontdek hoe CoParenting jouw situatie kan verbeteren. Gratis te starten, geen creditcard nodig.
+                </p>
+                <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" as const }}>
+                  <a href="/register" className="au-btn-white">
+                    Gratis starten <ArrowRight size={18} />
+                  </a>
+                  <a href="/pricing" className="au-btn-ghost-light">
+                    Bekijk prijzen
+                  </a>
                 </div>
               </div>
             </div>
           </section>
 
-          {/* CTA Section */}
-          <section className="py-20 bg-gradient-to-br from-teal-600 via-emerald-600 to-teal-700 text-white">
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold mb-6 leading-tight">
-                Klaar Om Te Beginnen?
-              </h2>
-              <p className="text-lg sm:text-xl text-teal-50 mb-10 max-w-2xl mx-auto leading-relaxed">
-                Ontdek hoe onze app jouw co-parenting ervaring kan verbeteren. Probeer het nu
-                gratis en ervaar zelf het verschil.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <a
-                  href="/register"
-                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-teal-700 rounded-2xl font-bold text-lg hover:bg-gray-50 hover:shadow-2xl hover:-translate-y-0.5 transition-all"
-                >
-                  Gratis Starten
-                  <ArrowRight className="w-6 h-6" />
-                </a>
-                <a
-                  href="/pricing"
-                  className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-teal-700/30 text-white rounded-2xl font-bold text-lg border-2 border-white/20 hover:bg-teal-700/50 hover:-translate-y-0.5 transition-all backdrop-blur-sm"
-                >
-                  Bekijk Prijzen
-                </a>
-              </div>
-            </div>
-          </section>
         </main>
 
         <SiteFooter />
