@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { SecureStorage } from '../lib/secureStorage';
 import type { User, FamilyMember } from '../lib/types';
 
 interface AuthContextType {
@@ -8,10 +9,12 @@ interface AuthContextType {
   user: User | null;
   familyMemberships: FamilyMember[];
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  rememberMe: boolean;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signUp: (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => Promise<void>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  setRememberMe: (enabled: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [familyMemberships, setFamilyMemberships] = useState<FamilyMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [rememberMe, setRememberMeState] = useState(true);
 
   const fetchUserData = async (userId: string) => {
     console.log('Fetching user data for:', userId);
@@ -63,19 +67,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+    const initAuth = async () => {
+      const rememberMeEnabled = await SecureStorage.getRememberMe();
+      setRememberMeState(rememberMeEnabled);
+
+      const isValid = await SecureStorage.isSessionValid();
+
+      if (!isValid && rememberMeEnabled) {
+        console.log('Session expired after 30 days of inactivity');
+        await SecureStorage.clearAuthData();
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
+
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
       setSession(currentSession);
       if (currentSession?.user) {
-        fetchUserData(currentSession.user.id);
+        await fetchUserData(currentSession.user.id);
+        await SecureStorage.updateLastActive();
       }
       setLoading(false);
-    });
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       (async () => {
         setSession(newSession);
         if (newSession?.user) {
           await fetchUserData(newSession.user.id);
+          await SecureStorage.updateLastActive();
         } else {
           setUser(null);
           setFamilyMemberships([]);
@@ -87,13 +110,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMeOption = true) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) throw error;
+
+    await SecureStorage.setRememberMe(rememberMeOption);
+    setRememberMeState(rememberMeOption);
+    await SecureStorage.updateLastActive();
   };
 
   const signUp = async (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => {
@@ -128,9 +155,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       localStorage.removeItem('helper_selected_family');
+      await SecureStorage.clearAuthData();
       await supabase.auth.signOut();
     } catch (error) {
       console.error('Error during sign out:', error);
+    }
+  };
+
+  const setRememberMe = async (enabled: boolean) => {
+    await SecureStorage.setRememberMe(enabled);
+    setRememberMeState(enabled);
+
+    if (user?.id) {
+      await supabase
+        .from('users')
+        .update({ remember_me_enabled: enabled })
+        .eq('id', user.id);
     }
   };
 
@@ -147,10 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         familyMemberships,
         loading,
+        rememberMe,
         signIn,
         signUp,
         signOut,
         refreshUser,
+        setRememberMe,
       }}
     >
       {children}

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { SecureStorage } from '../../lib/secureStorage';
+import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Info, Shield } from 'lucide-react';
 
 interface ValidationErrors {
   length?: string;
@@ -12,7 +13,7 @@ interface ValidationErrors {
 }
 
 export function AccountSettings() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, rememberMe, setRememberMe: updateRememberMe } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -24,6 +25,7 @@ export function AccountSettings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState({ password: false, confirm: false });
+  const [localRememberMe, setLocalRememberMe] = useState(rememberMe);
 
   const validatePassword = (password: string): ValidationErrors => {
     const errors: ValidationErrors = {};
@@ -187,6 +189,22 @@ export function AccountSettings() {
   const isPasswordFormValid =
     currentPassword && isPasswordValid && newPassword === confirmPassword;
 
+  const handleToggleRememberMe = async () => {
+    try {
+      const newValue = !localRememberMe;
+      setLocalRememberMe(newValue);
+      await updateRememberMe(newValue);
+      setSuccess(newValue
+        ? 'Automatisch inloggen ingeschakeld (30 dagen)'
+        : 'Automatisch inloggen uitgeschakeld'
+      );
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError('Fout bij bijwerken instellingen');
+      setLocalRememberMe(!localRememberMe);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
@@ -276,6 +294,42 @@ export function AccountSettings() {
                 <strong>Let op:</strong> Bij het wijzigen van je e-mailadres ontvang je een
                 bevestigingsmail. Je moet deze bevestigen voordat de wijziging actief wordt.
               </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Beveiliging
+          </h2>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                  Automatisch inloggen
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  Blijf ingelogd op dit apparaat. Je hoeft niet opnieuw in te loggen wanneer je de app sluit.
+                  De sessie blijft {SecureStorage.getSessionTimeoutDays()} dagen geldig bij inactiviteit.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Info className="w-3 h-3" />
+                  <span>
+                    Voor maximale beveiliging wordt aanbevolen dit uit te schakelen op gedeelde apparaten
+                  </span>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={localRememberMe}
+                  onChange={handleToggleRememberMe}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
           </div>
         </div>
