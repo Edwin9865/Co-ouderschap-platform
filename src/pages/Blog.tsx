@@ -49,9 +49,6 @@ export default function Blog() {
       .sort((a, b) => (a.date < b.date ? 1 : -1));
   }, [selectedCategory, search]);
 
-  const featured = filteredPosts[0];
-  const rest = featured ? filteredPosts.slice(1) : filteredPosts;
-
   return (
     <div className="min-h-screen bg-white">
       <Seo
@@ -65,44 +62,43 @@ export default function Blog() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-50 via-white to-white" />
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-blue-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-sky-200/40 blur-3xl" />
+      <section className="relative overflow-hidden bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-teal-200/30 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-emerald-200/30 blur-3xl" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm">
-              <Sparkles className="w-4 h-4 text-blue-600" />
+            <div className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white border-2 border-teal-200 text-teal-700 shadow-sm">
+              <Sparkles className="w-5 h-5 text-teal-600" />
               Praktische tips & inzichten
             </div>
 
-            <h1 className="mt-5 text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900">
+            <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
               Blog
             </h1>
-            <p className="mt-4 text-lg text-slate-600 leading-relaxed">
+            <p className="mt-6 text-xl text-gray-700 leading-relaxed">
               Artikelen over co-ouderschap: communicatie, regelingen, kinderen, planning, relaties en financiën.
               Gericht op rust, duidelijkheid en voorspelbaarheid.
             </p>
 
             {/* Search */}
-            <div className="mt-7">
+            <div className="mt-10">
               <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Zoek in artikelen..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none text-slate-900 placeholder-slate-400 bg-white"
+                  className="w-full pl-14 pr-6 py-5 rounded-2xl border-2 border-gray-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 focus:outline-none text-gray-900 placeholder-gray-400 bg-white font-medium text-lg"
                 />
               </div>
             </div>
 
             {/* Categories */}
-            <div className="mt-6 flex flex-wrap gap-2.5 items-center">
-              <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">
-                <Filter className="w-4 h-4" />
+            <div className="mt-8 flex flex-wrap gap-3 items-center">
+              <span className="inline-flex items-center gap-2 text-sm font-bold text-gray-600">
+                <Filter className="w-5 h-5" />
                 Filter:
               </span>
 
@@ -111,10 +107,10 @@ export default function Blog() {
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={cx(
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all border",
+                    "px-5 py-2.5 rounded-full text-sm font-bold transition-all border-2",
                     selectedCategory === cat
-                      ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                      ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-teal-600 shadow-lg"
+                      : "bg-white text-gray-700 hover:bg-gray-50 border-gray-200 hover:border-gray-300"
                   )}
                 >
                   {cat}
@@ -123,10 +119,10 @@ export default function Blog() {
             </div>
 
             {/* Results info */}
-            <div className="mt-5 text-sm text-slate-600">
+            <div className="mt-6 text-base text-gray-600 font-medium">
               {filteredPosts.length} {filteredPosts.length === 1 ? "artikel" : "artikelen"} gevonden
-              {selectedCategory !== "Alle" ? <span className="text-slate-400"> • {selectedCategory}</span> : null}
-              {search.trim() ? <span className="text-slate-400"> • zoekterm: “{search.trim()}”</span> : null}
+              {selectedCategory !== "Alle" ? <span className="text-gray-400"> • {selectedCategory}</span> : null}
+              {search.trim() ? <span className="text-gray-400"> • zoekterm: "{search.trim()}"</span> : null}
               {(search.trim() || selectedCategory !== "Alle") ? (
                 <button
                   type="button"
@@ -134,7 +130,7 @@ export default function Blog() {
                     setSearch("");
                     setSelectedCategory("Alle");
                   }}
-                  className="ml-3 text-blue-600 hover:text-blue-700 font-semibold"
+                  className="ml-4 text-teal-600 hover:text-teal-700 font-bold"
                 >
                   Reset
                 </button>
@@ -144,110 +140,48 @@ export default function Blog() {
         </div>
       </section>
 
-      {/* Featured */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-6">
-          {featured ? (
-            <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-lg transition">
-              <div className="grid lg:grid-cols-2">
-                <Link to={`/blog/${featured.slug}`} className="block relative h-64 lg:h-full overflow-hidden">
-                  <img
-                    src={featured.image}
-                    alt={featured.title}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                    loading="eager"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/30 via-transparent to-transparent" />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full">
-                      {featured.category}
-                    </span>
-                  </div>
-                </Link>
-
-                <div className="p-7 sm:p-10">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    Uitgelicht
-                  </div>
-
-                  <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold text-slate-900">
-                    <Link to={`/blog/${featured.slug}`} className="hover:text-blue-600 transition-colors">
-                      {featured.title}
-                    </Link>
-                  </h2>
-
-                  <p className="mt-4 text-slate-600 leading-relaxed">
-                    {featured.excerpt}
-                  </p>
-
-                  <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-slate-500">
-                    <span className="inline-flex items-center gap-2">
-                      <Calendar className="w-4 h-4" />
-                      {formatDateNlShort(featured.date)}
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <Clock className="w-4 h-4" />
-                      {featured.readTime}
-                    </span>
-                  </div>
-
-                  <div className="mt-7">
-                    <Link
-                      to={`/blog/${featured.slug}`}
-                      className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-semibold hover:bg-blue-700 transition"
-                    >
-                      Lees artikel
-                      <ArrowRight className="w-5 h-5" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {/* Grid */}
-      <section className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-7">
-            {rest.map((post) => (
+      {/* Grid - Featured section removed as requested */}
+      <section className="bg-white py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredPosts.map((post) => (
               <article
                 key={post.id}
-                className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group"
+                className="bg-white rounded-3xl border-2 border-gray-100 overflow-hidden shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group"
               >
-                <Link to={`/blog/${post.slug}`} className="block relative h-48 overflow-hidden">
+                <Link to={`/blog/${post.slug}`} className="block relative h-56 overflow-hidden">
                   <img
                     src={post.image}
                     alt={post.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
                   />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded-full">
+                  <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 via-transparent to-transparent" />
+                  <div className="absolute top-5 left-5">
+                    <span className="px-4 py-1.5 bg-gradient-to-r from-teal-600 to-emerald-600 text-white text-sm font-bold rounded-full shadow-lg">
                       {post.category}
                     </span>
                   </div>
                 </Link>
 
-                <div className="p-6">
-                  <h3 className="text-lg font-extrabold text-slate-900 mb-2 leading-snug">
-                    <Link to={`/blog/${post.slug}`} className="hover:text-blue-600 transition-colors">
+                <div className="p-7">
+                  <h3 className="text-xl font-extrabold text-gray-900 mb-3 leading-snug">
+                    <Link to={`/blog/${post.slug}`} className="hover:text-teal-600 transition-colors">
                       {post.title}
                     </Link>
                   </h3>
 
-                  <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                  <p className="text-gray-600 text-base leading-relaxed mb-5">
                     {post.excerpt}
                   </p>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span className="inline-flex items-center gap-1">
+                  <div className="flex items-center justify-between pt-5 border-t-2 border-gray-100">
+                    <div className="flex items-center gap-4 text-sm text-gray-500 font-medium">
+                      <span className="inline-flex items-center gap-1.5">
                         <Calendar className="w-4 h-4" />
                         {formatDateNlShort(post.date)}
                       </span>
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1.5">
                         <Clock className="w-4 h-4" />
                         {post.readTime}
                       </span>
@@ -255,11 +189,11 @@ export default function Blog() {
 
                     <Link
                       to={`/blog/${post.slug}`}
-                      className="inline-flex items-center justify-center w-10 h-10 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 transition"
+                      className="inline-flex items-center justify-center w-11 h-11 rounded-2xl border-2 border-gray-200 bg-white hover:bg-teal-50 hover:border-teal-200 transition-all group-hover:translate-x-1"
                       aria-label="Lees artikel"
                       title="Lees artikel"
                     >
-                      <ArrowRight className="w-5 h-5 text-blue-600" />
+                      <ArrowRight className="w-5 h-5 text-teal-600" />
                     </Link>
                   </div>
                 </div>
@@ -269,11 +203,11 @@ export default function Blog() {
 
           {/* Empty state */}
           {filteredPosts.length === 0 ? (
-            <div className="mt-10 text-center py-12 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-              <p className="text-slate-700 font-semibold">Geen artikelen gevonden</p>
-              <p className="text-sm text-slate-500 mt-1">Probeer een andere zoekterm of filter.</p>
+            <div className="mt-10 text-center py-16 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+              <p className="text-gray-900 font-bold text-xl">Geen artikelen gevonden</p>
+              <p className="text-base text-gray-600 mt-2">Probeer een andere zoekterm of filter.</p>
               <button
-                className="mt-5 inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-semibold"
+                className="mt-6 inline-flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white border-2 border-gray-200 hover:bg-gray-50 hover:shadow-lg font-bold transition-all"
                 onClick={() => {
                   setSearch("");
                   setSelectedCategory("Alle");
@@ -285,25 +219,30 @@ export default function Blog() {
           ) : null}
 
           {/* Bottom CTA */}
-          <div className="mt-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-8 sm:p-10 text-center text-white shadow-xl shadow-blue-200/50">
-            <h2 className="text-2xl sm:text-3xl font-extrabold">Klaar voor meer rust en overzicht?</h2>
-            <p className="mt-3 text-blue-100 max-w-2xl mx-auto">
-              Start gratis en organiseer afspraken, verzoeken en logboek op één plek.
-            </p>
-            <div className="mt-7 flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                to="/register"
-                className="inline-flex items-center justify-center gap-2 bg-white text-blue-700 px-7 py-3.5 rounded-2xl font-semibold hover:bg-blue-50 transition shadow-lg"
-              >
-                Start gratis
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link
-                to="/pricing"
-                className="inline-flex items-center justify-center gap-2 bg-blue-700/30 text-white px-7 py-3.5 rounded-2xl font-semibold border border-blue-200/20 hover:bg-blue-700/40 transition"
-              >
-                Bekijk prijzen
-              </Link>
+          <div className="mt-20 bg-gradient-to-br from-teal-600 via-emerald-600 to-teal-700 rounded-3xl p-10 sm:p-12 text-center text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+
+            <div className="relative">
+              <h2 className="text-3xl sm:text-4xl font-extrabold">Klaar voor meer rust en overzicht?</h2>
+              <p className="mt-4 text-xl text-teal-50 max-w-2xl mx-auto leading-relaxed">
+                Start gratis en organiseer afspraken, verzoeken en logboek op één plek.
+              </p>
+              <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+                <Link
+                  to="/register"
+                  className="inline-flex items-center justify-center gap-3 bg-white text-teal-700 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-gray-50 hover:shadow-2xl hover:-translate-y-0.5 transition-all"
+                >
+                  Start gratis
+                  <ArrowRight className="w-6 h-6" />
+                </Link>
+                <Link
+                  to="/pricing"
+                  className="inline-flex items-center justify-center gap-3 bg-teal-700/30 text-white px-8 py-4 rounded-2xl font-bold text-lg border-2 border-white/20 hover:bg-teal-700/50 hover:-translate-y-0.5 transition-all backdrop-blur-sm"
+                >
+                  Bekijk prijzen
+                </Link>
+              </div>
             </div>
           </div>
         </div>

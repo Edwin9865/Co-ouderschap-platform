@@ -238,38 +238,37 @@ export default function FAQ() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-50 via-white to-white" />
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-blue-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-sky-200/40 blur-3xl" />
+      <section className="relative overflow-hidden bg-gradient-to-br from-teal-50 via-emerald-50 to-cyan-50">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-teal-200/30 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-emerald-200/30 blur-3xl" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm">
-              <Sparkles className="w-4 h-4 text-blue-600" />
+            <div className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full bg-white border-2 border-teal-200 text-teal-700 shadow-sm">
+              <Sparkles className="w-5 h-5 text-teal-600" />
               Antwoorden die je snel verder helpen
             </div>
 
-            <h1 className="mt-5 text-3xl sm:text-4xl font-extrabold text-slate-900">
+            <h1 className="mt-8 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 leading-tight">
               Veelgestelde vragen
             </h1>
-            <p className="mt-4 text-lg text-slate-600 leading-relaxed">
+            <p className="mt-6 text-xl text-gray-700 leading-relaxed">
               Zoek op onderwerp of filter op categorie. Staat je vraag er niet bij? Neem contact op — we helpen je graag.
             </p>
 
-            <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+            <div className="mt-8 flex flex-wrap items-center gap-4 text-base text-gray-600 font-medium">
               <span className="inline-flex items-center gap-2">
-                <Shield className="w-4 h-4" />
+                <Shield className="w-5 h-5 text-teal-600" />
                 Privacy-first
               </span>
-              <span className="text-slate-300">•</span>
+              <span className="text-gray-300">•</span>
               <span className="inline-flex items-center gap-2">
-                <Lock className="w-4 h-4" />
+                <Lock className="w-5 h-5 text-emerald-600" />
                 Veilig delen met rechten
               </span>
-              <span className="text-slate-300">•</span>
+              <span className="text-gray-300">•</span>
               <span className="inline-flex items-center gap-2">
-                <MessageCircle className="w-4 h-4" />
+                <MessageCircle className="w-5 h-5 text-cyan-600" />
                 Duidelijke communicatie
               </span>
             </div>
@@ -278,29 +277,28 @@ export default function FAQ() {
       </section>
 
       {/* Content */}
-      <section className="bg-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-14">
+      <section className="bg-white py-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Search */}
-          <div className="mt-2">
+          <div>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-6 h-6 text-gray-400" />
               <input
                 type="text"
                 placeholder="Zoek in veelgestelde vragen..."
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  // Als je zoekt, klap alles dicht zodat je sneller scan’t
                   setOpenIndex(null);
                 }}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 focus:outline-none text-slate-900 placeholder-slate-400 bg-white"
+                className="w-full pl-14 pr-6 py-5 rounded-2xl border-2 border-gray-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 focus:outline-none text-gray-900 placeholder-gray-400 bg-white font-medium text-lg"
               />
             </div>
           </div>
 
           {/* Categories */}
-          <div className="mt-6">
-            <div className="flex flex-wrap gap-2.5">
+          <div className="mt-8">
+            <div className="flex flex-wrap gap-3">
               {categories.map((category) => (
                 <button
                   key={category}
@@ -309,10 +307,10 @@ export default function FAQ() {
                     setOpenIndex(null);
                   }}
                   className={cx(
-                    "px-4 py-2 rounded-full text-sm font-semibold transition-all border",
+                    "px-5 py-2.5 rounded-full text-sm font-bold transition-all border-2",
                     selectedCategory === category
-                      ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200"
-                      : "bg-white text-slate-600 hover:bg-slate-50 border-slate-200"
+                      ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white border-teal-600 shadow-lg"
+                      : "bg-white text-gray-700 hover:bg-gray-50 border-gray-200 hover:border-gray-300"
                   )}
                 >
                   {category}
@@ -322,11 +320,11 @@ export default function FAQ() {
           </div>
 
           {/* Results */}
-          <div className="mt-6 flex items-center justify-between gap-3">
-            <div className="text-sm text-slate-600">
+          <div className="mt-8 flex items-center justify-between gap-3">
+            <div className="text-base text-gray-600 font-medium">
               {filteredFAQs.length} {filteredFAQs.length === 1 ? "antwoord" : "antwoorden"} gevonden
               {selectedCategory !== "Alle" ? (
-                <span className="text-slate-400"> • Categorie: {selectedCategory}</span>
+                <span className="text-gray-400"> • Categorie: {selectedCategory}</span>
               ) : null}
             </div>
 
@@ -338,7 +336,7 @@ export default function FAQ() {
                   setSelectedCategory("Alle");
                   setOpenIndex(0);
                 }}
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                className="text-base font-bold text-teal-600 hover:text-teal-700"
               >
                 Reset filters
               </button>
@@ -346,7 +344,7 @@ export default function FAQ() {
           </div>
 
           {/* FAQ Items */}
-          <div className="mt-6 space-y-4">
+          <div className="mt-8 space-y-4">
             {filteredFAQs.length > 0 ? (
               filteredFAQs.map((faq, index) => {
                 const isOpen = openIndex === index;
@@ -355,40 +353,40 @@ export default function FAQ() {
                   <div
                     key={`${faq.category}-${faq.question}-${index}`}
                     className={cx(
-                      "bg-white rounded-2xl border overflow-hidden transition",
-                      isOpen ? "border-blue-200 shadow-sm" : "border-slate-200 hover:border-blue-200"
+                      "bg-white rounded-3xl border-2 overflow-hidden transition-all",
+                      isOpen ? "border-teal-200 shadow-lg" : "border-gray-100 hover:border-teal-200 hover:shadow-md"
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => toggleFAQ(index)}
-                      className="w-full px-6 py-5 flex items-start justify-between gap-4 text-left hover:bg-slate-50 transition-colors"
+                      className="w-full px-7 py-6 flex items-start justify-between gap-4 text-left hover:bg-gray-50 transition-colors"
                       aria-expanded={isOpen}
                     >
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <HelpCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                          <span className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                        <div className="flex items-center gap-2 mb-3">
+                          <HelpCircle className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                          <span className="text-xs font-extrabold text-teal-600 uppercase tracking-wider">
                             {faq.category}
                           </span>
                         </div>
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                        <h3 className="text-lg sm:text-xl font-extrabold text-gray-900">
                           {faq.question}
                         </h3>
                       </div>
 
                       <div className="flex-shrink-0 mt-1">
                         {isOpen ? (
-                          <ChevronUp className="w-6 h-6 text-slate-400" />
+                          <ChevronUp className="w-7 h-7 text-gray-400" />
                         ) : (
-                          <ChevronDown className="w-6 h-6 text-slate-400" />
+                          <ChevronDown className="w-7 h-7 text-gray-400" />
                         )}
                       </div>
                     </button>
 
                     {isOpen ? (
-                      <div className="px-6 pb-6 pt-1">
-                        <div className="pl-6 text-slate-700 leading-relaxed border-l-4 border-blue-200">
+                      <div className="px-7 pb-7 pt-1">
+                        <div className="pl-7 text-gray-700 text-base leading-relaxed border-l-4 border-teal-200">
                           {faq.answer}
                         </div>
                       </div>
@@ -397,62 +395,67 @@ export default function FAQ() {
                 );
               })
             ) : (
-              <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <HelpCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-700 font-semibold mb-1">Geen resultaten gevonden</p>
-                <p className="text-sm text-slate-500">Probeer een andere zoekterm of categorie.</p>
+              <div className="text-center py-16 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                <HelpCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-900 font-bold text-xl mb-2">Geen resultaten gevonden</p>
+                <p className="text-base text-gray-600">Probeer een andere zoekterm of categorie.</p>
               </div>
             )}
           </div>
 
           {/* Contact CTA */}
-          <div className="mt-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-3xl p-8 sm:p-10 text-center text-white shadow-xl shadow-blue-200/50">
-            <h2 className="text-2xl sm:text-3xl font-bold mb-3">Staat je vraag er niet bij?</h2>
-            <p className="text-blue-100 mb-7 max-w-2xl mx-auto leading-relaxed">
-              Laat het ons weten. We reageren zo snel mogelijk en helpen je graag verder.
-            </p>
-            <Link
-              to="/contact"
-              className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-white text-blue-700 rounded-2xl font-semibold hover:bg-blue-50 transition-colors shadow-lg"
-            >
-              Neem contact op
-              <ArrowRight className="w-5 h-5" />
-            </Link>
-            <div className="mt-6 text-xs text-blue-100">
-              Tip: voeg in je bericht je e-mailadres, toesteltype en een korte beschrijving toe.
+          <div className="mt-20 bg-gradient-to-br from-teal-600 via-emerald-600 to-teal-700 rounded-3xl p-10 sm:p-12 text-center text-white shadow-2xl relative overflow-hidden">
+            <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full bg-white/10 blur-3xl" />
+
+            <div className="relative">
+              <h2 className="text-3xl sm:text-4xl font-extrabold mb-4">Staat je vraag er niet bij?</h2>
+              <p className="text-xl text-teal-50 mb-10 max-w-2xl mx-auto leading-relaxed">
+                Laat het ons weten. We reageren zo snel mogelijk en helpen je graag verder.
+              </p>
+              <Link
+                to="/contact"
+                className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-white text-teal-700 rounded-2xl font-bold text-lg hover:bg-gray-50 hover:shadow-2xl hover:-translate-y-0.5 transition-all"
+              >
+                Neem contact op
+                <ArrowRight className="w-6 h-6" />
+              </Link>
+              <div className="mt-8 text-sm text-teal-100 font-medium">
+                Tip: voeg in je bericht je e-mailadres, toesteltype en een korte beschrijving toe.
+              </div>
             </div>
           </div>
 
           {/* Quick links */}
-          <div className="mt-12 grid md:grid-cols-3 gap-6">
+          <div className="mt-16 grid md:grid-cols-3 gap-6">
             <Link
               to="/pricing"
-              className="p-6 bg-white rounded-2xl border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all group"
+              className="p-8 bg-white rounded-3xl border-2 border-gray-100 hover:border-teal-200 hover:shadow-xl hover:-translate-y-1 transition-all group"
             >
-              <h3 className="font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-extrabold text-gray-900 text-xl mb-3 group-hover:text-teal-600 transition-colors">
                 Bekijk prijzen
               </h3>
-              <p className="text-sm text-slate-600">Ontdek welk abonnement bij jouw situatie past.</p>
+              <p className="text-base text-gray-600 leading-relaxed">Ontdek welk abonnement bij jouw situatie past.</p>
             </Link>
 
             <Link
               to="/blog"
-              className="p-6 bg-white rounded-2xl border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all group"
+              className="p-8 bg-white rounded-3xl border-2 border-gray-100 hover:border-emerald-200 hover:shadow-xl hover:-translate-y-1 transition-all group"
             >
-              <h3 className="font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-extrabold text-gray-900 text-xl mb-3 group-hover:text-emerald-600 transition-colors">
                 Lees de blog
               </h3>
-              <p className="text-sm text-slate-600">Tips en inzichten om co-ouderschap rustiger te maken.</p>
+              <p className="text-base text-gray-600 leading-relaxed">Tips en inzichten om co-ouderschap rustiger te maken.</p>
             </Link>
 
             <Link
               to="/register"
-              className="p-6 bg-white rounded-2xl border border-slate-200 hover:border-blue-200 hover:shadow-md transition-all group"
+              className="p-8 bg-white rounded-3xl border-2 border-gray-100 hover:border-cyan-200 hover:shadow-xl hover:-translate-y-1 transition-all group"
             >
-              <h3 className="font-bold text-slate-900 mb-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-extrabold text-gray-900 text-xl mb-3 group-hover:text-cyan-600 transition-colors">
                 Start gratis
               </h3>
-              <p className="text-sm text-slate-600">Begin vandaag nog met overzicht en structuur.</p>
+              <p className="text-base text-gray-600 leading-relaxed">Begin vandaag nog met overzicht en structuur.</p>
             </Link>
           </div>
         </div>
