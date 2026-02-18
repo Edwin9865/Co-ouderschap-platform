@@ -283,10 +283,10 @@ export function Koppelen() {
   const partneredMembers = familyMembers.filter((m) => m.user_id !== user?.id);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 px-4 sm:px-0">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Koppelen met co-ouder</h1>
-        <p className="text-gray-600">Beheer je koppeling met je co-ouder</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Koppelen met co-ouder</h1>
+        <p className="text-sm sm:text-base text-gray-600">Beheer je koppeling met je co-ouder</p>
       </div>
 
       {showChildSelection && activeRequestId && (
@@ -316,7 +316,7 @@ export function Koppelen() {
               ))}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={() => {
                   setShowChildSelection(false);
@@ -340,16 +340,16 @@ export function Koppelen() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <LinkIcon className="w-5 h-5" />
-            Jouw koppelcode
+      <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 space-y-6">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <LinkIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-base sm:text-xl">Jouw koppelcode</span>
           </h2>
           <button
             onClick={handleManualRefresh}
             disabled={loading}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 shrink-0"
             title="Ververs gegevens"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -357,29 +357,29 @@ export function Koppelen() {
         </div>
 
         <div>
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-xs sm:text-sm text-gray-600 mb-3">
             Deel deze code met je co-ouder zodat zij/hij een koppelverzoek kan sturen
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={inviteCode}
               readOnly
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-lg tracking-wider"
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 font-mono text-base sm:text-lg tracking-wider"
             />
             <button
               onClick={handleCopyCode}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
             >
               {codeCopied ? (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
-                  Gekopieerd
+                  <span>Gekopieerd</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-5 h-5" />
-                  Kopieer
+                  <span>Kopieer</span>
                 </>
               )}
             </button>
@@ -388,24 +388,24 @@ export function Koppelen() {
 
         {receivedRequests.length > 0 && (
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Ontvangen verzoeken</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Ontvangen verzoeken</h3>
             <div className="space-y-3">
               {receivedRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg"
                 >
-                  <div>
-                    <p className="font-medium text-gray-900">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm sm:text-base text-gray-900 break-words">
                       {request.from_user.name} wil met je koppelen
                     </p>
-                    <p className="text-sm text-gray-600">{request.from_user.email}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 break-all">{request.from_user.email}</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0 w-full sm:w-auto">
                     <button
                       onClick={() => handleDeclineRequest(request.id)}
                       disabled={loading}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Afwijzen"
                     >
                       <X className="w-5 h-5" />
@@ -413,7 +413,7 @@ export function Koppelen() {
                     <button
                       onClick={() => handleAcceptRequest(request.id)}
                       disabled={loading}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                       title="Accepteren"
                     >
                       <Check className="w-5 h-5" />
@@ -426,23 +426,23 @@ export function Koppelen() {
         )}
 
         <div className="border-t pt-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
             Stuur koppelverzoek
           </h2>
 
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               type="text"
               value={linkingCode}
               onChange={(e) => setLinkingCode(e.target.value.toUpperCase())}
               placeholder="Voer koppelcode in"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-lg tracking-wider"
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-base sm:text-lg tracking-wider"
               disabled={loading}
             />
             <button
               onClick={handleSendCouplingRequest}
               disabled={loading || !linkingCode.trim()}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading ? 'Bezig...' : 'Verzenden'}
             </button>
@@ -463,23 +463,23 @@ export function Koppelen() {
 
         {pendingRequests.length > 0 && (
           <div className="border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Verzonden verzoeken</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Verzonden verzoeken</h3>
             <div className="space-y-3">
               {pendingRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="flex items-center justify-between p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
                 >
-                  <div>
-                    <p className="font-medium text-gray-900">Wacht op goedkeuring...</p>
-                    <p className="text-sm text-gray-600">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm sm:text-base text-gray-900">Wacht op goedkeuring...</p>
+                    <p className="text-xs sm:text-sm text-gray-600">
                       Verzonden op {new Date(request.created_at).toLocaleDateString('nl-NL')}
                     </p>
                   </div>
                   <button
                     onClick={() => handleCancelRequest(request.id)}
                     disabled={loading}
-                    className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="w-full sm:w-auto px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors whitespace-nowrap"
                   >
                     Annuleren
                   </button>
@@ -490,13 +490,13 @@ export function Koppelen() {
         )}
 
         <div className="border-t pt-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Gekoppelde ouders
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Gekoppelde ouders</span>
           </h2>
 
           {partneredMembers.length === 0 ? (
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600">
               Je bent nog niet gekoppeld met een co-ouder. Gebruik de koppelcode hierboven om te
               koppelen.
             </p>
@@ -505,11 +505,11 @@ export function Koppelen() {
               {partneredMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-lg"
                 >
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{member.user.name}</p>
-                    <p className="text-sm text-gray-600">{member.user.email}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm sm:text-base text-gray-900 break-words">{member.user.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 break-all">{member.user.email}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       Gekoppeld op {new Date(member.joined_at).toLocaleDateString('nl-NL')}
                     </p>
@@ -517,7 +517,7 @@ export function Koppelen() {
                   <button
                     onClick={() => handleUncouple(member.user_id, member.user.name)}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                   >
                     <Unlink className="w-4 h-4" />
                     <span className="text-sm font-medium">Ontkoppelen</span>

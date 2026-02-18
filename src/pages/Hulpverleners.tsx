@@ -463,11 +463,11 @@ export function Hulpverleners() {
         </p>
       </div>
 
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8">
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <nav className="flex space-x-4 sm:space-x-8 min-w-max">
           <button
             onClick={() => setActiveTab('messages')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors relative ${
+            className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors relative whitespace-nowrap ${
               activeTab === 'messages'
                 ? 'border-slate-800 text-slate-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -475,7 +475,7 @@ export function Hulpverleners() {
           >
             <div className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
-              Berichten
+              <span className="hidden sm:inline">Berichten</span>
               {unreadCount > 0 && (
                 <span className="bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {unreadCount}
@@ -485,7 +485,7 @@ export function Hulpverleners() {
           </button>
           <button
             onClick={() => setActiveTab('requests')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
               activeTab === 'requests'
                 ? 'border-slate-800 text-slate-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -493,7 +493,7 @@ export function Hulpverleners() {
           >
             <div className="flex items-center gap-2">
               <UserCheck className="w-4 h-4" />
-              Verzoeken
+              <span className="hidden sm:inline">Verzoeken</span>
               {pendingRequestsCount > 0 && (
                 <span className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {pendingRequestsCount}
@@ -503,7 +503,7 @@ export function Hulpverleners() {
           </button>
           <button
             onClick={() => setActiveTab('connect')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
               activeTab === 'connect'
                 ? 'border-slate-800 text-slate-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -511,12 +511,12 @@ export function Hulpverleners() {
           >
             <div className="flex items-center gap-2">
               <Link2 className="w-4 h-4" />
-              Koppelen
+              <span className="hidden sm:inline">Koppelen</span>
             </div>
           </button>
           <button
             onClick={() => setActiveTab('helpers')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
               activeTab === 'helpers'
                 ? 'border-slate-800 text-slate-900'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -524,7 +524,7 @@ export function Hulpverleners() {
           >
             <div className="flex items-center gap-2">
               <UsersIcon className="w-4 h-4" />
-              Hulpverleners ({helpers.length})
+              <span className="hidden sm:inline">Hulpverleners</span> <span>({helpers.length})</span>
             </div>
           </button>
         </nav>
@@ -548,36 +548,36 @@ export function Hulpverleners() {
               helperRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="bg-white rounded-lg border border-gray-200 p-6"
+                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6"
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                           {request.helper.name}
                         </h3>
                         {request.status === 'PENDING' && (
-                          <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium flex items-center gap-1">
+                          <span className="px-2 sm:px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
                             <Clock className="w-3 h-3" />
                             In afwachting
                           </span>
                         )}
                         {request.status === 'APPROVED' && (
-                          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1">
+                          <span className="px-2 sm:px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
                             <UserCheck className="w-3 h-3" />
                             Goedgekeurd
                           </span>
                         )}
                         {request.status === 'REJECTED' && (
-                          <span className="px-3 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium flex items-center gap-1">
+                          <span className="px-2 sm:px-3 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
                             <X className="w-3 h-3" />
                             Afgewezen
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{request.helper.email}</p>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-2 break-all">{request.helper.email}</p>
                       {request.message && (
-                        <p className="text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded">
+                        <p className="text-xs sm:text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded break-words">
                           {request.message}
                         </p>
                       )}
@@ -591,22 +591,22 @@ export function Hulpverleners() {
                       </div>
                     </div>
                     {request.status === 'PENDING' && (
-                      <div className="flex gap-2 ml-4">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={() => handleApproveRequest(request.id)}
                           disabled={loading}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           <UserCheck className="w-4 h-4" />
-                          Goedkeuren
+                          <span>Goedkeuren</span>
                         </button>
                         <button
                           onClick={() => handleRejectRequest(request.id)}
                           disabled={loading}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           <X className="w-4 h-4" />
-                          Afwijzen
+                          <span>Afwijzen</span>
                         </button>
                       </div>
                     )}

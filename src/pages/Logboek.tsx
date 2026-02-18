@@ -303,7 +303,7 @@ export function Logboek() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Logboekitem toevoegen</h2>
           <form onSubmit={handleCreate} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Categorie</label>
                 <select
@@ -371,7 +371,7 @@ export function Logboek() {
               />
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 type="submit"
                 disabled={loading}
@@ -429,7 +429,7 @@ export function Logboek() {
                   }}
                   className="space-y-4"
                 >
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Categorie
@@ -502,7 +502,7 @@ export function Logboek() {
                     />
                   </div>
 
-                  <div className="flex space-x-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       type="submit"
                       disabled={loading}
@@ -524,16 +524,16 @@ export function Logboek() {
                 </form>
               ) : (
                 <>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{entry.title}</h3>
-                        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
+                  <div className="flex flex-col sm:flex-row items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{entry.title}</h3>
+                        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded whitespace-nowrap">
                           {categoryLabels[entry.category]}
                         </span>
                         {child && colors && (
                           <span
-                            className="px-3 py-1 text-xs rounded-full font-medium"
+                            className="px-3 py-1 text-xs rounded-full font-medium whitespace-nowrap"
                             style={{
                               backgroundColor: colors.backgroundColor,
                               color: colors.color,
@@ -543,13 +543,13 @@ export function Logboek() {
                           </span>
                         )}
                       </div>
-                      {entry.details && <p className="text-gray-600 mb-2">{entry.details}</p>}
-                      <div className="text-sm text-gray-500">
+                      {entry.details && <p className="text-sm sm:text-base text-gray-600 mb-2 break-words">{entry.details}</p>}
+                      <div className="text-xs sm:text-sm text-gray-500">
                         {new Date(entry.occurred_at).toLocaleString('nl-NL')}
                       </div>
                     </div>
                     {isParent && (
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2 shrink-0">
                         <button
                           onClick={() => setViewingHistory(entry)}
                           className="p-2 text-gray-600 hover:text-slate-700 hover:bg-gray-100 rounded-lg"
