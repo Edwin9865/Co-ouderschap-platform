@@ -47,6 +47,7 @@ export class SecureStorage {
   }
 
   static async setRememberMe(enabled: boolean): Promise<void> {
+    console.log('[SecureStorage] Setting Remember Me:', enabled);
     await this.setItem(STORAGE_KEYS.REMEMBER_ME, enabled ? 'true' : 'false');
     if (enabled) {
       await this.updateLastActive();
@@ -57,6 +58,7 @@ export class SecureStorage {
 
   static async getRememberMe(): Promise<boolean> {
     const value = await this.getItem(STORAGE_KEYS.REMEMBER_ME);
+    console.log('[SecureStorage] Get Remember Me:', value);
     return value === 'true';
   }
 
@@ -70,11 +72,13 @@ export class SecureStorage {
   static async isSessionValid(): Promise<boolean> {
     const rememberMe = await this.getRememberMe();
     if (!rememberMe) {
+      console.log('[SecureStorage] Session invalid: Remember Me disabled');
       return false;
     }
 
     const lastActiveStr = await this.getItem(STORAGE_KEYS.LAST_ACTIVE);
     if (!lastActiveStr) {
+      console.log('[SecureStorage] Session invalid: No last active timestamp');
       return false;
     }
 
@@ -83,9 +87,14 @@ export class SecureStorage {
       const now = new Date();
       const diffDays = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24);
 
-      return diffDays < STORAGE_KEYS.SESSION_TIMEOUT_DAYS;
+      console.log('[SecureStorage] Session age:', diffDays.toFixed(2), 'days (timeout:', STORAGE_KEYS.SESSION_TIMEOUT_DAYS, 'days)');
+
+      const isValid = diffDays < STORAGE_KEYS.SESSION_TIMEOUT_DAYS;
+      console.log('[SecureStorage] Session valid:', isValid);
+
+      return isValid;
     } catch (error) {
-      console.error('Error checking session validity:', error);
+      console.error('[SecureStorage] Error checking session validity:', error);
       return false;
     }
   }
