@@ -121,25 +121,25 @@ function ScreenshotCarousel() {
       id: 1,
       title: "Gedeelde Agenda",
       description: "Overzicht van alle afspraken, wissels en activiteiten",
-      imageUrl: "/api/placeholder/600/900",
+      imageUrl: "/carousel/Agenda.png",
     },
     {
       id: 2,
       title: "Verzoeken Systeem",
       description: "Duidelijke communicatie zonder eindeloze discussies",
-      imageUrl: "/api/placeholder/600/900",
+      imageUrl: "/carousel/Verzoeken.png",
     },
     {
       id: 3,
       title: "Digitaal Logboek",
       description: "Bewaar belangrijke informatie over gezondheid en school",
-      imageUrl: "/api/placeholder/600/900",
+      imageUrl: "/carousel/Logboek.png",
     },
     {
       id: 4,
       title: "Hulpverleners Portaal",
       description: "Veilige toegang voor professionals met juiste rechten",
-      imageUrl: "/api/placeholder/600/900",
+      imageUrl: "/carousel/Hulpverleners.png",
     },
   ];
 
@@ -168,71 +168,109 @@ function ScreenshotCarousel() {
     setIsAutoPlaying(false);
   };
 
-  return (
-    <div className="relative">
-      <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-3xl border-2 border-teal-100 p-8 overflow-hidden">
-        <div className="mb-6">
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            {screenshots[currentIndex].title}
-          </h3>
-          <p className="text-gray-600">{screenshots[currentIndex].description}</p>
-        </div>
+ return (
+  <div className="relative">
+    <div className="bg-gradient-to-br from-teal-50 to-emerald-50 rounded-3xl border-2 border-teal-100 p-8 overflow-hidden">
+      <div className="mb-6">
+        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+          {screenshots[currentIndex].title}
+        </h3>
+        <p className="text-gray-600">{screenshots[currentIndex].description}</p>
+      </div>
 
-        <div className="relative rounded-2xl overflow-hidden bg-white shadow-2xl border-2 border-gray-200">
-          <div
-            className="flex transition-transform duration-500 ease-out"
-            style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-          >
-            {screenshots.map((screenshot) => (
+      <div className="relative rounded-2xl overflow-hidden bg-white shadow-2xl border-2 border-gray-200">
+        <div
+          className="flex transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        >
+          {screenshots.map((screenshot) => {
+            // "Echte" screenshots: alles wat NIET leeg is en NIET jouw api placeholder
+            const hasRealImage =
+              !!screenshot.imageUrl &&
+              !screenshot.imageUrl.startsWith("/api/placeholder");
+
+            return (
               <div key={screenshot.id} className="w-full flex-shrink-0">
-                <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <div className="w-20 h-20 bg-teal-100 rounded-2xl mx-auto mb-4 flex items-center justify-center border-2 border-teal-200">
-                      <Calendar className="w-10 h-10 text-teal-600" />
+                <div className="aspect-[3/4] bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center overflow-hidden">
+                  {hasRealImage ? (
+                    <img
+                      src={screenshot.imageUrl}
+                      alt={screenshot.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        // Als deze specifieke image niet bestaat -> verberg image en toon placeholder
+                        const img = e.currentTarget as HTMLImageElement;
+                        img.style.display = "none";
+
+                        const parent = img.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div style="text-align:center;padding:32px;">
+                              <div style="width:80px;height:80px;margin:0 auto 16px auto;border-radius:16px;background:#d1fae5;border:2px solid #a7f3d0;display:flex;align-items:center;justify-content:center;">
+                                <span style="font-size:34px;line-height:1;">📸</span>
+                              </div>
+                              <p style="color:#6b7280;font-weight:600;margin:0;">Screenshot: ${screenshot.title}</p>
+                              <p style="color:#9ca3af;font-size:14px;margin:8px 0 0 0;">App preview komt binnenkort</p>
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="text-center p-8">
+                      <div className="w-20 h-20 bg-teal-100 rounded-2xl mx-auto mb-4 flex items-center justify-center border-2 border-teal-200">
+                        <Calendar className="w-10 h-10 text-teal-600" />
+                      </div>
+                      <p className="text-gray-500 font-semibold">
+                        Screenshot: {screenshot.title}
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        App preview komt binnenkort
+                      </p>
                     </div>
-                    <p className="text-gray-500 font-semibold">Screenshot: {screenshot.title}</p>
-                    <p className="text-gray-400 text-sm mt-2">App preview komt binnenkort</p>
-                  </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-
-          <button
-            onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-200 flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg"
-            aria-label="Vorige screenshot"
-          >
-            <ChevronLeft className="w-6 h-6 text-gray-700" />
-          </button>
-
-          <button
-            onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-200 flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg"
-            aria-label="Volgende screenshot"
-          >
-            <ChevronRight className="w-6 h-6 text-gray-700" />
-          </button>
+            );
+          })}
         </div>
 
-        <div className="flex justify-center gap-2 mt-6">
-          {screenshots.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => goToSlide(index)}
-              className={`w-3 h-3 rounded-full transition-all ${
-                index === currentIndex
-                  ? "bg-teal-600 w-8"
-                  : "bg-gray-300 hover:bg-gray-400"
-              }`}
-              aria-label={`Ga naar screenshot ${index + 1}`}
-              aria-current={index === currentIndex ? "true" : "false"}
-            />
-          ))}
-        </div>
+        <button
+          onClick={goToPrevious}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-200 flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg"
+          aria-label="Vorige screenshot"
+        >
+          <ChevronLeft className="w-6 h-6 text-gray-700" />
+        </button>
+
+        <button
+          onClick={goToNext}
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/90 backdrop-blur-sm border-2 border-gray-200 flex items-center justify-center hover:bg-white hover:scale-110 transition-all shadow-lg"
+          aria-label="Volgende screenshot"
+        >
+          <ChevronRight className="w-6 h-6 text-gray-700" />
+        </button>
+      </div>
+
+      <div className="flex justify-center gap-2 mt-6">
+        {screenshots.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => goToSlide(index)}
+            className={`w-3 h-3 rounded-full transition-all ${
+              index === currentIndex
+                ? "bg-teal-600 w-8"
+                : "bg-gray-300 hover:bg-gray-400"
+            }`}
+            aria-label={`Ga naar screenshot ${index + 1}`}
+            aria-current={index === currentIndex ? "true" : "false"}
+          />
+        ))}
       </div>
     </div>
-  );
+  </div>
+);
 }
 
 export function Homepage() {
