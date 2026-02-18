@@ -40,6 +40,7 @@ import BlogPost from "./pages/BlogPost";
 import Pricing from "./pages/Pricing";
 import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
+import { AboutUs } from "./pages/AboutUs";
 
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { isAndroid, isNative } from "./lib/capacitor";
@@ -133,6 +134,14 @@ function AppRoutes() {
             element={
               <WebOnlyRoute>
                 <Contact />
+              </WebOnlyRoute>
+            }
+          />
+          <Route
+            path="/over-ons"
+            element={
+              <WebOnlyRoute>
+                <AboutUs />
               </WebOnlyRoute>
             }
           />

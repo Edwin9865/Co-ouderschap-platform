@@ -34,6 +34,7 @@ export function SiteFooter() {
           <div>
             <h3 className="text-white font-semibold mb-4">Product</h3>
             <ul className="space-y-2 text-sm">
+              <li><Link to="/over-ons" className="hover:text-white transition">Over Ons</Link></li>
               <li><Link to="/pricing" className="hover:text-white transition">Prijzen</Link></li>
               <li><Link to="/blog" className="hover:text-white transition">Blog</Link></li>
               <li><Link to="/faq" className="hover:text-white transition">FAQ</Link></li>
