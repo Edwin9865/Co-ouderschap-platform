@@ -25,6 +25,7 @@ export function SiteHeader() {
 
   const navItems = useMemo<NavItem[]>(
     () => [
+      { label: "Over Ons", to: "/over-ons" },
       { label: "Prijzen", to: "/pricing" },
       { label: "Blog", to: "/blog" },
       { label: "FAQ", to: "/faq" },
