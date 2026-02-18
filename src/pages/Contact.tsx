@@ -209,14 +209,19 @@ const globalStyles = `
   }
   .ct-link:hover { color: #6b9467; }
 
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     .ct-hero-grid   { grid-template-columns: 1fr !important; }
     .ct-cards-grid  { grid-template-columns: 1fr !important; }
     .ct-faq-grid    { grid-template-columns: 1fr !important; }
-    .ct-cta-wrap    { padding: 48px 28px; }
+    .ct-cta-wrap    { padding: 48px 24px; }
     .ct-cta-btns    { flex-direction: column !important; }
   }
-  @media (max-width: 1024px) {
+  @media (min-width: 641px) and (max-width: 900px) {
+    .ct-hero-grid   { grid-template-columns: 1fr !important; }
+    .ct-cards-grid  { grid-template-columns: repeat(2, 1fr) !important; }
+    .ct-faq-grid    { grid-template-columns: 1fr !important; }
+  }
+  @media (min-width: 901px) and (max-width: 1100px) {
     .ct-cards-grid  { grid-template-columns: repeat(2, 1fr) !important; }
   }
 `;

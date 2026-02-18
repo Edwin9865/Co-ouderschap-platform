@@ -35,7 +35,7 @@ export function Login() {
             <Logo className="w-20 h-20" />
           </div>
           <div className="flex flex-col items-center">
-            <p>BUILDTEST 2026-02-18 20:28</p>
+            <p>BUILDTEST 2026-02-18 21:20</p>
             <h1 className="text-3xl font-bold text-gray-900 leading-tight">CoParenting</h1>
             <p className="text-sm text-gray-600 font-medium mt-1">-samen opvoeden-</p>
           </div>

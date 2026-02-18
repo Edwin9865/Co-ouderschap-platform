@@ -282,12 +282,13 @@ const globalStyles = `
     transform: translateY(-2px);
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
     .bl-grid       { grid-template-columns: 1fr !important; }
-    .bl-cta-wrap   { padding: 48px 28px; }
+    .bl-cta-wrap   { padding: 48px 24px; }
     .bl-cta-btns   { flex-direction: column !important; }
+    .bl-card-img-wrap { height: 190px !important; }
   }
-  @media (max-width: 1024px) {
+  @media (min-width: 641px) and (max-width: 1024px) {
     .bl-grid       { grid-template-columns: repeat(2, 1fr) !important; }
   }
 `;
