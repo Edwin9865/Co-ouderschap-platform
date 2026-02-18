@@ -12,24 +12,44 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const capacitorStorage = {
   getItem: async (key: string) => {
-    if (isNative()) {
-      const { value } = await Preferences.get({ key });
+    try {
+      if (isNative()) {
+        const { value } = await Preferences.get({ key });
+        console.log('[CapacitorStorage] Get (native):', key, value ? 'exists' : 'null');
+        return value;
+      }
+      const value = localStorage.getItem(key);
+      console.log('[CapacitorStorage] Get (web):', key, value ? 'exists' : 'null');
       return value;
+    } catch (error) {
+      console.error('[CapacitorStorage] Get error:', key, error);
+      return null;
     }
-    return localStorage.getItem(key);
   },
   setItem: async (key: string, value: string) => {
-    if (isNative()) {
-      await Preferences.set({ key, value });
-    } else {
-      localStorage.setItem(key, value);
+    try {
+      if (isNative()) {
+        await Preferences.set({ key, value });
+        console.log('[CapacitorStorage] Set (native):', key);
+      } else {
+        localStorage.setItem(key, value);
+        console.log('[CapacitorStorage] Set (web):', key);
+      }
+    } catch (error) {
+      console.error('[CapacitorStorage] Set error:', key, error);
     }
   },
   removeItem: async (key: string) => {
-    if (isNative()) {
-      await Preferences.remove({ key });
-    } else {
-      localStorage.removeItem(key);
+    try {
+      if (isNative()) {
+        await Preferences.remove({ key });
+        console.log('[CapacitorStorage] Remove (native):', key);
+      } else {
+        localStorage.removeItem(key);
+        console.log('[CapacitorStorage] Remove (web):', key);
+      }
+    } catch (error) {
+      console.error('[CapacitorStorage] Remove error:', key, error);
     }
   },
 };

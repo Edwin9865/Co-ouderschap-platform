@@ -68,13 +68,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log('[AuthContext] Initializing authentication...');
+
       const rememberMeEnabled = await SecureStorage.getRememberMe();
+      console.log('[AuthContext] Remember Me enabled:', rememberMeEnabled);
       setRememberMeState(rememberMeEnabled);
 
       const isValid = await SecureStorage.isSessionValid();
+      console.log('[AuthContext] Session valid:', isValid);
 
       if (!isValid && rememberMeEnabled) {
-        console.log('Session expired after 30 days of inactivity');
+        console.log('[AuthContext] Session expired after 30 days of inactivity');
         await SecureStorage.clearAuthData();
         await supabase.auth.signOut();
         setLoading(false);
@@ -82,11 +86,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('[AuthContext] Supabase session:', currentSession ? 'Found' : 'Not found');
 
       setSession(currentSession);
       if (currentSession?.user) {
+        console.log('[AuthContext] Fetching user data for:', currentSession.user.id);
         await fetchUserData(currentSession.user.id);
         await SecureStorage.updateLastActive();
+      } else {
+        console.log('[AuthContext] No active session, showing login');
       }
       setLoading(false);
     };
