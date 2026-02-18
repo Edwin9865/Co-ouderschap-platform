@@ -1,5 +1,5 @@
 // DEBUG: Export.tsx - Rewritten from scratch - 2026-02-13
-// Mobile: generates PDF and opens share screen
+// Mobile: generates PDF (base64) -> saves to Documents -> opens share sheet
 // Web: opens in new window
 
 import { useState } from 'react';
@@ -8,13 +8,40 @@ import { useAuth } from '../contexts/AuthContext';
 import { Download, Lock, FileText, AlertCircle } from 'lucide-react';
 import { isNative } from '../lib/capacitor';
 import { supabase } from '../lib/supabase';
+
 import { PdfGenerator } from '@capgo/capacitor-pdf-generator';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+function safeFileName(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\-_ ]/g, '')
+    .replace(/\s+/g, '-')
+    .slice(0, 80);
+}
+
+function todayYmd() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function stripDataUrlPrefix(base64: string) {
+  const idx = base64.indexOf('base64,');
+  return idx >= 0 ? base64.slice(idx + 'base64,'.length) : base64;
+}
 
 export function Export() {
   const { currentFamily, children, canAccessFeature, subscription } = useFamily();
   const { session } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
   const [exportType, setExportType] = useState<'full' | 'child' | 'date_range'>('full');
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -47,16 +74,19 @@ export function Export() {
     setError(null);
 
     try {
-      // CRITICAL FIX: Refresh session to ensure we have a valid token
+      // Refresh session to ensure we have a valid token
       console.log('Refreshing session before export...');
-      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      const {
+        data: { session: refreshedSession },
+        error: refreshError,
+      } = await supabase.auth.refreshSession();
 
       if (refreshError) {
         console.error('Session refresh error:', refreshError);
         throw new Error('Sessie verlopen. Ververs de pagina en probeer opnieuw.');
       }
 
-      if (!refreshedSession) {
+      if (!refreshedSession?.access_token) {
         throw new Error('Geen geldige sessie. Log opnieuw in.');
       }
 
@@ -64,8 +94,12 @@ export function Export() {
         familyId: currentFamily.id,
         exportType,
         childId: selectedChild,
+        startDate,
+        endDate,
         hasAccessToken: !!refreshedSession.access_token,
-        tokenExpiry: refreshedSession.expires_at ? new Date(refreshedSession.expires_at * 1000).toISOString() : 'unknown',
+        tokenExpiry: refreshedSession.expires_at
+          ? new Date(refreshedSession.expires_at * 1000).toISOString()
+          : 'unknown',
       });
 
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-export`;
@@ -73,9 +107,9 @@ export function Export() {
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${refreshedSession.access_token}`,
+          Authorization: `Bearer ${refreshedSession.access_token}`,
           'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         },
         body: JSON.stringify({
           familyId: currentFamily.id,
@@ -90,7 +124,6 @@ export function Export() {
         const contentType = response.headers.get('content-type');
         let errorMessage = 'Export mislukt';
 
-        // Special handling for 401 errors
         if (response.status === 401) {
           console.error('401 Unauthorized error - Token details:', {
             hasToken: !!refreshedSession?.access_token,
@@ -103,9 +136,7 @@ export function Export() {
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorMessage;
-            if (errorData.details) {
-              errorMessage += ` (${errorData.details})`;
-            }
+            if (errorData.details) errorMessage += ` (${errorData.details})`;
           } catch {
             const text = await response.text();
             errorMessage = text || errorMessage;
@@ -120,33 +151,67 @@ export function Export() {
 
       const html = await response.text();
 
+      // ✅ MOBILE / NATIVE: HTML -> PDF (base64) -> save -> share
       if (isNative()) {
-        // Mobile: Generate PDF and open share screen
-        console.log('Generating PDF for mobile...');
+        console.log('Generating PDF for mobile (Android/iOS) via PdfGenerator.fromData...');
 
-        const pdfResult = await PdfGenerator.fromHtml({
-          html: html,
-          fileName: `CoParenting-Export-${new Date().toISOString().split('T')[0]}.pdf`,
+        const famName = safeFileName(currentFamily.name || 'familie');
+        const fileName = `export-${famName}-${todayYmd()}.pdf`;
+
+        // 1) HTML -> PDF base64 (ANDROID SAFE)
+        const pdfResult = await PdfGenerator.fromData({
+          data: html, // ✅ HTML string
           documentSize: 'A4',
-          type: 'share',
+          orientation: 'portrait',
+          type: 'base64',
+          fileName,
         });
 
-        console.log('PDF generated:', pdfResult);
-
-        // The PDF is automatically shared via the native share screen when type is 'share'
-        // If type was 'base64' or 'file', we would need to manually call Share.share()
-
-      } else {
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(html);
-          printWindow.document.close();
-        } else {
-          throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
+        if (!pdfResult || pdfResult.type !== 'base64' || !pdfResult.base64) {
+          throw new Error('PDF generatie mislukt (geen base64 ontvangen).');
         }
+
+        const base64 = stripDataUrlPrefix(pdfResult.base64);
+
+        // 2) Save locally
+        let writeRes;
+try {
+  writeRes = await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Documents,
+    recursive: true,
+  });
+} catch {
+  writeRes = await Filesystem.writeFile({
+    path: fileName,
+    data: base64,
+    directory: Directory.Cache,
+    recursive: true,
+  });
+}
+
+        // 3) Share sheet (mail/whatsapp/drive/print etc.)
+        await Share.share({
+          title: 'CoParenting Export',
+          text: `Export opgeslagen als ${fileName}`,
+          url: writeRes.uri,
+          dialogTitle: 'Deel je export',
+        });
+
+        return;
+      }
+
+      // ✅ DESKTOP / WEB: oude gedrag (preview in nieuw venster)
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+      } else {
+        throw new Error('Pop-up geblokkeerd. Sta pop-ups toe om de export te bekijken.');
       }
     } catch (err: any) {
-      setError(err.message || 'Er is een fout opgetreden bij het exporteren');
+      setError(err?.message || 'Er is een fout opgetreden bij het exporteren');
     } finally {
       setLoading(false);
     }
@@ -250,9 +315,7 @@ export function Export() {
 
           {exportType === 'child' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Selecteer kind
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Selecteer kind</label>
               <select
                 value={selectedChild}
                 onChange={(e) => setSelectedChild(e.target.value)}
@@ -280,9 +343,7 @@ export function Export() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tot datum
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tot datum</label>
                 <input
                   type="date"
                   value={endDate}
@@ -299,7 +360,13 @@ export function Export() {
             className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
             <Download className="w-5 h-5" />
-            <span>{loading ? 'Bezig met exporteren...' : (isNative() ? 'Export bekijken' : 'PDF genereren')}</span>
+            <span>
+              {loading
+                ? 'Bezig met exporteren...'
+                : isNative()
+                  ? 'PDF opslaan (mobiel)'
+                  : 'PDF genereren (desktop)'}
+            </span>
           </button>
         </div>
       </div>
@@ -311,7 +378,7 @@ export function Export() {
             <h3 className="font-semibold text-blue-900 mb-1">Over exports</h3>
             <p className="text-sm text-blue-800 mb-2">
               Exports bevatten alle opgeslagen gegevens, inclusief verwijderde items,
-              bewerkingsgeschiedenis en volledige communicatie. Deze PDF's zijn geschikt voor
+              bewerkingsgeschiedenis en volledige communicatie. Deze PDF&apos;s zijn geschikt voor
               juridisch gebruik en archivering.
             </p>
             <p className="text-sm text-blue-800 font-medium">
@@ -325,9 +392,7 @@ export function Export() {
 
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-3">Export overzicht</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Exports bevatten de volgende gegevens:
-        </p>
+        <p className="text-sm text-gray-600 mb-4">Exports bevatten de volgende gegevens:</p>
         <ul className="space-y-2 text-sm text-gray-700">
           <li className="flex items-start">
             <span className="w-2 h-2 bg-slate-600 rounded-full mt-1.5 mr-3"></span>

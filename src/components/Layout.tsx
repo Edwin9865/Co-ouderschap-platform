@@ -232,7 +232,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <img
                   src="/logo.png"
                   alt="CoParenting Logo"
-                  className="w-20 h-20 object-contain"
+                  className="w-10 h-10 object-contain"
                 />
                 <div className="flex flex-col items-center">
                   <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>

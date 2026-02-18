@@ -31,10 +31,10 @@ export function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo className="w-40 h-40" />
+            <Logo className="w-20 h-20" />
           </div>
           <div className="flex flex-col items-center">
-            <p>BUILDTEST 2026-02-17 15:xx</p>
+            <p>BUILDTEST 2026-02-18 13:20</p>
             <h1 className="text-3xl font-bold text-gray-900 leading-tight">CoParenting</h1>
             <p className="text-sm text-gray-600 font-medium mt-1">-samen opvoeden-</p>
           </div>

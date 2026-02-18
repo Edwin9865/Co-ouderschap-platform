@@ -4,8 +4,10 @@ color ic_launcher_background
 drawable ic_launcher_background
 drawable ic_launcher_foreground
 drawable splash
+drawable splashscreen_logo
 layout activity_main
 mipmap ic_launcher
+mipmap ic_launcher_background
 mipmap ic_launcher_foreground
 mipmap ic_launcher_round
 string app_name

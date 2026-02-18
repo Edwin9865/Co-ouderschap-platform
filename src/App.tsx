@@ -42,7 +42,10 @@ import FAQ from "./pages/FAQ";
 import Contact from "./pages/Contact";
 
 import { StatusBar, Style } from "@capacitor/status-bar";
-import { isAndroid, isNative, isWeb } from "./lib/capacitor";
+import { isAndroid, isNative } from "./lib/capacitor";
+
+// ✅ NEW: back button hook
+import { useBackButton } from "./lib/useBackButton";
 
 /**
  * Root behavior:
@@ -72,6 +75,263 @@ function WebOnlyRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/**
+ * ✅ MUST be rendered INSIDE <BrowserRouter>
+ * so useNavigate/useLocation work for useBackButton()
+ */
+function AppRoutes() {
+  useBackButton();
+
+  return (
+    <AuthProvider>
+      <FamilyProvider>
+        <Routes>
+          {/* ---------------- Public routes (web + native) ---------------- */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
+          <Route path="/privacybeleid" element={<Privacybeleid />} />
+          <Route path="/contact" element={<ContactSupport />} />
+
+          {/* ---------------- Marketing routes (WEB only) ---------------- */}
+          <Route
+            path="/blog"
+            element={
+              <WebOnlyRoute>
+                <Blog />
+              </WebOnlyRoute>
+            }
+          />
+          <Route
+            path="/blog/:slug"
+            element={
+              <WebOnlyRoute>
+                <BlogPost />
+              </WebOnlyRoute>
+            }
+          />
+          <Route
+            path="/pricing"
+            element={
+              <WebOnlyRoute>
+                <Pricing />
+              </WebOnlyRoute>
+            }
+          />
+          <Route
+            path="/faq"
+            element={
+              <WebOnlyRoute>
+                <FAQ />
+              </WebOnlyRoute>
+            }
+          />
+          <Route
+            path="/contactweb"
+            element={
+              <WebOnlyRoute>
+                <Contact />
+              </WebOnlyRoute>
+            }
+          />
+
+          {/* ---------------- Protected routes (web + native) ---------------- */}
+          <Route
+            path="/families"
+            element={
+              <ProtectedRoute>
+                <Families />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/helper-families"
+            element={
+              <ProtectedRoute>
+                <HelperFamilySelector />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/kinderen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Children />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/agenda"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Agenda />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/logboek"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Logboek />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/verzoeken"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Verzoeken />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/hulpverleners"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Hulpverleners />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/vragen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Vragen />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/export"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Export />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Instellingen />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen/account"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AccountSettings />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen/koppelen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Koppelen />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen/abonnement"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Abonnement />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen/meldingen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Meldingen />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/instellingen/about"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <About />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Account />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ---------------- Root path ---------------- */}
+          <Route path="/" element={<Root />} />
+
+          {/* ---------------- Fallback ---------------- */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </FamilyProvider>
+    </AuthProvider>
+  );
+}
+
 function App() {
   useEffect(() => {
     if (isAndroid()) {
@@ -82,252 +342,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <FamilyProvider>
-          <Routes>
-            {/* ---------------- Public routes (web + native) ---------------- */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
-            <Route path="/privacybeleid" element={<Privacybeleid />} />
-            <Route path="/contact" element={<ContactSupport />} />
-
-            {/* ---------------- Marketing routes (WEB only) ---------------- */}
-            <Route
-              path="/blog"
-              element={
-                <WebOnlyRoute>
-                  <Blog />
-                </WebOnlyRoute>
-              }
-            />
-            <Route
-              path="/blog/:slug"
-              element={
-                <WebOnlyRoute>
-                  <BlogPost />
-                </WebOnlyRoute>
-              }
-            />
-            <Route
-              path="/pricing"
-              element={
-                <WebOnlyRoute>
-                  <Pricing />
-                </WebOnlyRoute>
-              }
-            />
-            <Route
-              path="/faq"
-              element={
-                <WebOnlyRoute>
-                  <FAQ />
-                </WebOnlyRoute>
-              }
-            />
-            <Route
-  path="/contactweb"
-  element={
-    <WebOnlyRoute>
-      <Contact />
-    </WebOnlyRoute>
-  }
-/>
-
-            {/* ---------------- Protected routes (web + native) ---------------- */}
-            <Route
-              path="/families"
-              element={
-                <ProtectedRoute>
-                  <Families />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/helper-families"
-              element={
-                <ProtectedRoute>
-                  <HelperFamilySelector />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/kinderen"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Children />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/agenda"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Agenda />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/logboek"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Logboek />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/verzoeken"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Verzoeken />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/hulpverleners"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Hulpverleners />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/vragen"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Vragen />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/export"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Export />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Instellingen />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen/account"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <AccountSettings />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen/koppelen"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Koppelen />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen/abonnement"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Abonnement />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen/meldingen"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Meldingen />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/instellingen/about"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <About />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/account"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Account />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-
-            {/* ---------------- Root path ---------------- */}
-            <Route path="/" element={<Root />} />
-
-            {/* ---------------- Fallback ---------------- */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </FamilyProvider>
-      </AuthProvider>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

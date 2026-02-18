@@ -4,24 +4,7 @@
             "outputFile": "com.coparenting.app-mergeDebugResources-39:/values-pt/values-pt.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\af275dfc04c426ecf23b79de71c76bf1\\transformed\\browser-1.9.0\\res\\values-pt\\values-pt.xml",
-                    "from": {
-                        "startLines": "2,3,4,5",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "55,170,269,381",
-                        "endColumns": "114,98,111,105",
-                        "endOffsets": "165,264,376,482"
-                    },
-                    "to": {
-                        "startLines": "36,37,38,39",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "3581,3696,3795,3907",
-                        "endColumns": "114,98,111,105",
-                        "endOffsets": "3691,3790,3902,4008"
-                    }
-                },
-                {
-                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\c3f09e8abd8bb01c9314454bd06bb337\\transformed\\appcompat-1.7.1\\res\\values-pt\\values-pt.xml",
+                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\fe2aed0df5da3b6366b8ddf7380eabcc\\transformed\\appcompat-1.7.1\\res\\values-pt\\values-pt.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29",
                         "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
@@ -38,7 +21,24 @@
                     }
                 },
                 {
-                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\11094a199bb7945826b161d8a9c17beb\\transformed\\core-1.17.0\\res\\values-pt\\values-pt.xml",
+                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\eafa9c520d7464f3e469f5237cd102ca\\transformed\\browser-1.9.0\\res\\values-pt\\values-pt.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,170,269,381",
+                        "endColumns": "114,98,111,105",
+                        "endOffsets": "165,264,376,482"
+                    },
+                    "to": {
+                        "startLines": "36,37,38,39",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "3581,3696,3795,3907",
+                        "endColumns": "114,98,111,105",
+                        "endOffsets": "3691,3790,3902,4008"
+                    }
+                },
+                {
+                    "source": "C:\\Users\\Edwin\\.gradle\\caches\\8.14.3\\transforms\\d0cd4fcbb94d02521935763507b18f88\\transformed\\core-1.17.0\\res\\values-pt\\values-pt.xml",
                     "from": {
                         "startLines": "2,3,4,5,6,7,8,9",
                         "startColumns": "4,4,4,4,4,4,4,4",

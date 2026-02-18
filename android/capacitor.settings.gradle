@@ -20,5 +20,8 @@ project(':capacitor-share').projectDir = new File('../node_modules/@capacitor/sh
 include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../node_modules/@capacitor/status-bar/android')
 
+include ':capacitor-toast'
+project(':capacitor-toast').projectDir = new File('../node_modules/@capacitor/toast/android')
+
 include ':capgo-capacitor-pdf-generator'
 project(':capgo-capacitor-pdf-generator').projectDir = new File('../node_modules/@capgo/capacitor-pdf-generator/android')
