@@ -253,28 +253,16 @@ export function AboutUs() {
                         <UserPlus className="w-6 h-6 text-amber-600" />
                       </div>
                       <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                        Hulpverlener Toegang & Communicatie
+                        Hulpverlener Toegang
                       </h3>
                     </div>
-                    <p className="text-sm sm:text-base text-gray-700 leading-relaxed mb-4">
-                      Geef hulpverleners read-only toegang tot jullie dossier. Zij kunnen zo beter
-                      ondersteunen en adviseren op basis van feitelijke informatie over de
-                      gezinssituatie.
+                    <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                      Geef hulpverleners read-only toegang tot jullie dossier. Via het ingebouwde
+                      berichtensysteem kunnen jullie vragen stellen, advies vragen bij uitdagingen
+                      in de opvoeding, en ondersteuning krijgen wanneer jullie vastlopen.
+                      Hulpverleners kunnen proactief bemiddelen en ondersteunen op basis van
+                      feitelijke informatie.
                     </p>
-                    <div className="bg-amber-50 rounded-lg p-4 border-l-4 border-amber-600">
-                      <h4 className="font-semibold text-gray-900 mb-2 text-sm">
-                        Directe Communicatie
-                      </h4>
-                      <p className="text-sm text-gray-700 leading-relaxed mb-2">
-                        Via het ingebouwde berichtensysteem kunnen jullie:
-                      </p>
-                      <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                        <li>Vragen stellen aan jullie hulpverlener</li>
-                        <li>Advies vragen bij uitdagingen in de opvoeding</li>
-                        <li>Ondersteuning krijgen wanneer jullie vastlopen</li>
-                        <li>Hulpverleners kunnen proactief bemiddelen en ondersteunen</li>
-                      </ul>
-                    </div>
                   </div>
 
                   <div className="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
