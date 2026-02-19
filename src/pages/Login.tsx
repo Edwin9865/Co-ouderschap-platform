@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Logo } from '../components/Logo';
@@ -9,8 +9,23 @@ export function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, session, loading: authLoading, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect authenticated users automatically
+  useEffect(() => {
+    console.log('[Login] Auth check - loading:', authLoading, 'session:', !!session, 'user:', user?.account_type);
+
+    if (!authLoading && session && user) {
+      console.log('[Login] User already authenticated, redirecting...');
+
+      if (user.account_type === 'HELPER') {
+        navigate('/helper-families', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [authLoading, session, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +41,15 @@ export function Login() {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-lg text-gray-600">Laden...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
