@@ -4,4 +4,9 @@
     <string name="title_activity_main">CoParenting</string>
     <string name="package_name">com.coparenting.app</string>
     <string name="custom_url_scheme">com.coparenting.app</string>
+
+    <!-- FCM Notification Channel -->
+    <string name="default_notification_channel_id">fcm_default_channel</string>
+    <string name="default_notification_channel_name">Algemene Meldingen</string>
+    <string name="default_notification_channel_description">Ontvang meldingen over verzoeken, agenda-items en logboek updates</string>
 </resources>
