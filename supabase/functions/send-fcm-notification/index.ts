@@ -161,6 +161,17 @@ Deno.serve(async (req: Request) => {
                   title,
                   body,
                 },
+                android: {
+                  priority: "high",
+                  notification: {
+                    channel_id: "fcm_default_channel",
+                    sound: "default",
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
+                  },
+                  data: {
+                    url,
+                  },
+                },
                 webpush: {
                   fcm_options: {
                     link: url,
