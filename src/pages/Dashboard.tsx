@@ -518,6 +518,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p>BUILDTEST 2026-02-19 21:00</p>
         <p className="mt-2 text-sm sm:text-base text-gray-600">Overzicht van recente activiteiten en openstaande items</p>
       </div>
 
