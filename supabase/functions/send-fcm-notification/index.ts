@@ -114,13 +114,18 @@ Deno.serve(async (req: Request) => {
     const payload: NotificationPayload = await req.json();
     const { familyId, title, body, url, excludeUserId } = payload;
 
-    const { data: familyMembers } = await supabase
+    console.log("📨 FCM Request:", { familyId, title, body, url, excludeUserId });
+
+    const { data: familyMembers, error: familyError } = await supabase
       .from("family_members")
       .select("user_id")
       .eq("family_id", familyId)
       .eq("status", "ACTIVE");
 
+    console.log("👥 Family members:", familyMembers, "Error:", familyError);
+
     if (!familyMembers || familyMembers.length === 0) {
+      console.log("❌ No family members found");
       return new Response(
         JSON.stringify({ success: false, message: "No family members found" }),
         {
@@ -134,14 +139,19 @@ Deno.serve(async (req: Request) => {
       .map((m) => m.user_id)
       .filter((id) => id !== excludeUserId);
 
-    const { data: notificationSettings } = await supabase
+    console.log("🔍 Looking for tokens for users:", userIds);
+
+    const { data: notificationSettings, error: settingsError } = await supabase
       .from("notification_settings")
-      .select("fcm_token, push_notifications_enabled")
+      .select("fcm_token, push_notifications_enabled, user_id")
       .in("user_id", userIds)
       .eq("push_notifications_enabled", true)
       .not("fcm_token", "is", null);
 
+    console.log("🔔 Notification settings:", notificationSettings, "Error:", settingsError);
+
     if (!notificationSettings || notificationSettings.length === 0) {
+      console.log("⚠️ No FCM tokens found");
       return new Response(
         JSON.stringify({ success: true, message: "No FCM tokens found", sent: 0 }),
         {
@@ -155,10 +165,50 @@ Deno.serve(async (req: Request) => {
       .map((s) => s.fcm_token)
       .filter((token): token is string => token !== null);
 
+    console.log("📱 Tokens to send to:", tokens);
+
     const accessToken = await getAccessToken();
+    console.log("🔑 Got access token:", accessToken ? "Yes" : "No");
 
     const sendPromises = tokens.map(async (token) => {
       try {
+        console.log(`🚀 Sending to token: ${token.substring(0, 20)}...`);
+
+        const fcmPayload = {
+          message: {
+            token: token,
+            notification: {
+              title,
+              body,
+            },
+            android: {
+              priority: "high",
+              notification: {
+                channel_id: "fcm_default_channel",
+                sound: "default",
+                click_action: "FLUTTER_NOTIFICATION_CLICK",
+              },
+              data: {
+                url,
+              },
+            },
+            webpush: {
+              fcm_options: {
+                link: url,
+              },
+              notification: {
+                icon: "/favicon.ico",
+                badge: "/favicon.ico",
+              },
+            },
+            data: {
+              url,
+            },
+          },
+        };
+
+        console.log("📦 FCM Payload:", JSON.stringify(fcmPayload, null, 2));
+
         const fcmResponse = await fetch(
           `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
           {
@@ -167,45 +217,16 @@ Deno.serve(async (req: Request) => {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${accessToken}`,
             },
-            body: JSON.stringify({
-              message: {
-                token: token,
-                notification: {
-                  title,
-                  body,
-                },
-                android: {
-                  priority: "high",
-                  notification: {
-                    channel_id: "fcm_default_channel",
-                    sound: "default",
-                    click_action: "FLUTTER_NOTIFICATION_CLICK",
-                  },
-                  data: {
-                    url,
-                  },
-                },
-                webpush: {
-                  fcm_options: {
-                    link: url,
-                  },
-                  notification: {
-                    icon: "/favicon.ico",
-                    badge: "/favicon.ico",
-                  },
-                },
-                data: {
-                  url,
-                },
-              },
-            }),
+            body: JSON.stringify(fcmPayload),
           }
         );
 
         const result = await fcmResponse.json();
-        return { success: fcmResponse.ok, result };
+        console.log(`📬 FCM Response (${fcmResponse.status}):`, result);
+
+        return { success: fcmResponse.ok, result, status: fcmResponse.status };
       } catch (error) {
-        console.error("Error sending FCM notification:", error);
+        console.error("❌ Error sending FCM notification:", error);
         return { success: false, error };
       }
     });

@@ -82,7 +82,8 @@ export function Verzoeken() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+          console.log('📤 Sending FCM notification request...');
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -96,9 +97,11 @@ export function Verzoeken() {
               excludeUserId: user.id,
             }),
           });
+          const result = await response.json();
+          console.log('📬 FCM response:', response.status, result);
         }
       } catch (notifError) {
-        console.error('Failed to send notification:', notifError);
+        console.error('❌ Failed to send notification:', notifError);
         // Don't fail the request creation if notification fails
       }
 
