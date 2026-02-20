@@ -68,13 +68,39 @@ export function Verzoeken() {
 
     setLoading(true);
     try {
-      await supabase.from('requests').insert({
+      const { error } = await supabase.from('requests').insert({
         family_id: currentFamily.id,
         type: formData.type,
         title: formData.title,
         description: formData.description || null,
         created_by: user.id,
       });
+
+      if (error) throw error;
+
+      // Send push notification
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              familyId: currentFamily.id,
+              title: 'Nieuw Verzoek',
+              body: formData.title,
+              url: '/verzoeken',
+              excludeUserId: user.id,
+            }),
+          });
+        }
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+        // Don't fail the request creation if notification fails
+      }
 
       await fetchRequests();
       setShowCreate(false);
@@ -85,17 +111,56 @@ export function Verzoeken() {
   };
 
   const handleUpdateStatus = async (requestId: string, newStatus: Request['status']) => {
-    if (!user) return;
+    if (!user || !currentFamily) return;
 
     setLoading(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('requests')
         .update({
           status: newStatus,
           last_action_by: user.id
         })
         .eq('id', requestId);
+
+      if (error) throw error;
+
+      // Send push notification for status changes
+      try {
+        const request = requests.find(r => r.id === requestId);
+        if (request) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            let message = '';
+            if (newStatus === 'ACCEPTED') {
+              message = 'Je verzoek is geaccepteerd';
+            } else if (newStatus === 'DECLINED') {
+              message = 'Je verzoek is afgewezen';
+            } else if (newStatus === 'COUNTERED') {
+              message = 'Er is een tegenvoorstel gedaan';
+            }
+
+            if (message) {
+              await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  familyId: currentFamily.id,
+                  title: request.title,
+                  body: message,
+                  url: '/verzoeken',
+                  excludeUserId: user.id,
+                }),
+              });
+            }
+          }
+        }
+      } catch (notifError) {
+        console.error('Failed to send notification:', notifError);
+      }
 
       await fetchRequests();
       setShowCounterForm(null);
