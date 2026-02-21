@@ -154,10 +154,10 @@ export function Agenda() {
       if (formData.child_id) {
         const { data: childData } = await supabase
           .from('children')
-          .select('name')
+          .select('first_name')
           .eq('id', formData.child_id)
           .maybeSingle();
-        childName = childData?.name || 'Kind';
+        childName = childData?.first_name || 'Kind';
       }
 
       const startDate = new Date(formData.start_at).toLocaleDateString('nl-NL', {
