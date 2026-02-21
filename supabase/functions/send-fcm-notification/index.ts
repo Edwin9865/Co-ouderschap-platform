@@ -93,6 +93,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const projectId = Deno.env.get("FCM_PROJECT_ID")!;
 
     // Get the authorization header from the request
@@ -104,12 +105,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create Supabase client with the user's token
-    const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
+    // Create Supabase client with service role key to bypass RLS for reading notification settings
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: NotificationPayload = await req.json();
     const { familyId, title, body, url, excludeUserId } = payload;
