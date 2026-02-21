@@ -150,9 +150,16 @@ export function Agenda() {
         created_by: user.id,
       });
 
-      const childName = formData.child_id
-        ? children.find(c => c.id === formData.child_id)?.name || 'Kind'
-        : 'Familie';
+      let childName = 'Familie';
+      if (formData.child_id) {
+        const { data: childData } = await supabase
+          .from('children')
+          .select('name')
+          .eq('id', formData.child_id)
+          .maybeSingle();
+        childName = childData?.name || 'Kind';
+      }
+
       const startDate = new Date(formData.start_at).toLocaleDateString('nl-NL', {
         day: 'numeric',
         month: 'short',
