@@ -102,6 +102,32 @@ export function Logboek() {
         created_by: user.id,
       });
 
+      const childName = formData.child_id
+        ? children.find(c => c.id === formData.child_id)?.name || 'Kind'
+        : 'Familie';
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        try {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              familyId: currentFamily.id,
+              title: `Nieuw logboek: ${formData.title}`,
+              body: `${childName}`,
+              url: '/logboek',
+              excludeUserId: user.id,
+            }),
+          });
+        } catch (notifError) {
+          console.error('Failed to send notification:', notifError);
+        }
+      }
+
       await fetchEntries();
       setShowCreate(false);
       resetForm();

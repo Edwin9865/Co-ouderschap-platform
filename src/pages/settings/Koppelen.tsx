@@ -126,7 +126,7 @@ export function Koppelen() {
   };
 
   const handleSendCouplingRequest = async () => {
-    if (!linkingCode.trim()) return;
+    if (!linkingCode.trim() || !currentFamily || !user) return;
 
     setLinkingError('');
     setLinkingSuccess('');
@@ -143,6 +143,31 @@ export function Koppelen() {
 
       if (!data.success) {
         throw new Error(data.error);
+      }
+
+      const targetFamilyId = data.target_family_id;
+      const targetUserId = data.target_user_id;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && targetFamilyId) {
+        try {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              familyId: targetFamilyId,
+              title: 'Nieuw koppelverzoek',
+              body: `${user.full_name || user.email} wil koppelen`,
+              url: '/instellingen/koppelen',
+              excludeUserId: user.id,
+            }),
+          });
+        } catch (notifError) {
+          console.error('Failed to send notification:', notifError);
+        }
       }
 
       setLinkingCode('');
@@ -171,14 +196,42 @@ export function Koppelen() {
   };
 
   const completeAcceptRequest = async (requestId: string, childIds: string[]) => {
+    if (!currentFamily || !user) return;
+
     setLoading(true);
     try {
+      const request = receivedRequests.find(r => r.id === requestId);
+
       const { data, error } = await supabase.rpc('accept_coupling_request', {
         request_id: requestId,
         selected_child_ids: childIds,
       });
 
       if (error) throw error;
+
+      if (request) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          try {
+            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                familyId: request.from_family_id,
+                title: 'Koppelverzoek geaccepteerd',
+                body: `${user.full_name || user.email} heeft je koppelverzoek geaccepteerd`,
+                url: '/instellingen/koppelen',
+                excludeUserId: user.id,
+              }),
+            });
+          } catch (notifError) {
+            console.error('Failed to send notification:', notifError);
+          }
+        }
+      }
 
       setShowChildSelection(false);
       setActiveRequestId(null);

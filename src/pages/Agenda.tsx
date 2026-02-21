@@ -150,6 +150,38 @@ export function Agenda() {
         created_by: user.id,
       });
 
+      const childName = formData.child_id
+        ? children.find(c => c.id === formData.child_id)?.name || 'Kind'
+        : 'Familie';
+      const startDate = new Date(formData.start_at).toLocaleDateString('nl-NL', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        try {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              familyId: currentFamily.id,
+              title: `Nieuwe afspraak: ${formData.title}`,
+              body: `${childName} - ${startDate}`,
+              url: '/agenda',
+              excludeUserId: user.id,
+            }),
+          });
+        } catch (notifError) {
+          console.error('Failed to send notification:', notifError);
+        }
+      }
+
       await fetchEvents();
       setShowCreate(false);
       setFormData({
