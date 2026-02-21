@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight, Camera, Image } from 'lucide-react';
+import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight, Camera, Image, Upload } from 'lucide-react';
 import type { LogEntry, LogEntryRevision } from '../lib/types';
 import { LogHistoryViewer } from '../components/LogHistoryViewer';
 import FileUpload from '../components/FileUpload';
 import AttachmentList from '../components/AttachmentList';
-import { getLogAttachments, UploadedFile, uploadLogAttachment } from '../lib/fileUploadService';
+import { getLogAttachments, UploadedFile, uploadLogAttachment, checkUploadQuota } from '../lib/fileUploadService';
 import { isNative } from '../lib/capacitor';
 import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
@@ -30,7 +30,7 @@ const getColorStyles = (hexColor: string) => {
 };
 
 export function Logboek() {
-  const { currentFamily, children, isParent, canAccessFeature } = useFamily();
+  const { currentFamily, children, isParent, canAccessFeature, subscription } = useFamily();
   const { user } = useAuth();
   const [entries, setEntries] = useState<LogEntry[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -42,6 +42,7 @@ export function Logboek() {
   const [viewingHistory, setViewingHistory] = useState<LogEntry | null>(null);
   const [entryAttachments, setEntryAttachments] = useState<Record<string, UploadedFile[]>>({});
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploadQuota, setUploadQuota] = useState<{ remaining: number; limit: number; canUpload: boolean } | null>(null);
 
   const [formData, setFormData] = useState({
     category: 'other' as LogEntry['category'],
@@ -52,6 +53,7 @@ export function Logboek() {
   });
 
   const canAccessHistory = canAccessFeature('history');
+  const plan = subscription?.plan || 'FREE';
 
   const getChildColor = (childId: string | null) => {
     if (!childId) return null;
@@ -104,7 +106,18 @@ export function Logboek() {
   useEffect(() => {
     if (!currentFamily) return;
     fetchEntries();
+    fetchUploadQuota();
   }, [currentFamily, selectedChild]);
+
+  const fetchUploadQuota = async () => {
+    if (!currentFamily) return;
+    try {
+      const quota = await checkUploadQuota(currentFamily.id);
+      setUploadQuota(quota);
+    } catch (error) {
+      console.error('Failed to fetch upload quota:', error);
+    }
+  };
 
   useEffect(() => {
     // Load attachments for visible entries
@@ -225,6 +238,7 @@ export function Logboek() {
       }
 
       await fetchEntries();
+      await fetchUploadQuota();
       setShowCreate(false);
       resetForm();
       setPendingFiles([]);
@@ -501,16 +515,44 @@ export function Logboek() {
             </div>
 
             <div className="border-t pt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Bijlagen (optioneel)
-              </label>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Bijlagen (optioneel)
+                </label>
+                {uploadQuota && plan === 'FREE' && (
+                  <div className="flex items-center space-x-2">
+                    <Upload className="w-4 h-4 text-gray-500" />
+                    <span className={`text-sm ${uploadQuota.remaining === 0 ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+                      {uploadQuota.remaining} van {uploadQuota.limit} over deze maand
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {uploadQuota && !uploadQuota.canUpload && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800 font-medium mb-2">
+                    Upload limiet bereikt
+                  </p>
+                  <p className="text-sm text-red-700 mb-3">
+                    Je hebt de limiet van {uploadQuota.limit} uploads per maand bereikt. Upgrade naar PLUS voor onbeperkte uploads.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.href = '/instellingen/abonnement'}
+                    className="text-sm px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Upgrade naar PLUS
+                  </button>
+                </div>
+              )}
 
               {isNative() ? (
                 <div className="space-y-2">
                   <button
                     type="button"
                     onClick={handleCameraCapture}
-                    disabled={loading || pendingFiles.length >= 5}
+                    disabled={loading || pendingFiles.length >= 5 || (uploadQuota && !uploadQuota.canUpload)}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
                     <Camera className="w-5 h-5" />
@@ -519,7 +561,7 @@ export function Logboek() {
                   <button
                     type="button"
                     onClick={handleGalleryPick}
-                    disabled={loading || pendingFiles.length >= 5}
+                    disabled={loading || pendingFiles.length >= 5 || (uploadQuota && !uploadQuota.canUpload)}
                     className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                   >
                     <Image className="w-5 h-5" />
@@ -536,7 +578,7 @@ export function Logboek() {
                     setPendingFiles(prev => [...prev, ...files].slice(0, 5));
                   }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm"
-                  disabled={loading}
+                  disabled={loading || (uploadQuota && !uploadQuota.canUpload)}
                 />
               )}
 

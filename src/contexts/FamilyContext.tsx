@@ -154,9 +154,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       case 'export':
         return plan === 'PLUS' || plan === 'PRO';
       case 'helpers':
-        return plan === 'PLUS' || plan === 'PRO';
+        return plan === 'PRO';
       case 'history':
-        return plan === 'PLUS' || plan === 'PRO';
+        return false;
       case 'multiple_children':
         return plan === 'PLUS' || plan === 'PRO';
       default:

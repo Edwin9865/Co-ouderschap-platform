@@ -21,6 +21,42 @@ const MAX_FILE_SIZE_MB = 10;
 const MAX_FILES_PER_ENTRY = 5;
 
 /**
+ * Check if family has upload quota remaining
+ */
+export async function checkUploadQuota(familyId: string): Promise<{ canUpload: boolean; remaining: number; limit: number }> {
+  const { data: canUploadData, error: canUploadError } = await supabase.rpc('can_upload_file', {
+    p_family_id: familyId,
+  });
+
+  if (canUploadError) {
+    console.error('Error checking upload quota:', canUploadError);
+    throw new Error('Kon upload quota niet controleren');
+  }
+
+  const { data: remainingData, error: remainingError } = await supabase.rpc('get_remaining_uploads', {
+    p_family_id: familyId,
+  });
+
+  if (remainingError) {
+    console.error('Error getting remaining uploads:', remainingError);
+  }
+
+  const { data: limitData, error: limitError } = await supabase.rpc('get_monthly_upload_limit', {
+    p_family_id: familyId,
+  });
+
+  if (limitError) {
+    console.error('Error getting upload limit:', limitError);
+  }
+
+  return {
+    canUpload: canUploadData === true,
+    remaining: remainingData || 0,
+    limit: limitData || 10,
+  };
+}
+
+/**
  * Upload file to Supabase Storage and create attachment record
  */
 export async function uploadLogAttachment(
@@ -30,6 +66,12 @@ export async function uploadLogAttachment(
   onProgress?: (progress: UploadProgress) => void
 ): Promise<UploadedFile> {
   try {
+    // Check upload quota
+    const quota = await checkUploadQuota(familyId);
+    if (!quota.canUpload) {
+      throw new Error(`Upload limiet bereikt. Je hebt 0 van de ${quota.limit} uploads over deze maand. Upgrade naar PLUS voor onbeperkte uploads.`);
+    }
+
     // Validate file type
     if (!isValidFileType(file)) {
       throw new Error('Ongeldig bestandstype. Alleen JPG, PNG, HEIC en PDF zijn toegestaan.');
@@ -115,6 +157,11 @@ export async function uploadLogAttachment(
       await supabase.storage.from('log-attachments').remove([storagePath]);
       throw new Error(`Database fout: ${dbError.message}`);
     }
+
+    // Increment quota counter after successful upload
+    await supabase.rpc('increment_upload_quota', {
+      p_family_id: familyId,
+    });
 
     onProgress?.({
       fileName: file.name,
