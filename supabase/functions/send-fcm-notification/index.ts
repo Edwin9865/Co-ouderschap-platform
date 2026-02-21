@@ -93,6 +93,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const projectId = Deno.env.get("FCM_PROJECT_ID")!;
 
@@ -105,7 +106,24 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Create Supabase client with service role key to bypass RLS for reading notification settings
+    // First, validate the user's JWT using a client with the anon key
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+
+    if (authError || !user) {
+      console.error("❌ JWT validation failed:", authError);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid JWT", details: authError?.message }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("✅ Authenticated user:", user.id);
+
+    // Now use service role key to bypass RLS for reading notification settings
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: NotificationPayload = await req.json();
