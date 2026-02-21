@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight, Camera, Image } from 'lucide-react';
 import type { LogEntry, LogEntryRevision } from '../lib/types';
 import { LogHistoryViewer } from '../components/LogHistoryViewer';
 import FileUpload from '../components/FileUpload';
 import AttachmentList from '../components/AttachmentList';
-import { getLogAttachments, UploadedFile } from '../lib/fileUploadService';
+import { getLogAttachments, UploadedFile, uploadLogAttachment } from '../lib/fileUploadService';
+import { isNative } from '../lib/capacitor';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -39,8 +41,7 @@ export function Logboek() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewingHistory, setViewingHistory] = useState<LogEntry | null>(null);
   const [entryAttachments, setEntryAttachments] = useState<Record<string, UploadedFile[]>>({});
-  const [newEntryId, setNewEntryId] = useState<string | null>(null);
-  const [newEntryAttachments, setNewEntryAttachments] = useState<UploadedFile[]>([]);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const [formData, setFormData] = useState({
     category: 'other' as LogEntry['category'],
@@ -56,6 +57,48 @@ export function Logboek() {
     if (!childId) return null;
     const child = children.find(c => c.id === childId);
     return child ? getColorStyles(child.color || '#3b82f6') : null;
+  };
+
+  const handleCameraCapture = async () => {
+    if (!isNative()) return;
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera,
+      });
+
+      if (image.webPath) {
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setPendingFiles(prev => [...prev, file].slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Camera error:', error);
+    }
+  };
+
+  const handleGalleryPick = async () => {
+    if (!isNative()) return;
+    try {
+      const image = await CapacitorCamera.getPhoto({
+        quality: 90,
+        allowEditing: false,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Photos,
+      });
+
+      if (image.webPath) {
+        const response = await fetch(image.webPath);
+        const blob = await response.blob();
+        const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setPendingFiles(prev => [...prev, file].slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Gallery error:', error);
+    }
   };
 
   useEffect(() => {
@@ -138,8 +181,16 @@ export function Logboek() {
         throw insertError || new Error('Failed to create entry');
       }
 
-      // Set the new entry ID for file upload
-      setNewEntryId(newEntry.id);
+      // Upload any pending files
+      if (pendingFiles.length > 0) {
+        for (const file of pendingFiles) {
+          try {
+            await uploadLogAttachment(file, currentFamily.id, newEntry.id);
+          } catch (uploadError) {
+            console.error('Failed to upload file:', uploadError);
+          }
+        }
+      }
 
       let childName = 'Familie';
       if (formData.child_id) {
@@ -174,13 +225,9 @@ export function Logboek() {
       }
 
       await fetchEntries();
-
-      // Don't close the form yet if user wants to upload files
-      if (newEntryAttachments.length === 0) {
-        setShowCreate(false);
-        resetForm();
-        setNewEntryId(null);
-      }
+      setShowCreate(false);
+      resetForm();
+      setPendingFiles([]);
     } finally {
       setLoading(false);
     }
@@ -189,8 +236,7 @@ export function Logboek() {
   const handleCloseCreateForm = () => {
     setShowCreate(false);
     resetForm();
-    setNewEntryId(null);
-    setNewEntryAttachments([]);
+    setPendingFiles([]);
   };
 
   const handleUpdate = async (entryId: string, originalData: LogEntry) => {
@@ -454,50 +500,80 @@ export function Logboek() {
               />
             </div>
 
-            {newEntryId && (
-              <div className="border-t pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Bijlagen (optioneel)
-                </label>
-                <FileUpload
-                  familyId={currentFamily!.id}
-                  logEntryId={newEntryId}
-                  existingFiles={newEntryAttachments}
-                  onUploadComplete={(file) => {
-                    setNewEntryAttachments(prev => [...prev, file]);
-                  }}
-                  disabled={loading}
-                />
-              </div>
-            )}
+            <div className="border-t pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Bijlagen (optioneel)
+              </label>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              {!newEntryId ? (
-                <>
+              {isNative() ? (
+                <div className="space-y-2">
                   <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                    type="button"
+                    onClick={handleCameraCapture}
+                    disabled={loading || pendingFiles.length >= 5}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {loading ? 'Bezig...' : 'Toevoegen'}
+                    <Camera className="w-5 h-5" />
+                    <span>Maak foto</span>
                   </button>
                   <button
                     type="button"
-                    onClick={handleCloseCreateForm}
-                    className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                    onClick={handleGalleryPick}
+                    disabled={loading || pendingFiles.length >= 5}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                   >
-                    Annuleren
+                    <Image className="w-5 h-5" />
+                    <span>Selecteer foto</span>
                   </button>
-                </>
+                </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={handleCloseCreateForm}
-                  className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700"
-                >
-                  Klaar
-                </button>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setPendingFiles(prev => [...prev, ...files].slice(0, 5));
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm"
+                  disabled={loading}
+                />
               )}
+
+              {pendingFiles.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-sm text-gray-600">Geselecteerde bestanden ({pendingFiles.length}/5):</p>
+                  {pendingFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between text-sm bg-gray-50 px-3 py-2 rounded">
+                      <span className="truncate flex-1">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPendingFiles(prev => prev.filter((_, i) => i !== index))}
+                        className="ml-2 text-red-600 hover:text-red-700"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              >
+                {loading ? 'Bezig...' : 'Toevoegen'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseCreateForm}
+                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              >
+                Annuleren
+              </button>
             </div>
           </form>
         </div>
