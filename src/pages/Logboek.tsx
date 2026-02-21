@@ -5,6 +5,9 @@ import { supabase } from '../lib/supabase';
 import { Plus, Edit2, Trash2, History, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LogEntry, LogEntryRevision } from '../lib/types';
 import { LogHistoryViewer } from '../components/LogHistoryViewer';
+import FileUpload from '../components/FileUpload';
+import AttachmentList from '../components/AttachmentList';
+import { getLogAttachments, UploadedFile } from '../lib/fileUploadService';
 
 const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -35,6 +38,9 @@ export function Logboek() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewingHistory, setViewingHistory] = useState<LogEntry | null>(null);
+  const [entryAttachments, setEntryAttachments] = useState<Record<string, UploadedFile[]>>({});
+  const [newEntryId, setNewEntryId] = useState<string | null>(null);
+  const [newEntryAttachments, setNewEntryAttachments] = useState<UploadedFile[]>([]);
 
   const [formData, setFormData] = useState({
     category: 'other' as LogEntry['category'],
@@ -56,6 +62,28 @@ export function Logboek() {
     if (!currentFamily) return;
     fetchEntries();
   }, [currentFamily, selectedChild]);
+
+  useEffect(() => {
+    // Load attachments for visible entries
+    const loadAttachments = async () => {
+      const monthEntries = getEntriesForMonth();
+      for (const entry of monthEntries) {
+        if (!entryAttachments[entry.id]) {
+          try {
+            const attachments = await getLogAttachments(entry.id);
+            setEntryAttachments(prev => ({
+              ...prev,
+              [entry.id]: attachments,
+            }));
+          } catch (error) {
+            console.error('Failed to load attachments:', error);
+          }
+        }
+      }
+    };
+
+    loadAttachments();
+  }, [entries, currentDate]);
 
   const fetchEntries = async () => {
     if (!currentFamily) return;
@@ -92,15 +120,26 @@ export function Logboek() {
 
     setLoading(true);
     try {
-      await supabase.from('log_entries').insert({
-        family_id: currentFamily.id,
-        child_id: formData.child_id || null,
-        category: formData.category,
-        title: formData.title,
-        details: formData.details || null,
-        occurred_at: formData.occurred_at,
-        created_by: user.id,
-      });
+      const { data: newEntry, error: insertError } = await supabase
+        .from('log_entries')
+        .insert({
+          family_id: currentFamily.id,
+          child_id: formData.child_id || null,
+          category: formData.category,
+          title: formData.title,
+          details: formData.details || null,
+          occurred_at: formData.occurred_at,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (insertError || !newEntry) {
+        throw insertError || new Error('Failed to create entry');
+      }
+
+      // Set the new entry ID for file upload
+      setNewEntryId(newEntry.id);
 
       let childName = 'Familie';
       if (formData.child_id) {
@@ -135,11 +174,23 @@ export function Logboek() {
       }
 
       await fetchEntries();
-      setShowCreate(false);
-      resetForm();
+
+      // Don't close the form yet if user wants to upload files
+      if (newEntryAttachments.length === 0) {
+        setShowCreate(false);
+        resetForm();
+        setNewEntryId(null);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseCreateForm = () => {
+    setShowCreate(false);
+    resetForm();
+    setNewEntryId(null);
+    setNewEntryAttachments([]);
   };
 
   const handleUpdate = async (entryId: string, originalData: LogEntry) => {
@@ -403,24 +454,50 @@ export function Logboek() {
               />
             </div>
 
+            {newEntryId && (
+              <div className="border-t pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Bijlagen (optioneel)
+                </label>
+                <FileUpload
+                  familyId={currentFamily!.id}
+                  logEntryId={newEntryId}
+                  existingFiles={newEntryAttachments}
+                  onUploadComplete={(file) => {
+                    setNewEntryAttachments(prev => [...prev, file]);
+                  }}
+                  disabled={loading}
+                />
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
-              >
-                {loading ? 'Bezig...' : 'Toevoegen'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCreate(false);
-                  resetForm();
-                }}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-              >
-                Annuleren
-              </button>
+              {!newEntryId ? (
+                <>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Bezig...' : 'Toevoegen'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseCreateForm}
+                    className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  >
+                    Annuleren
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleCloseCreateForm}
+                  className="flex-1 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700"
+                >
+                  Klaar
+                </button>
+              )}
             </div>
           </form>
         </div>
@@ -610,6 +687,15 @@ export function Logboek() {
                       </div>
                     )}
                   </div>
+
+                  {entryAttachments[entry.id] && entryAttachments[entry.id].length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <AttachmentList
+                        attachments={entryAttachments[entry.id]}
+                        showThumbnails={true}
+                      />
+                    </div>
+                  )}
                 </>
               )}
               </div>
