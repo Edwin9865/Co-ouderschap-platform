@@ -255,7 +255,7 @@ interface PricingTier {
 export default function Pricing() {
   const tiers: PricingTier[] = useMemo(() => [
     {
-      name: "Basis",
+      name: "FREE",
       price: "0",
       period: "gratis",
       description: "Perfect om te starten met overzicht en structuur.",
@@ -272,7 +272,7 @@ export default function Pricing() {
       subtext: "Upgrade wanneer jij er klaar voor bent.",
     },
     {
-      name: "Pro",
+      name: "PLUS",
       price: "9,99",
       period: "per maand",
       description: "Voor gezinnen die alles goed willen organiseren.",
@@ -287,16 +287,16 @@ export default function Pricing() {
         "Extra opslagruimte",
       ],
       highlighted: true,
-      cta: "Start met Pro",
+      cta: "Start met PLUS",
       subtext: "Maandelijks opzegbaar.",
     },
     {
-      name: "Familie",
+      name: "PRO",
       price: "14,99",
       period: "per maand",
       description: "Voor gezinnen met hulpverleners of extra ondersteuning.",
       features: [
-        "Alles van Pro",
+        "Alles van PLUS",
         "Toegang voor hulpverleners",
         "Hulpverlenerscommunicatie",
         "Veiligheidsmeldingen",
@@ -306,7 +306,7 @@ export default function Pricing() {
         "Maandelijkse check-in",
       ],
       highlighted: false,
-      cta: "Kies Familie",
+      cta: "Kies PRO",
       subtext: "Maandelijks opzegbaar.",
     },
   ], []);
@@ -389,14 +389,14 @@ export default function Pricing() {
                         background: isFeatured ? "rgba(255,255,255,0.12)" : tk.sand,
                         border: `1px solid ${isFeatured ? "rgba(255,255,255,0.18)" : tk.border}`,
                       }}>
-                        {tier.name === "Basis"   && <Users size={18} color={isFeatured ? "#fff" : tk.moss} />}
-                        {tier.name === "Pro"     && <Sparkles size={18} color={isFeatured ? "#fff" : tk.moss} />}
-                        {tier.name === "Familie" && <Shield size={18} color={isFeatured ? "#fff" : tk.moss} />}
+                        {tier.name === "FREE"  && <Users size={18} color={isFeatured ? "#fff" : tk.moss} />}
+                        {tier.name === "PLUS"  && <Sparkles size={18} color={isFeatured ? "#fff" : tk.moss} />}
+                        {tier.name === "PRO"   && <Shield size={18} color={isFeatured ? "#fff" : tk.moss} />}
                       </div>
                       <span style={{ fontSize: 15, fontWeight: 600, color: isFeatured ? "rgba(255,255,255,0.9)" : tk.slateLight, letterSpacing: "0.02em" }}>
                         {tier.name}
                       </span>
-                      {tier.name === "Familie" && (
+                      {tier.name === "PRO" && (
                         <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 500, color: isFeatured ? "rgba(255,255,255,0.55)" : tk.muted, background: isFeatured ? "rgba(255,255,255,0.1)" : tk.sand, padding: "3px 10px", borderRadius: 99, border: `1px solid ${isFeatured ? "rgba(255,255,255,0.15)" : tk.borderLight}` }}>
                           + Hulpverleners
                         </span>
