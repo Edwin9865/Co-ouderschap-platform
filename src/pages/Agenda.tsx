@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Calendar as CalendarIcon, List, ChevronLeft, ChevronRight, Edit2, X } from 'lucide-react';
+import { Plus, Calendar as CalendarIcon, List, ChevronLeft, ChevronRight, Edit2, X, Lock } from 'lucide-react';
 import type { Event } from '../lib/types';
 
 const hexToRgb = (hex: string) => {
@@ -27,6 +27,7 @@ export function Agenda() {
   const { currentFamily, children, isParent, canAccessFeature } = useFamily();
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
+  const canAccessHistory = canAccessFeature('history');
   const [showCreate, setShowCreate] = useState(false);
   const [selectedChild, setSelectedChild] = useState<string>('all');
   const [loading, setLoading] = useState(false);
@@ -575,6 +576,20 @@ export function Agenda() {
           </button>
         )}
       </div>
+
+      {!canAccessHistory && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
+            <div>
+              <p className="text-sm text-amber-900">
+                Met het gratis plan zie je alleen de laatste 30 dagen. Upgrade naar PLUS of PRO voor
+                volledige historie.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4 mb-4">
         <div className="flex justify-center">

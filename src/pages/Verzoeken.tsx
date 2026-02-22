@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import type { Request, RequestProposal, User } from '../lib/types';
 
 type RequestWithProposals = Request & {
@@ -14,6 +14,7 @@ export function Verzoeken() {
   const { currentFamily, isParent, isHelper, canAccessFeature } = useFamily();
   const { user } = useAuth();
   const [requests, setRequests] = useState<RequestWithProposals[]>([]);
+  const canAccessHistory = canAccessFeature('history');
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCounterForm, setShowCounterForm] = useState<string | null>(null);
@@ -318,6 +319,19 @@ export function Verzoeken() {
         )}
       </div>
 
+      {!canAccessHistory && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
+            <div>
+              <p className="text-sm text-amber-900">
+                Met het gratis plan zie je alleen de laatste 30 dagen. Upgrade naar PLUS of PRO voor
+                volledige historie.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && isParent && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
