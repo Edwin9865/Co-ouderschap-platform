@@ -17,6 +17,7 @@ export function Verzoeken() {
   const canAccessHistory = canAccessFeature('history');
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [parentCount, setParentCount] = useState(0);
   const [showCounterForm, setShowCounterForm] = useState<string | null>(null);
   const [showDeclineForm, setShowDeclineForm] = useState<string | null>(null);
   const [counterText, setCounterText] = useState('');
@@ -32,7 +33,21 @@ export function Verzoeken() {
   useEffect(() => {
     if (!currentFamily) return;
     fetchRequests();
+    fetchParentCount();
   }, [currentFamily]);
+
+  const fetchParentCount = async () => {
+    if (!currentFamily) return;
+
+    const { data } = await supabase
+      .from('family_members')
+      .select('id')
+      .eq('family_id', currentFamily.id)
+      .eq('role', 'PARENT')
+      .eq('status', 'ACTIVE');
+
+    setParentCount(data?.length || 0);
+  };
 
   const fetchRequests = async () => {
     if (!currentFamily) return;
@@ -308,7 +323,7 @@ export function Verzoeken() {
             }
           </p>
         </div>
-        {!showCreate && isParent && (
+        {!showCreate && isParent && parentCount >= 2 && (
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 whitespace-nowrap"
@@ -319,7 +334,20 @@ export function Verzoeken() {
         )}
       </div>
 
-      {!canAccessHistory && (
+      {isParent && parentCount < 2 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start">
+            <Lock className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+            <div>
+              <p className="text-sm text-blue-900">
+                Koppel eerst een co-ouder om verzoeken te kunnen versturen. Ga naar Instellingen → Koppelen om een uitnodiging te versturen.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!canAccessHistory && parentCount >= 2 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex items-start">
             <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
@@ -418,7 +446,9 @@ export function Verzoeken() {
       </div>
 
       <div className="space-y-4">
-        {monthlyRequests.length === 0 ? (
+        {isParent && parentCount < 2 ? (
+          <div className="text-center py-12 text-gray-500">Koppel eerst een co-ouder om verzoeken te kunnen gebruiken</div>
+        ) : monthlyRequests.length === 0 ? (
           <div className="text-center py-12 text-gray-500">Geen verzoeken in deze maand</div>
         ) : (
           monthlyRequests.map((request) => (
