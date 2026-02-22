@@ -24,7 +24,7 @@ const getColorStyles = (hexColor: string) => {
 };
 
 export function Agenda() {
-  const { currentFamily, children, isParent } = useFamily();
+  const { currentFamily, children, isParent, canAccessFeature } = useFamily();
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -119,15 +119,26 @@ export function Agenda() {
     }
 
     const { data } = await query;
+    const filteredData = filterByPlan(data || []);
 
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-    const allEvents = (data || []).flatMap(event =>
+    const allEvents = filteredData.flatMap(event =>
       generateRecurringEvents(event, oneYearFromNow)
     );
 
     setEvents(allEvents);
+  };
+
+  const filterByPlan = (data: Event[]) => {
+    const canAccessHistory = canAccessFeature('history');
+    if (canAccessHistory) return data;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return data.filter(event => new Date(event.start_at) >= thirtyDaysAgo);
   };
 
   const handleCreate = async (e: React.FormEvent) => {

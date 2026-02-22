@@ -11,7 +11,7 @@ type RequestWithProposals = Request & {
 };
 
 export function Verzoeken() {
-  const { currentFamily, isParent, isHelper } = useFamily();
+  const { currentFamily, isParent, isHelper, canAccessFeature } = useFamily();
   const { user } = useAuth();
   const [requests, setRequests] = useState<RequestWithProposals[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -43,8 +43,9 @@ export function Verzoeken() {
       .order('created_at', { ascending: false });
 
     if (data) {
+      const filteredData = filterByPlan(data);
       const requestsWithProposals = await Promise.all(
-        data.map(async (req) => {
+        filteredData.map(async (req) => {
           const { data: proposals } = await supabase
             .from('request_proposals')
             .select('*, proposer:users!request_proposals_proposed_by_fkey(*)')
@@ -60,6 +61,16 @@ export function Verzoeken() {
 
       setRequests(requestsWithProposals);
     }
+  };
+
+  const filterByPlan = (data: Request[]) => {
+    const canAccessHistory = canAccessFeature('history');
+    if (canAccessHistory) return data;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return data.filter(request => new Date(request.created_at) >= thirtyDaysAgo);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
