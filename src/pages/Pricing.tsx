@@ -266,6 +266,8 @@ export default function Pricing() {
         "Mobiele app + web",
         "Notificaties",
         "Tot 2 gezinsleden",
+        "Max 30 dagen geschiedenis",
+        "Max 10 uploads per maand",
       ],
       highlighted: false,
       cta: "Start gratis",
