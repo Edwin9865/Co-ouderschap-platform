@@ -156,7 +156,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       case 'helpers':
         return plan === 'PRO';
       case 'history':
-        return false;
+        return plan === 'PLUS' || plan === 'PRO';
       case 'multiple_children':
         return plan === 'PLUS' || plan === 'PRO';
       default:
