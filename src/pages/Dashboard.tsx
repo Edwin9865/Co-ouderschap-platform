@@ -118,7 +118,21 @@ export function Dashboard() {
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const isFree = subscription?.plan === 'FREE';
+      const isFree = !subscription || subscription.plan === 'FREE';
+
+      let logsQuery = supabase
+        .from('log_entries')
+        .select('*')
+        .eq('family_id', currentFamily.id)
+        .is('deleted_at', null);
+
+      if (isFree) {
+        logsQuery = logsQuery.gte('created_at', thirtyDaysAgo.toISOString());
+      }
+
+      logsQuery = logsQuery
+        .order('created_at', { ascending: false })
+        .limit(5);
 
       const basePromises = [
         supabase
@@ -128,22 +142,7 @@ export function Dashboard() {
           .is('parent_event_id', null)
           .gte('start_at', new Date().toISOString())
           .order('start_at', { ascending: true }),
-        isFree
-          ? supabase
-              .from('log_entries')
-              .select('*')
-              .eq('family_id', currentFamily.id)
-              .is('deleted_at', null)
-              .gte('created_at', thirtyDaysAgo.toISOString())
-              .order('created_at', { ascending: false })
-              .limit(5)
-          : supabase
-              .from('log_entries')
-              .select('*')
-              .eq('family_id', currentFamily.id)
-              .is('deleted_at', null)
-              .order('created_at', { ascending: false })
-              .limit(5),
+        logsQuery,
       ];
 
       if (isHelper || isHelperMode) {
