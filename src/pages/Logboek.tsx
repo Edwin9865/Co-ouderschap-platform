@@ -166,7 +166,7 @@ export function Logboek() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    return data.filter(entry => new Date(entry.occurred_at) >= thirtyDaysAgo);
+    return data.filter(entry => new Date(entry.created_at) >= thirtyDaysAgo);
   };
 
 
