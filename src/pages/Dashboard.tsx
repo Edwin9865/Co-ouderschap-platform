@@ -114,6 +114,12 @@ export function Dashboard() {
 
   const fetchData = useCallback(async () => {
     if (!currentFamily || !user) return;
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const isFree = subscription?.plan === 'FREE';
+
       const basePromises = [
         supabase
           .from('events')
@@ -122,13 +128,22 @@ export function Dashboard() {
           .is('parent_event_id', null)
           .gte('start_at', new Date().toISOString())
           .order('start_at', { ascending: true }),
-        supabase
-          .from('log_entries')
-          .select('*')
-          .eq('family_id', currentFamily.id)
-          .is('deleted_at', null)
-          .order('created_at', { ascending: false })
-          .limit(5),
+        isFree
+          ? supabase
+              .from('log_entries')
+              .select('*')
+              .eq('family_id', currentFamily.id)
+              .is('deleted_at', null)
+              .gte('created_at', thirtyDaysAgo.toISOString())
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : supabase
+              .from('log_entries')
+              .select('*')
+              .eq('family_id', currentFamily.id)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false })
+              .limit(5),
       ];
 
       if (isHelper || isHelperMode) {
@@ -268,7 +283,7 @@ export function Dashboard() {
       setRecentEvents(allEvents);
       setRecentLogs(logsResult.data || []);
       setLoading(false);
-  }, [currentFamily, user, isHelper, isHelperMode]);
+  }, [currentFamily, user, isHelper, isHelperMode, subscription]);
 
   useEffect(() => {
     fetchData();
