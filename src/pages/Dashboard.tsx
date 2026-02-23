@@ -8,11 +8,13 @@ import type { Event, LogEntry, Request } from '../lib/types';
 
 const hexToRgb = (hex: string) => {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 59, g: 130, b: 246 };
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : { r: 59, g: 130, b: 246 };
 };
 
 const getColorStyles = (hexColor: string) => {
@@ -26,8 +28,17 @@ const getColorStyles = (hexColor: string) => {
 
 export function Dashboard() {
   const navigate = useNavigate();
-  const { currentFamily, children, subscription, isHelper, isHelperMode, members, loading: familyLoading } = useFamily();
+  const {
+    currentFamily,
+    children,
+    subscription,
+    isHelper,
+    isHelperMode,
+    members,
+    loading: familyLoading,
+  } = useFamily();
   const { user } = useAuth();
+
   const [recentEvents, setRecentEvents] = useState<Event[]>([]);
   const [recentLogs, setRecentLogs] = useState<LogEntry[]>([]);
   const [openRequests, setOpenRequests] = useState<Request[]>([]);
@@ -46,7 +57,7 @@ export function Dashboard() {
 
   const getChildColor = (childId: string | null) => {
     if (!childId) return null;
-    const child = children.find(c => c.id === childId);
+    const child = children.find((c) => c.id === childId);
     return child ? getColorStyles(child.color || '#3b82f6') : null;
   };
 
@@ -65,9 +76,7 @@ export function Dashboard() {
 
     const events: Event[] = [baseEvent];
     const startDate = new Date(baseEvent.start_at);
-    const endDate = baseEvent.recurrence_end_date
-      ? new Date(baseEvent.recurrence_end_date)
-      : maxDate;
+    const endDate = baseEvent.recurrence_end_date ? new Date(baseEvent.recurrence_end_date) : maxDate;
 
     let currentDate = new Date(startDate);
     let instanceCount = 0;
@@ -92,17 +101,13 @@ export function Dashboard() {
 
       if (currentDate > endDate) break;
 
-      const duration = baseEvent.end_at
-        ? new Date(baseEvent.end_at).getTime() - startDate.getTime()
-        : 0;
+      const duration = baseEvent.end_at ? new Date(baseEvent.end_at).getTime() - startDate.getTime() : 0;
 
       const recurringEvent: Event = {
         ...baseEvent,
         id: `${baseEvent.id}-recur-${instanceCount}`,
         start_at: currentDate.toISOString(),
-        end_at: duration > 0
-          ? new Date(currentDate.getTime() + duration).toISOString()
-          : baseEvent.end_at,
+        end_at: duration > 0 ? new Date(currentDate.getTime() + duration).toISOString() : baseEvent.end_at,
       };
 
       events.push(recurringEvent);
@@ -114,175 +119,174 @@ export function Dashboard() {
 
   const fetchData = useCallback(async () => {
     if (!currentFamily || !user) return;
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const isFree = subscription?.plan === 'FREE';
+    setLoading(true);
 
-      const basePromises = [
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const isFree = subscription?.plan === 'FREE';
+
+    // ✅ Fix: use occurred_at for FREE plan (same logic as Logboek.tsx)
+    const logsQuery = supabase
+      .from('log_entries')
+      .select('*')
+      .eq('family_id', currentFamily.id)
+      .is('deleted_at', null)
+      .order('occurred_at', { ascending: false })
+      .limit(5);
+
+    const logsPromise = isFree ? logsQuery.gte('occurred_at', thirtyDaysAgo.toISOString()) : logsQuery;
+
+    const basePromises: Promise<any>[] = [
+      supabase
+        .from('events')
+        .select('*')
+        .eq('family_id', currentFamily.id)
+        .is('parent_event_id', null)
+        .gte('start_at', new Date().toISOString())
+        .order('start_at', { ascending: true }),
+
+      logsPromise,
+    ];
+
+    if (isHelper || isHelperMode) {
+      basePromises.push(
         supabase
-          .from('events')
-          .select('*')
-          .eq('family_id', currentFamily.id)
-          .is('parent_event_id', null)
-          .gte('start_at', new Date().toISOString())
-          .order('start_at', { ascending: true }),
-        isFree
-          ? supabase
-              .from('log_entries')
-              .select('*')
-              .eq('family_id', currentFamily.id)
-              .is('deleted_at', null)
-              .gte('created_at', thirtyDaysAgo.toISOString())
-              .order('created_at', { ascending: false })
-              .limit(5)
-          : supabase
-              .from('log_entries')
-              .select('*')
-              .eq('family_id', currentFamily.id)
-              .is('deleted_at', null)
-              .order('created_at', { ascending: false })
-              .limit(5),
-      ];
-
-      if (isHelper || isHelperMode) {
-        basePromises.push(
-          supabase
-            .from('helper_messages')
-            .select('id, subject, created_at, sender_id, recipient_id, status, closed')
-            .eq('family_id', currentFamily.id)
-            .eq('closed', false)
-            .is('parent_message_id', null)
-            .order('created_at', { ascending: false })
-        );
-      } else {
-        basePromises.push(
-          supabase
-            .from('requests')
-            .select('*')
-            .eq('family_id', currentFamily.id)
-            .in('status', ['OPEN', 'COUNTERED'])
-            .order('created_at', { ascending: false })
-        );
-        basePromises.push(
-          supabase
-            .from('family_invite_codes')
-            .select('code')
-            .eq('family_id', currentFamily.id)
-            .is('used_at', null)
-            .maybeSingle()
-        );
-        basePromises.push(
-          supabase
-            .from('family_members')
-            .select('id')
-            .eq('family_id', currentFamily.id)
-            .eq('status', 'ACTIVE')
-        );
-        basePromises.push(
-          supabase
-            .from('coupling_requests')
-            .select('*, from_user:users!coupling_requests_from_user_id_fkey(name, email)')
-            .eq('to_user_id', user.id)
-            .eq('status', 'PENDING')
-        );
-      }
-
-      const results = await Promise.all(basePromises);
-      const [eventsResult, logsResult] = results;
-
-      if (isHelper || isHelperMode) {
-        const messagesResult = results[2];
-
-        const messagesWithReplies = await Promise.all(
-          (messagesResult.data || []).map(async (msg: any) => {
-            const { data: replies } = await supabase
-              .from('helper_messages')
-              .select('id, sender_id, recipient_id, status, created_at')
-              .eq('parent_message_id', msg.id);
-
-            return {
-              ...msg,
-              replies: replies || [],
-            };
-          })
-        );
-
-        const unanswered = messagesWithReplies.filter((msg: any) => {
-          const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
-                                  (msg.recipient_id === user.id ||
-                                   (msg.recipient_id === null && msg.sender_id !== user.id));
-
-          const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
-            r.status === 'MOET_BEANTWOORDEN' &&
-            (r.recipient_id === user.id ||
-             (r.recipient_id === null && r.sender_id !== user.id))
-          );
-
-          return needsMyResponse || hasRepliesThatNeedMyResponse;
-        });
-
-        setUnansweredMessages(unanswered);
-      } else {
-        const [, , requestsResult, inviteCodeResult, familyMembersResult, couplingRequestsResult] = results;
-        const myOpenRequests = (requestsResult.data || []).filter(
-          (req: Request) => req.last_action_by !== user.id
-        );
-        setOpenRequests(myOpenRequests);
-        setInviteCode(inviteCodeResult.data?.code || '');
-        setHasCoupling((familyMembersResult.data?.length || 0) > 1);
-        setPendingCouplingRequests(couplingRequestsResult.data || []);
-
-        const { data: parentMessages } = await supabase
           .from('helper_messages')
-          .select('id, sender_id, recipient_id, status, closed')
+          .select('id, subject, created_at, sender_id, recipient_id, status, closed')
           .eq('family_id', currentFamily.id)
           .eq('closed', false)
-          .is('parent_message_id', null);
+          .is('parent_message_id', null)
+          .order('created_at', { ascending: false })
+      );
+    } else {
+      basePromises.push(
+        supabase
+          .from('requests')
+          .select('*')
+          .eq('family_id', currentFamily.id)
+          .in('status', ['OPEN', 'COUNTERED'])
+          .order('created_at', { ascending: false })
+      );
+      basePromises.push(
+        supabase
+          .from('family_invite_codes')
+          .select('code')
+          .eq('family_id', currentFamily.id)
+          .is('used_at', null)
+          .maybeSingle()
+      );
+      basePromises.push(
+        supabase.from('family_members').select('id').eq('family_id', currentFamily.id).eq('status', 'ACTIVE')
+      );
+      basePromises.push(
+        supabase
+          .from('coupling_requests')
+          .select('*, from_user:users!coupling_requests_from_user_id_fkey(name, email)')
+          .eq('to_user_id', user.id)
+          .eq('status', 'PENDING')
+      );
+    }
 
-        const parentMessagesWithReplies = await Promise.all(
-          (parentMessages || []).map(async (msg: any) => {
-            const { data: replies } = await supabase
-              .from('helper_messages')
-              .select('id, sender_id, recipient_id, status')
-              .eq('parent_message_id', msg.id);
+    const results = await Promise.all(basePromises);
+    const [eventsResult, logsResult] = results;
 
-            return {
-              ...msg,
-              replies: replies || [],
-            };
-          })
+    if (isHelper || isHelperMode) {
+      const messagesResult = results[2];
+
+      const messagesWithReplies = await Promise.all(
+        (messagesResult.data || []).map(async (msg: any) => {
+          const { data: replies } = await supabase
+            .from('helper_messages')
+            .select('id, sender_id, recipient_id, status, created_at')
+            .eq('parent_message_id', msg.id);
+
+          return {
+            ...msg,
+            replies: replies || [],
+          };
+        })
+      );
+
+      const unanswered = messagesWithReplies.filter((msg: any) => {
+        const needsMyResponse =
+          msg.status === 'MOET_BEANTWOORDEN' &&
+          (msg.recipient_id === user.id || (msg.recipient_id === null && msg.sender_id !== user.id));
+
+        const hasRepliesThatNeedMyResponse = msg.replies?.some(
+          (r: any) =>
+            r.status === 'MOET_BEANTWOORDEN' &&
+            (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
         );
 
-        const parentUnanswered = parentMessagesWithReplies.filter((msg: any) => {
-          const needsMyResponse = msg.status === 'MOET_BEANTWOORDEN' &&
-                                  (msg.recipient_id === user.id ||
-                                   (msg.recipient_id === null && msg.sender_id !== user.id));
+        return needsMyResponse || hasRepliesThatNeedMyResponse;
+      });
 
-          const hasRepliesThatNeedMyResponse = msg.replies?.some((r: any) =>
+      setUnansweredMessages(unanswered);
+    } else {
+      const [, , requestsResult, inviteCodeResult, familyMembersResult, couplingRequestsResult] = results;
+
+      const myOpenRequests = (requestsResult.data || []).filter((req: Request) => req.last_action_by !== user.id);
+      setOpenRequests(myOpenRequests);
+
+      setInviteCode(inviteCodeResult.data?.code || '');
+
+      // NOTE: members is in context, but this check is fine based on active family_members count
+      setHasCoupling((familyMembersResult.data?.length || 0) > 1);
+
+      setPendingCouplingRequests(couplingRequestsResult.data || []);
+
+      const { data: parentMessages } = await supabase
+        .from('helper_messages')
+        .select('id, sender_id, recipient_id, status, closed')
+        .eq('family_id', currentFamily.id)
+        .eq('closed', false)
+        .is('parent_message_id', null);
+
+      const parentMessagesWithReplies = await Promise.all(
+        (parentMessages || []).map(async (msg: any) => {
+          const { data: replies } = await supabase
+            .from('helper_messages')
+            .select('id, sender_id, recipient_id, status')
+            .eq('parent_message_id', msg.id);
+
+          return {
+            ...msg,
+            replies: replies || [],
+          };
+        })
+      );
+
+      const parentUnanswered = parentMessagesWithReplies.filter((msg: any) => {
+        const needsMyResponse =
+          msg.status === 'MOET_BEANTWOORDEN' &&
+          (msg.recipient_id === user.id || (msg.recipient_id === null && msg.sender_id !== user.id));
+
+        const hasRepliesThatNeedMyResponse = msg.replies?.some(
+          (r: any) =>
             r.status === 'MOET_BEANTWOORDEN' &&
-            (r.recipient_id === user.id ||
-             (r.recipient_id === null && r.sender_id !== user.id))
-          );
+            (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
+        );
 
-          return needsMyResponse || hasRepliesThatNeedMyResponse;
-        });
+        return needsMyResponse || hasRepliesThatNeedMyResponse;
+      });
 
-        setUnansweredMessages(parentUnanswered);
-      }
+      setUnansweredMessages(parentUnanswered);
+    }
 
-      const twoMonthsFromNow = new Date();
-      twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
+    const twoMonthsFromNow = new Date();
+    twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
 
-      const allEvents = (eventsResult.data || [])
-        .flatMap(event => generateRecurringEvents(event, twoMonthsFromNow, 10))
-        .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-        .slice(0, 5);
+    const allEvents = (eventsResult.data || [])
+      .flatMap((event: Event) => generateRecurringEvents(event, twoMonthsFromNow, 10))
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+      .slice(0, 5);
 
-      setRecentEvents(allEvents);
-      setRecentLogs(logsResult.data || []);
-      setLoading(false);
+    setRecentEvents(allEvents);
+    setRecentLogs((logsResult.data || []) as LogEntry[]);
+    setLoading(false);
   }, [currentFamily, user, isHelper, isHelperMode, subscription]);
 
   useEffect(() => {
@@ -386,7 +390,9 @@ export function Dashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="mt-2 text-sm sm:text-base text-gray-600">Overzicht van {currentFamily?.name || 'gezin'}</p>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
+            Overzicht van {currentFamily?.name || 'gezin'}
+          </p>
         </div>
 
         {unansweredMessages.length > 0 && (
@@ -400,10 +406,7 @@ export function Dashboard() {
                 <p className="text-sm text-amber-800 mb-3">
                   Deze vragen wachten nog op antwoorden van een of beide ouders.
                 </p>
-                <Link
-                  to="/vragen"
-                  className="text-sm text-amber-800 hover:underline font-medium"
-                >
+                <Link to="/vragen" className="text-sm text-amber-800 hover:underline font-medium">
                   Bekijk openstaande vragen
                 </Link>
               </div>
@@ -427,7 +430,7 @@ export function Dashboard() {
                 <p className="text-sm text-gray-500">Geen aankomende afspraken</p>
               ) : (
                 recentEvents.map((event) => {
-                  const child = event.child_id ? children.find(c => c.id === event.child_id) : null;
+                  const child = event.child_id ? children.find((c) => c.id === event.child_id) : null;
                   const colors = child ? getChildColor(child.id) : null;
                   return (
                     <div key={event.id} className="p-3 bg-gray-50 rounded-lg">
@@ -447,13 +450,9 @@ export function Dashboard() {
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
-                            {eventTypeLabels[event.type]}
-                          </div>
+                          <div className="text-sm text-gray-600">{eventTypeLabels[event.type]}</div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(event.start_at).toLocaleDateString('nl-NL')}
-                        </div>
+                        <div className="text-sm text-gray-500">{new Date(event.start_at).toLocaleDateString('nl-NL')}</div>
                       </div>
                     </div>
                   );
@@ -477,7 +476,7 @@ export function Dashboard() {
                 <p className="text-sm text-gray-500">Geen logboekregistraties</p>
               ) : (
                 recentLogs.map((log) => {
-                  const child = log.child_id ? children.find(c => c.id === log.child_id) : null;
+                  const child = log.child_id ? children.find((c) => c.id === log.child_id) : null;
                   const colors = child ? getChildColor(child.id) : null;
                   return (
                     <div key={log.id} className="p-3 bg-gray-50 rounded-lg">
@@ -497,7 +496,7 @@ export function Dashboard() {
                       </div>
                       <div className="text-sm text-gray-600">{categoryLabels[log.category]}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {new Date(log.created_at).toLocaleDateString('nl-NL')}
+                        {new Date(log.occurred_at).toLocaleDateString('nl-NL')}
                       </div>
                     </div>
                   );
@@ -510,9 +509,7 @@ export function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <div className="text-3xl font-bold text-gray-900">{children.length}</div>
-            <div className="text-sm text-gray-600 mt-1">
-              {children.length === 1 ? 'Kind' : 'Kinderen'}
-            </div>
+            <div className="text-sm text-gray-600 mt-1">{children.length === 1 ? 'Kind' : 'Kinderen'}</div>
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -542,9 +539,7 @@ export function Dashboard() {
           <div className="flex items-start">
             <Users className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
             <div className="flex-1">
-              <h3 className="font-semibold text-blue-900 mb-2">
-                Koppelverzoek van co-ouder
-              </h3>
+              <h3 className="font-semibold text-blue-900 mb-2">Koppelverzoek van co-ouder</h3>
               <p className="text-sm text-blue-800 mb-3">
                 {pendingCouplingRequests[0].from_user?.name} wil met je koppelen. Ga naar instellingen om het verzoek te accepteren of af te wijzen.
               </p>
@@ -570,10 +565,7 @@ export function Dashboard() {
                   <h3 className="font-semibold text-amber-900 mb-2">
                     {openRequests.length} openstaande {openRequests.length === 1 ? 'verzoek' : 'verzoeken'}
                   </h3>
-                  <Link
-                    to="/verzoeken"
-                    className="text-sm text-amber-800 hover:underline font-medium"
-                  >
+                  <Link to="/verzoeken" className="text-sm text-amber-800 hover:underline font-medium">
                     Bekijk openstaande verzoeken
                   </Link>
                 </>
@@ -583,13 +575,8 @@ export function Dashboard() {
                   <h3 className={`font-semibold text-amber-900 mb-2 ${openRequests.length > 0 ? 'mt-4' : ''}`}>
                     {unansweredMessages.length} openstaande {unansweredMessages.length === 1 ? 'vraag' : 'vragen'}
                   </h3>
-                  <p className="text-sm text-amber-800 mb-3">
-                    Deze vragen wachten op jouw antwoord.
-                  </p>
-                  <Link
-                    to="/vragen"
-                    className="text-sm text-amber-800 hover:underline font-medium"
-                  >
+                  <p className="text-sm text-amber-800 mb-3">Deze vragen wachten op jouw antwoord.</p>
+                  <Link to="/vragen" className="text-sm text-amber-800 hover:underline font-medium">
                     Bekijk openstaande vragen
                   </Link>
                 </>
@@ -643,7 +630,7 @@ export function Dashboard() {
               <p className="text-sm text-gray-500">Geen aankomende afspraken</p>
             ) : (
               recentEvents.map((event) => {
-                const child = event.child_id ? children.find(c => c.id === event.child_id) : null;
+                const child = event.child_id ? children.find((c) => c.id === event.child_id) : null;
                 const colors = child ? getChildColor(child.id) : null;
                 return (
                   <div key={event.id} className="relative group">
@@ -664,13 +651,9 @@ export function Dashboard() {
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
-                            {eventTypeLabels[event.type]}
-                          </div>
+                          <div className="text-sm text-gray-600">{eventTypeLabels[event.type]}</div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(event.start_at).toLocaleDateString('nl-NL')}
-                        </div>
+                        <div className="text-sm text-gray-500">{new Date(event.start_at).toLocaleDateString('nl-NL')}</div>
                       </div>
                     </div>
                     <div className="hidden group-hover:block absolute left-0 right-0 top-full mt-2 p-4 bg-white rounded-lg shadow-xl border border-gray-200 z-10">
@@ -678,26 +661,25 @@ export function Dashboard() {
                         <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-medium">
                           {eventTypeLabels[event.type]}
                         </span>
-                        {child && (() => {
-                          const colors = getChildColor(child.id);
-                          return colors ? (
-                            <span
-                              className="px-2.5 py-1 text-xs rounded-full font-medium"
-                              style={{
-                                backgroundColor: colors.backgroundColor,
-                                color: colors.color,
-                              }}
-                            >
-                              {child.first_name}
-                            </span>
-                          ) : null;
-                        })()}
+                        {child &&
+                          (() => {
+                            const colors = getChildColor(child.id);
+                            return colors ? (
+                              <span
+                                className="px-2.5 py-1 text-xs rounded-full font-medium"
+                                style={{
+                                  backgroundColor: colors.backgroundColor,
+                                  color: colors.color,
+                                }}
+                              >
+                                {child.first_name}
+                              </span>
+                            ) : null;
+                          })()}
                       </div>
                       <h4 className="font-semibold text-gray-900 mb-3">{event.title}</h4>
                       {event.description && (
-                        <p className="text-sm text-gray-700 leading-relaxed mb-3">
-                          {event.description}
-                        </p>
+                        <p className="text-sm text-gray-700 leading-relaxed mb-3">{event.description}</p>
                       )}
                       <div className="text-sm text-gray-600 space-y-1">
                         <div>
@@ -707,7 +689,7 @@ export function Dashboard() {
                             month: 'short',
                             year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </div>
                         {event.end_at && (
@@ -718,7 +700,7 @@ export function Dashboard() {
                               month: 'short',
                               year: 'numeric',
                               hour: '2-digit',
-                              minute: '2-digit'
+                              minute: '2-digit',
                             })}
                           </div>
                         )}
@@ -759,7 +741,7 @@ export function Dashboard() {
               <p className="text-sm text-gray-500">Nog geen logboekitems</p>
             ) : (
               recentLogs.map((log) => {
-                const child = log.child_id ? children.find(c => c.id === log.child_id) : null;
+                const child = log.child_id ? children.find((c) => c.id === log.child_id) : null;
                 const colors = child ? getChildColor(child.id) : null;
                 return (
                   <div key={log.id} className="relative group">
@@ -780,9 +762,7 @@ export function Dashboard() {
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-600">
-                            {categoryLabels[log.category]}
-                          </div>
+                          <div className="text-sm text-gray-600">{categoryLabels[log.category]}</div>
                         </div>
                         <div className="text-sm text-gray-500">
                           {new Date(log.occurred_at).toLocaleDateString('nl-NL')}
@@ -794,27 +774,28 @@ export function Dashboard() {
                         <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-medium">
                           {categoryLabels[log.category]}
                         </span>
-                        {child && (() => {
-                          const colors = getChildColor(child.id);
-                          return colors ? (
-                            <span
-                              className="px-2.5 py-1 text-xs rounded-full font-medium"
-                              style={{
-                                backgroundColor: colors.backgroundColor,
-                                color: colors.color,
-                              }}
-                            >
-                              {child.first_name}
-                            </span>
-                          ) : null;
-                        })()}
+                        {child &&
+                          (() => {
+                            const colors = getChildColor(child.id);
+                            return colors ? (
+                              <span
+                                className="px-2.5 py-1 text-xs rounded-full font-medium"
+                                style={{
+                                  backgroundColor: colors.backgroundColor,
+                                  color: colors.color,
+                                }}
+                              >
+                                {child.first_name}
+                              </span>
+                            ) : null;
+                          })()}
                         <span className="ml-auto text-xs text-gray-500">
                           {new Date(log.occurred_at).toLocaleString('nl-NL', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
                           })}
                         </span>
                       </div>
@@ -834,9 +815,7 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="text-3xl font-bold text-gray-900">{children.length}</div>
-          <div className="text-sm text-gray-600 mt-1">
-            {children.length === 1 ? 'Kind' : 'Kinderen'}
-          </div>
+          <div className="text-sm text-gray-600 mt-1">{children.length === 1 ? 'Kind' : 'Kinderen'}</div>
         </div>
 
         <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -852,8 +831,8 @@ export function Dashboard() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-sm text-blue-900">
-          <strong>Belangrijk:</strong> Alle gegevens in dit platform worden permanent opgeslagen en
-          zijn exporteerbaar voor dossierbeheer. Niets kan definitief worden verwijderd.
+          <strong>Belangrijk:</strong> Alle gegevens in dit platform worden permanent opgeslagen en zijn exporteerbaar
+          voor dossierbeheer. Niets kan definitief worden verwijderd.
         </p>
       </div>
     </div>
