@@ -118,21 +118,7 @@ export function Dashboard() {
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const isFree = !subscription || subscription.plan === 'FREE';
-
-      let logsQuery = supabase
-        .from('log_entries')
-        .select('*')
-        .eq('family_id', currentFamily.id)
-        .is('deleted_at', null);
-
-      if (isFree) {
-        logsQuery = logsQuery.gte('created_at', thirtyDaysAgo.toISOString());
-      }
-
-      logsQuery = logsQuery
-        .order('created_at', { ascending: false })
-        .limit(5);
+      const isFree = subscription?.plan === 'FREE';
 
       const basePromises = [
         supabase
@@ -142,7 +128,22 @@ export function Dashboard() {
           .is('parent_event_id', null)
           .gte('start_at', new Date().toISOString())
           .order('start_at', { ascending: true }),
-        logsQuery,
+        isFree
+          ? supabase
+              .from('log_entries')
+              .select('*')
+              .eq('family_id', currentFamily.id)
+              .is('deleted_at', null)
+              .gte('created_at', thirtyDaysAgo.toISOString())
+              .order('created_at', { ascending: false })
+              .limit(5)
+          : supabase
+              .from('log_entries')
+              .select('*')
+              .eq('family_id', currentFamily.id)
+              .is('deleted_at', null)
+              .order('created_at', { ascending: false })
+              .limit(5),
       ];
 
       if (isHelper || isHelperMode) {
@@ -532,6 +533,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p>BUILDTEST 2026-02-22 20:10</p>
         <p className="mt-2 text-sm sm:text-base text-gray-600">Overzicht van recente activiteiten en openstaande items</p>
       </div>
 
