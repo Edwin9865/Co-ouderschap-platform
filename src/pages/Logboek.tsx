@@ -144,29 +144,28 @@ export function Logboek() {
   const fetchEntries = async () => {
     if (!currentFamily) return;
 
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     let query = supabase
       .from('log_entries')
       .select('*')
       .eq('family_id', currentFamily.id)
-      .is('deleted_at', null)
-      .order('occurred_at', { ascending: false });
+      .is('deleted_at', null);
+
+    // Apply 30-day filter for FREE users at database level
+    if (!canAccessHistory) {
+      query = query.gte('created_at', thirtyDaysAgo.toISOString());
+    }
 
     if (selectedChild !== 'all') {
       query = query.eq('child_id', selectedChild);
     }
 
+    query = query.order('occurred_at', { ascending: false });
+
     const { data } = await query;
-    const filteredData = filterByPlan(data || []);
-    setEntries(filteredData);
-  };
-
-  const filterByPlan = (data: LogEntry[]) => {
-    if (canAccessHistory) return data;
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-    return data.filter(entry => new Date(entry.created_at) >= thirtyDaysAgo);
+    setEntries(data || []);
   };
 
 
