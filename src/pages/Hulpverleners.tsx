@@ -1,9 +1,22 @@
+// src/pages/Hulpverleners.tsx
 import { useState, useEffect, useCallback } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Trash2, Lock, MessageSquare, Send, Users as UsersIcon, User as UserIcon, CheckCircle2, UserCheck, X, Clock, LogOut, Copy, Link2, AlertCircle } from 'lucide-react';
-import type { FamilyMember } from '../lib/types';
+import {
+  Plus,
+  Trash2,
+  Lock,
+  MessageSquare,
+  Send,
+  Users as UsersIcon,
+  User as UserIcon,
+  CheckCircle2,
+  UserCheck,
+  X,
+  Clock,
+  Link2,
+} from 'lucide-react';
 
 interface HelperMessage {
   id: string;
@@ -51,18 +64,46 @@ interface HelperRequest {
   };
 }
 
+type Plan = 'FREE' | 'PLUS' | 'PRO';
+
+function normalizePlan(input?: string | null): Plan {
+  const v = (input ?? '').toString().trim().toUpperCase();
+  if (v === 'PRO') return 'PRO';
+  if (v === 'PLUS') return 'PLUS';
+  return 'FREE';
+}
+
 export function Hulpverleners() {
-  const { currentFamily, members, refreshFamily, isParent, canAccessFeature, loading: familyLoading } = useFamily();
   const { user } = useAuth();
+  const {
+    currentFamily,
+    members,
+    refreshFamily,
+    isParent,
+    // Belangrijk: in jouw Layout komt abonnement uit useFamily().subscription
+    subscription,
+    // (andere velden die je eerder gebruikte zijn hier niet nodig)
+  } = useFamily();
+
+  const helpers = members.filter((m: any) => m.role === 'HELPER');
+
+  // ✅ Neem plan exact over zoals Layout dat doet: subscription.plan
+  // Fallback FREE als subscription ontbreekt
+  const plan: Plan = normalizePlan((subscription as any)?.plan);
+  const isPro = plan === 'PRO';
+
   const [activeTab, setActiveTab] = useState<'helpers' | 'messages' | 'requests' | 'connect'>('messages');
-  const [showAdd, setShowAdd] = useState(false);
+
   const [inviteCode, setInviteCode] = useState('');
   const [helperCode, setHelperCode] = useState('');
   const [copiedFamilyCode, setCopiedFamilyCode] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
   const [messages, setMessages] = useState<HelperMessage[]>([]);
   const [helperRequests, setHelperRequests] = useState<HelperRequest[]>([]);
+
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [showNewMessage, setShowNewMessage] = useState(false);
@@ -72,33 +113,37 @@ export function Hulpverleners() {
     recipient_id: '',
   });
 
-  const helpers = members.filter((m) => m.role === 'HELPER');
-  const canAddHelper = canAccessFeature('helpers');
+  // PRO-only: functies in deze pagina
+  const canUseHelpersFeature = isPro;
 
   const fetchMessages = useCallback(async () => {
-    if (!currentFamily || !user) return;
+    if (!currentFamily || !user || !canUseHelpersFeature) return;
 
     const { data } = await supabase
       .from('helper_messages')
-      .select(`
+      .select(
+        `
         *,
         sender:users!helper_messages_sender_id_fkey(id, name, email, account_type),
         recipient:users!helper_messages_recipient_id_fkey(id, name, email, account_type)
-      `)
+      `
+      )
       .eq('family_id', currentFamily.id)
       .is('parent_message_id', null)
       .order('created_at', { ascending: false });
 
     if (data) {
       const messagesWithReplies = await Promise.all(
-        data.map(async (msg: any) => {
+        (data as any[]).map(async (msg: any) => {
           const { data: replies } = await supabase
             .from('helper_messages')
-            .select(`
+            .select(
+              `
               *,
               sender:users!helper_messages_sender_id_fkey(id, name, email, account_type),
               recipient:users!helper_messages_recipient_id_fkey(id, name, email, account_type)
-            `)
+            `
+            )
             .eq('parent_message_id', msg.id)
             .order('created_at', { ascending: true });
 
@@ -109,29 +154,29 @@ export function Hulpverleners() {
         })
       );
 
-      setMessages(messagesWithReplies);
+      setMessages(messagesWithReplies as any);
     }
-  }, [currentFamily, user]);
+  }, [currentFamily, user, canUseHelpersFeature]);
 
   const fetchHelperRequests = useCallback(async () => {
-    if (!currentFamily) return;
+    if (!currentFamily || !canUseHelpersFeature) return;
 
     const { data } = await supabase
       .from('helper_requests')
-      .select(`
+      .select(
+        `
         *,
         helper:users!helper_requests_helper_id_fkey(id, name, email)
-      `)
+      `
+      )
       .eq('family_id', currentFamily.id)
       .order('requested_at', { ascending: false });
 
-    if (data) {
-      setHelperRequests(data as any);
-    }
-  }, [currentFamily]);
+    if (data) setHelperRequests(data as any);
+  }, [currentFamily, canUseHelpersFeature]);
 
   const fetchInviteCode = useCallback(async () => {
-    if (!currentFamily) return;
+    if (!currentFamily || !canUseHelpersFeature) return;
 
     const { data } = await supabase
       .from('family_invite_codes')
@@ -140,23 +185,22 @@ export function Hulpverleners() {
       .is('used_at', null)
       .maybeSingle();
 
-    if (data) {
-      setInviteCode(data.code);
-    } else {
-      setInviteCode('');
-    }
-  }, [currentFamily]);
+    setInviteCode((data as any)?.code ?? '');
+  }, [currentFamily, canUseHelpersFeature]);
 
   useEffect(() => {
+    // Alleen PRO haalt data op en zet realtime subscriptions
+    if (!canUseHelpersFeature) return;
+
     fetchMessages();
     fetchHelperRequests();
     fetchInviteCode();
-  }, [fetchMessages, fetchHelperRequests, fetchInviteCode]);
+  }, [canUseHelpersFeature, fetchMessages, fetchHelperRequests, fetchInviteCode]);
 
   useEffect(() => {
-    if (!currentFamily) return;
+    if (!currentFamily || !canUseHelpersFeature) return;
 
-    const subscription = supabase
+    const sub = supabase
       .channel(`helper_data_${currentFamily.id}`)
       .on(
         'postgres_changes',
@@ -166,9 +210,7 @@ export function Hulpverleners() {
           table: 'helper_messages',
           filter: `family_id=eq.${currentFamily.id}`,
         },
-        () => {
-          fetchMessages();
-        }
+        () => fetchMessages()
       )
       .on(
         'postgres_changes',
@@ -178,27 +220,22 @@ export function Hulpverleners() {
           table: 'helper_requests',
           filter: `family_id=eq.${currentFamily.id}`,
         },
-        () => {
-          fetchHelperRequests();
-        }
+        () => fetchHelperRequests()
       )
       .subscribe();
 
     return () => {
-      subscription.unsubscribe();
+      sub.unsubscribe();
     };
-  }, [currentFamily, fetchMessages, fetchHelperRequests]);
+  }, [currentFamily, canUseHelpersFeature, fetchMessages, fetchHelperRequests]);
 
   const handleApproveRequest = async (requestId: string) => {
+    if (!canUseHelpersFeature) return;
     if (!confirm('Weet je zeker dat je deze hulpverlener wilt goedkeuren?')) return;
 
     setLoading(true);
     try {
-      await supabase
-        .from('helper_requests')
-        .update({ status: 'APPROVED' })
-        .eq('id', requestId);
-
+      await supabase.from('helper_requests').update({ status: 'APPROVED' }).eq('id', requestId);
       await fetchHelperRequests();
       await refreshFamily();
     } catch (err: unknown) {
@@ -209,15 +246,12 @@ export function Hulpverleners() {
   };
 
   const handleRejectRequest = async (requestId: string) => {
+    if (!canUseHelpersFeature) return;
     if (!confirm('Weet je zeker dat je dit verzoek wilt afwijzen?')) return;
 
     setLoading(true);
     try {
-      await supabase
-        .from('helper_requests')
-        .update({ status: 'REJECTED' })
-        .eq('id', requestId);
-
+      await supabase.from('helper_requests').update({ status: 'REJECTED' }).eq('id', requestId);
       await fetchHelperRequests();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Fout bij afwijzen verzoek');
@@ -227,6 +261,7 @@ export function Hulpverleners() {
   };
 
   const handleRemove = async (memberId: string) => {
+    if (!canUseHelpersFeature) return;
     if (!confirm('Weet je zeker dat je deze hulpverlener wilt verwijderen?')) return;
 
     setLoading(true);
@@ -239,21 +274,18 @@ export function Hulpverleners() {
   };
 
   const copyFamilyCode = async () => {
-    if (inviteCode) {
-      await navigator.clipboard.writeText(inviteCode);
-      setCopiedFamilyCode(true);
-      setTimeout(() => setCopiedFamilyCode(false), 2000);
-    }
+    if (!canUseHelpersFeature) return;
+    if (!inviteCode) return;
+
+    await navigator.clipboard.writeText(inviteCode);
+    setCopiedFamilyCode(true);
+    setTimeout(() => setCopiedFamilyCode(false), 2000);
   };
 
   const handleAddHelperByCode = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUseHelpersFeature) return;
     if (!currentFamily || !helperCode) return;
-
-    if (!canAddHelper) {
-      setError('Upgrade naar PLUS of PRO om hulpverleners toe te voegen');
-      return;
-    }
 
     setLoading(true);
     setError('');
@@ -273,13 +305,13 @@ export function Hulpverleners() {
 
       const { error: memberError } = await supabase.from('family_members').insert({
         family_id: currentFamily.id,
-        user_id: helper.id,
+        user_id: (helper as any).id,
         role: 'HELPER',
         status: 'ACTIVE',
       });
 
       if (memberError) {
-        if (memberError.code === '23505') {
+        if ((memberError as any).code === '23505') {
           setError('Deze hulpverlener is al toegevoegd');
         } else {
           throw memberError;
@@ -300,6 +332,7 @@ export function Hulpverleners() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canUseHelpersFeature) return;
     if (!currentFamily || !user) return;
 
     setLoading(true);
@@ -321,7 +354,13 @@ export function Hulpverleners() {
   };
 
   const handleCloseMessage = async (messageId: string) => {
-    if (!confirm('Weet je zeker dat je deze vraag wilt sluiten? Er kunnen dan geen nieuwe antwoorden meer worden toegevoegd.')) return;
+    if (!canUseHelpersFeature) return;
+    if (
+      !confirm(
+        'Weet je zeker dat je deze vraag wilt sluiten? Er kunnen dan geen nieuwe antwoorden meer worden toegevoegd.'
+      )
+    )
+      return;
 
     setLoading(true);
     try {
@@ -341,6 +380,7 @@ export function Hulpverleners() {
   };
 
   const handleReply = async (parentMessageId: string) => {
+    if (!canUseHelpersFeature) return;
     if (!replyText[parentMessageId]?.trim() || !user) return;
 
     const parentMessage = messages.find((m) => m.id === parentMessageId);
@@ -353,9 +393,8 @@ export function Hulpverleners() {
 
     setLoading(true);
     try {
-      const recipientId = parentMessage.sender_id === user.id
-        ? parentMessage.recipient_id
-        : parentMessage.sender_id;
+      const recipientId =
+        parentMessage.sender_id === user.id ? parentMessage.recipient_id : parentMessage.sender_id;
 
       await supabase.from('helper_messages').insert({
         family_id: currentFamily!.id,
@@ -375,7 +414,7 @@ export function Hulpverleners() {
           await supabase
             .from('helper_messages')
             .update({
-              has_responded_users: [...currentResponders, user.id]
+              has_responded_users: [...currentResponders, user.id],
             })
             .eq('id', parentMessageId);
         }
@@ -389,30 +428,25 @@ export function Hulpverleners() {
   };
 
   const markAsRead = async (messageId: string) => {
+    if (!canUseHelpersFeature) return;
     if (!user) return;
 
-    const message = messages.find(m => m.id === messageId);
+    const message = messages.find((m) => m.id === messageId);
     if (!message) return;
 
-    if (message.recipient_id === user.id ||
-        (message.recipient_id === null && message.sender_id !== user.id)) {
-      await supabase
-        .from('helper_messages')
-        .update({ is_read: true })
-        .eq('id', messageId);
+    if (message.recipient_id === user.id || (message.recipient_id === null && message.sender_id !== user.id)) {
+      await supabase.from('helper_messages').update({ is_read: true }).eq('id', messageId);
     }
 
     if (message.replies) {
-      const unreadReplies = message.replies.filter(r =>
-        !r.is_read &&
-        (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
+      const unreadReplies = message.replies.filter(
+        (r) =>
+          !r.is_read &&
+          (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
       );
 
       for (const reply of unreadReplies) {
-        await supabase
-          .from('helper_messages')
-          .update({ is_read: true })
-          .eq('id', reply.id);
+        await supabase.from('helper_messages').update({ is_read: true }).eq('id', reply.id);
       }
     }
 
@@ -420,6 +454,8 @@ export function Hulpverleners() {
   };
 
   const toggleMessage = async (messageId: string) => {
+    if (!canUseHelpersFeature) return;
+
     if (selectedMessage === messageId) {
       setSelectedMessage(null);
     } else {
@@ -428,6 +464,7 @@ export function Hulpverleners() {
     }
   };
 
+  // 1) Alleen ouders
   if (!isParent) {
     return (
       <div className="text-center py-12">
@@ -436,31 +473,57 @@ export function Hulpverleners() {
     );
   }
 
-  const unreadCount = messages.filter(m => {
+  // 2) PRO-only: FREE en PLUS zien géén tabs/inhoud, alleen upgrade melding
+  if (!isPro) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Hulpverleners</h1>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
+            Deze functie is alleen beschikbaar in <strong>PRO</strong>.
+          </p>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+          <div className="flex items-start">
+            <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
+            <div>
+              <h3 className="font-semibold text-amber-900 mb-2">Upgrade vereist</h3>
+              <p className="text-sm text-amber-800">
+                Je hebt nu <strong>{plan}</strong>. Upgrade naar <strong>PRO</strong> om de Hulpverlener-functie te
+                gebruiken (koppelen, verzoeken en berichten).
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // PRO: counters
+  const unreadCount = messages.filter((m) => {
     if (m.closed) return false;
 
-    const needsMyResponse = m.status === 'MOET_BEANTWOORDEN' &&
-                            (m.recipient_id === user?.id ||
-                             (m.recipient_id === null && m.sender_id !== user?.id));
+    const needsMyResponse =
+      m.status === 'MOET_BEANTWOORDEN' &&
+      (m.recipient_id === user?.id || (m.recipient_id === null && m.sender_id !== user?.id));
 
-    const hasRepliesThatNeedMyResponse = m.replies?.some(r =>
-      r.status === 'MOET_BEANTWOORDEN' &&
-      (r.recipient_id === user?.id ||
-       (r.recipient_id === null && r.sender_id !== user?.id))
+    const hasRepliesThatNeedMyResponse = m.replies?.some(
+      (r) =>
+        r.status === 'MOET_BEANTWOORDEN' &&
+        (r.recipient_id === user?.id || (r.recipient_id === null && r.sender_id !== user?.id))
     );
 
     return needsMyResponse || hasRepliesThatNeedMyResponse;
   }).length;
 
-  const pendingRequestsCount = helperRequests.filter(r => r.status === 'PENDING').length;
+  const pendingRequestsCount = helperRequests.filter((r) => r.status === 'PENDING').length;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Hulpverleners</h1>
-        <p className="mt-2 text-sm sm:text-base text-gray-600">
-          Beheer hulpverleners en communiceer met hen
-        </p>
+        <p className="mt-2 text-sm sm:text-base text-gray-600">Beheer hulpverleners en communiceer met hen</p>
       </div>
 
       <div className="border-b border-gray-200 overflow-x-auto">
@@ -483,6 +546,7 @@ export function Hulpverleners() {
               )}
             </div>
           </button>
+
           <button
             onClick={() => setActiveTab('requests')}
             className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
@@ -501,6 +565,7 @@ export function Hulpverleners() {
               )}
             </div>
           </button>
+
           <button
             onClick={() => setActiveTab('connect')}
             className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
@@ -514,6 +579,7 @@ export function Hulpverleners() {
               <span className="hidden sm:inline">Koppelen</span>
             </div>
           </button>
+
           <button
             onClick={() => setActiveTab('helpers')}
             className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
@@ -534,28 +600,24 @@ export function Hulpverleners() {
         <div className="space-y-6">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-900">
-              Hulpverleners kunnen een verzoek indienen om toegang te krijgen tot dit gezin.
-              Hier kun je hun verzoeken goedkeuren of afwijzen.
+              Hulpverleners kunnen een verzoek indienen om toegang te krijgen tot dit gezin. Hier kun je hun verzoeken
+              goedkeuren of afwijzen.
             </p>
           </div>
 
           <div className="space-y-4">
             {helperRequests.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                Geen verzoeken ontvangen
-              </div>
+              <div className="text-center py-12 text-gray-500">Geen verzoeken ontvangen</div>
             ) : (
               helperRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6"
-                >
+                <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                   <div className="flex flex-col gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
                         <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
                           {request.helper.name}
                         </h3>
+
                         {request.status === 'PENDING' && (
                           <span className="px-2 sm:px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
                             <Clock className="w-3 h-3" />
@@ -575,12 +637,15 @@ export function Hulpverleners() {
                           </span>
                         )}
                       </div>
+
                       <p className="text-xs sm:text-sm text-gray-600 mb-2 break-all">{request.helper.email}</p>
+
                       {request.message && (
                         <p className="text-xs sm:text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded break-words">
                           {request.message}
                         </p>
                       )}
+
                       <div className="text-xs text-gray-500">
                         Verzoek ingediend op {new Date(request.requested_at).toLocaleString('nl-NL')}
                         {request.responded_at && (
@@ -590,6 +655,7 @@ export function Hulpverleners() {
                         )}
                       </div>
                     </div>
+
                     {request.status === 'PENDING' && (
                       <div className="flex flex-col sm:flex-row gap-2">
                         <button
@@ -600,6 +666,7 @@ export function Hulpverleners() {
                           <UserCheck className="w-4 h-4" />
                           <span>Goedkeuren</span>
                         </button>
+
                         <button
                           onClick={() => handleRejectRequest(request.id)}
                           disabled={loading}
@@ -619,122 +686,97 @@ export function Hulpverleners() {
       )}
 
       {activeTab === 'connect' && (
-        
+        <div className="flex items-start mb-6">
+          <div className="p-3 bg-blue-100 rounded-lg mr-4">
+            <Plus className="w-6 h-6 text-blue-600" />
+          </div>
 
-           
-              <div className="flex items-start mb-6">
-                <div className="p-3 bg-blue-100 rounded-lg mr-4">
-                  <Plus className="w-6 h-6 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Hulpverlener uitnodigen
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Voeg een hulpverlener direct toe aan dit gezin door hun persoonlijke koppelcode in te voeren.
-                  </p>
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Hulpverlener uitnodigen</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Voeg een hulpverlener direct toe aan dit gezin door hun persoonlijke koppelcode in te voeren.
+            </p>
 
-                  {!canAddHelper ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
-                        <div>
-                          <h3 className="font-semibold text-amber-900 mb-1">Upgrade vereist</h3>
-                          <p className="text-sm text-amber-800">
-                            Upgrade naar PLUS of PRO om hulpverleners toe te voegen.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <form onSubmit={handleAddHelperByCode} className="space-y-4">
-                      {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                          {error}
-                        </div>
-                      )}
+            <form onSubmit={handleAddHelperByCode} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>
+              )}
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Hulpverlener koppelcode
-                        </label>
-                        <input
-                          type="text"
-                          value={helperCode}
-                          onChange={(e) => setHelperCode(e.target.value.toUpperCase())}
-                          placeholder="Bijv. A1B2C3D4"
-                          maxLength={8}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent font-mono text-lg tracking-wider uppercase"
-                          required
-                        />
-                        <p className="mt-2 text-xs text-gray-500">
-                          Vraag de hulpverlener om hun 8-cijferige koppelcode te delen
-                        </p>
-                      </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Hulpverlener koppelcode</label>
+                <input
+                  type="text"
+                  value={helperCode}
+                  onChange={(e) => setHelperCode(e.target.value.toUpperCase())}
+                  placeholder="Bijv. A1B2C3D4"
+                  maxLength={8}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent font-mono text-lg tracking-wider uppercase"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-500">Vraag de hulpverlener om hun 8-cijferige koppelcode te delen</p>
+              </div>
 
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-start">
-                          <UserIcon className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
-                          <div>
-                            <h4 className="font-medium text-blue-900 mb-1">Wat gebeurt er?</h4>
-                            <p className="text-sm text-blue-800">
-                              De hulpverlener wordt direct toegevoegd aan dit gezin en krijgt read-only toegang tot alle gegevens.
-                              Ze kunnen vragen stellen maar geen data wijzigen.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={loading || !helperCode.trim()}
-                        className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      >
-                        {loading ? 'Bezig met toevoegen...' : 'Hulpverlener toevoegen'}
-                      </button>
-                    </form>
-                  )}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <UserIcon className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+                  <div>
+                    <h4 className="font-medium text-blue-900 mb-1">Wat gebeurt er?</h4>
+                    <p className="text-sm text-blue-800">
+                      De hulpverlener wordt direct toegevoegd aan dit gezin en krijgt read-only toegang tot alle gegevens.
+                      Ze kunnen vragen stellen maar geen data wijzigen.
+                    </p>
+                  </div>
                 </div>
               </div>
-            
-          
+
+              <button
+                type="submit"
+                disabled={loading || !helperCode.trim()}
+                className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {loading ? 'Bezig met toevoegen...' : 'Hulpverlener toevoegen'}
+              </button>
+
+              <div className="pt-2">
+                <div className="text-sm text-gray-700 mb-2">Of deel de familiecode:</div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm bg-white overflow-x-auto">
+                    {inviteCode || '—'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={copyFamilyCode}
+                    disabled={!inviteCode}
+                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {copiedFamilyCode ? 'Gekopieerd' : 'Kopieer'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {activeTab === 'helpers' && (
         <div className="space-y-6">
-          {!canAddHelper && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-              <div className="flex items-start">
-                <Lock className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
-                <div>
-                  <h3 className="font-semibold text-amber-900 mb-2">Upgrade vereist</h3>
-                  <p className="text-sm text-amber-800">
-                    Met het gratis plan kun je geen hulpverleners koppelen. Upgrade naar PLUS of PRO om
-                    professionals toegang te geven tot je dossier.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="space-y-4">
             {helpers.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                Nog geen hulpverleners gekoppeld
-              </div>
+              <div className="text-center py-12 text-gray-500">Nog geen hulpverleners gekoppeld</div>
             ) : (
-              helpers.map((helper) => (
+              helpers.map((helper: any) => (
                 <div
                   key={helper.id}
                   className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-between"
                 >
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{helper.user.name}</h3>
-                    <p className="text-sm text-gray-600">{helper.user.email}</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{helper.user?.name}</h3>
+                    <p className="text-sm text-gray-600">{helper.user?.email}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Toegevoegd op {new Date(helper.joined_at).toLocaleDateString('nl-NL')}
+                      Toegevoegd op {helper.joined_at ? new Date(helper.joined_at).toLocaleDateString('nl-NL') : '—'}
                     </p>
                   </div>
+
                   <button
                     onClick={() => handleRemove(helper.id)}
                     disabled={loading}
@@ -777,9 +819,9 @@ export function Hulpverleners() {
                     required
                   >
                     <option value="">Selecteer hulpverlener</option>
-                    {helpers.map((helper) => (
+                    {helpers.map((helper: any) => (
                       <option key={helper.user_id} value={helper.user_id}>
-                        {helper.user.name}
+                        {helper.user?.name}
                       </option>
                     ))}
                   </select>
@@ -819,6 +861,7 @@ export function Hulpverleners() {
                   >
                     {loading ? 'Bezig...' : 'Versturen'}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -836,14 +879,11 @@ export function Hulpverleners() {
 
           <div className="space-y-4">
             {messages.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                Nog geen berichten
-              </div>
+              <div className="text-center py-12 text-gray-500">Nog geen berichten</div>
             ) : (
               messages.map((message) => {
                 const isSentByMe = message.sender_id === user?.id;
                 const senderIsHelper = message.sender.account_type === 'HELPER';
-                const recipientIsHelper = message.recipient?.account_type === 'HELPER';
 
                 let messageStatus = '';
                 let statusColor = '';
@@ -865,10 +905,7 @@ export function Hulpverleners() {
                 }
 
                 return (
-                  <div
-                    key={message.id}
-                    className="bg-white rounded-lg border border-gray-200"
-                  >
+                  <div key={message.id} className="bg-white rounded-lg border border-gray-200">
                     <div
                       className="p-4 sm:p-6 cursor-pointer hover:bg-gray-50"
                       onClick={() => toggleMessage(message.id)}
@@ -876,17 +913,25 @@ export function Hulpverleners() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">{message.subject}</h3>
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
+                              {message.subject}
+                            </h3>
                             {messageStatus && (
                               <span className={`px-2 py-1 text-xs ${statusColor} rounded font-medium whitespace-nowrap`}>
                                 {messageStatus}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm sm:text-base text-gray-700 mb-3 line-clamp-2 break-words">{message.message}</p>
+
+                          <p className="text-sm sm:text-base text-gray-700 mb-3 line-clamp-2 break-words">
+                            {message.message}
+                          </p>
+
                           <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                             <span className="break-words">Van: {message.sender.name}</span>
+
                             <span className="hidden sm:inline">•</span>
+
                             <span className="flex items-center gap-1 break-words">
                               {message.recipient_id ? (
                                 <>
@@ -900,8 +945,13 @@ export function Hulpverleners() {
                                 </>
                               )}
                             </span>
+
                             <span className="hidden sm:inline">•</span>
-                            <span className="whitespace-nowrap">{new Date(message.created_at).toLocaleDateString('nl-NL')}</span>
+
+                            <span className="whitespace-nowrap">
+                              {new Date(message.created_at).toLocaleDateString('nl-NL')}
+                            </span>
+
                             {message.replies && message.replies.length > 0 && (
                               <>
                                 <span className="hidden sm:inline">•</span>
@@ -925,15 +975,11 @@ export function Hulpverleners() {
                         {message.replies && message.replies.length > 0 && (
                           <div className="space-y-3 mb-6">
                             <div className="text-sm font-medium text-gray-500">Antwoorden</div>
+
                             {message.replies.map((reply) => (
-                              <div
-                                key={reply.id}
-                                className="bg-white p-4 rounded-lg border border-gray-200"
-                              >
+                              <div key={reply.id} className="bg-white p-4 rounded-lg border border-gray-200">
                                 <div className="flex items-start justify-between mb-2">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {reply.sender.name}
-                                  </span>
+                                  <span className="text-sm font-medium text-gray-900">{reply.sender.name}</span>
                                   <span className="text-xs text-gray-500">
                                     {new Date(reply.created_at).toLocaleString('nl-NL')}
                                   </span>
@@ -955,7 +1001,8 @@ export function Hulpverleners() {
                               Vraag sluiten
                             </button>
                             <p className="text-xs text-gray-500 mt-2">
-                              Sluit deze vraag af als je alle antwoorden hebt ontvangen. Er kunnen dan geen nieuwe antwoorden meer worden toegevoegd.
+                              Sluit deze vraag af als je alle antwoorden hebt ontvangen. Er kunnen dan geen nieuwe
+                              antwoorden meer worden toegevoegd.
                             </p>
                           </div>
                         )}

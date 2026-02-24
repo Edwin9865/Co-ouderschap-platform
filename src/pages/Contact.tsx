@@ -24,6 +24,15 @@ const tk = {
   borderLight: "#e5dfd4",
 };
 
+const SUPPORT_EMAIL = "info@coparenting.nl";
+
+const buildMailto = (email: string, subjectPrefix?: string) => {
+  const params = new URLSearchParams();
+  if (subjectPrefix) params.set("subject", subjectPrefix);
+  const qs = params.toString();
+  return `mailto:${email}${qs ? `?${qs}` : ""}`;
+};
+
 const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
 
@@ -232,6 +241,7 @@ type SupportCard = {
   desc: string;
   label: string;
   email: string;
+  subjectPrefix?: string;
 };
 
 const SUPPORT_CARDS: SupportCard[] = [
@@ -240,61 +250,105 @@ const SUPPORT_CARDS: SupportCard[] = [
     title: "Algemene vragen",
     desc: "Stuur ons een e-mail met je vraag of probleem. We streven ernaar binnen 24 uur te reageren.",
     label: "Algemeen",
-    email: "info@co-ouderschap.nl",
+    email: SUPPORT_EMAIL,
+    subjectPrefix: "[ALGEMEEN] ",
   },
   {
     icon: <MessageCircle size={20} color={tk.moss} />,
     title: "Technische support",
     desc: "Ondervindt je technische problemen? Vermeld je apparaat, browser en een korte omschrijving.",
     label: "Technisch",
-    email: "support@co-ouderschap.nl",
+    email: SUPPORT_EMAIL,
+    subjectPrefix: "[TECH] ",
   },
   {
     icon: <FileText size={20} color={tk.moss} />,
     title: "Privacy & juridisch",
     desc: "Vragen over privacy, gegevensbescherming of juridische zaken? We staan voor je klaar.",
     label: "Privacy",
-    email: "privacy@co-ouderschap.nl",
+    email: SUPPORT_EMAIL,
+    subjectPrefix: "[PRIVACY] ",
   },
   {
     icon: <HelpCircle size={20} color={tk.moss} />,
     title: "Feedback & ideeën",
     desc: "We waarderen je feedback! Help ons het platform te verbeteren met je ideeën en suggesties.",
     label: "Feedback",
-    email: "feedback@co-ouderschap.nl",
+    email: SUPPORT_EMAIL,
+    subjectPrefix: "[FEEDBACK] ",
   },
 ];
 
 const FAQ_QUICK = [
   {
     q: "Hoe kan ik mijn co-ouder uitnodigen?",
-    a: <span>Ga naar het Dashboard en zoek naar "Co-ouder uitnodigen". Deel de koppelcode met je co-ouder, die de code kan gebruiken bij registratie.</span>,
+    a: (
+      <span>
+        Ga naar het Dashboard en zoek naar "Co-ouder uitnodigen". Deel de koppelcode met je co-ouder,
+        die de code kan gebruiken bij registratie.
+      </span>
+    ),
   },
   {
     q: "Kan ik mijn gegevens verwijderen?",
-    a: <span>Alle gegevens worden opgeslagen voor dossierbeheer. Je kunt je account deactiveren. Lees meer in ons <Link to="/privacybeleid" className="ct-link">Privacybeleid</Link>.</span>,
+    a: (
+      <span>
+        Alle gegevens worden opgeslagen voor dossierbeheer. Je kunt je account deactiveren. Lees meer
+        in ons{" "}
+        <Link to="/privacybeleid" className="ct-link">
+          Privacybeleid
+        </Link>
+        .
+      </span>
+    ),
   },
   {
     q: "Hoe exporteer ik mijn gegevens?",
-    a: <span>Ga naar Export in het menu voor een volledig overzicht van alle gegevens in je gezin (PDF-formaat, beschikbaar in Pro en Familie).</span>,
+    a: (
+      <span>
+        Ga naar Export in het menu voor een volledig overzicht van alle gegevens in je gezin (PDF-formaat,
+        beschikbaar in Pro en Familie).
+      </span>
+    ),
   },
   {
     q: "Wat zijn de verschillen tussen de abonnementen?",
-    a: <span>Ga naar <Link to="/pricing" className="ct-link">de prijzenpagina</Link> voor een volledig overzicht van beschikbare abonnementen en functies.</span>,
+    a: (
+      <span>
+        Ga naar{" "}
+        <Link to="/pricing" className="ct-link">
+          de prijzenpagina
+        </Link>{" "}
+        voor een volledig overzicht van beschikbare abonnementen en functies.
+      </span>
+    ),
   },
   {
     q: "Hoe voeg ik een hulpverlener toe?",
-    a: <span>Ga naar Hulpverleners in het menu en klik op "Uitnodigen". Je hebt de koppelcode nodig die de hulpverlener bij registratie heeft ontvangen.</span>,
+    a: (
+      <span>
+        Ga naar Hulpverleners in het menu en klik op "Uitnodigen". Je hebt de koppelcode nodig die de
+        hulpverlener bij registratie heeft ontvangen.
+      </span>
+    ),
   },
   {
     q: "Is mijn data veilig?",
-    a: <span>Ja. Alle gegevens worden versleuteld opgeslagen en verzonden. Lees meer in ons <Link to="/privacybeleid" className="ct-link">Privacybeleid</Link>.</span>,
+    a: (
+      <span>
+        Ja. Alle gegevens worden versleuteld opgeslagen en verzonden. Lees meer in ons{" "}
+        <Link to="/privacybeleid" className="ct-link">
+          Privacybeleid
+        </Link>
+        .
+      </span>
+    ),
   },
 ];
 
 export default function Contact() {
-  const siteUrl       = (import.meta as any).env?.VITE_SITE_URL || "";
-  const canonicalUrl  = siteUrl ? `${siteUrl.replace(/\/+$/, "")}/contact` : "/contact";
+  const siteUrl = (import.meta as any).env?.VITE_SITE_URL || "";
+  const canonicalUrl = siteUrl ? `${siteUrl.replace(/\/+$/, "")}/contact` : "/contact";
 
   return (
     <div className="ct-page">
@@ -304,9 +358,18 @@ export default function Contact() {
         description="Neem contact op met CoParenting voor vragen, technische support, privacy en feedback. We reageren meestal binnen 24 uur op werkdagen."
         canonicalUrl={canonicalUrl}
         ogTitle="Contact & Support | CoParenting"
-        ogDescription="Vragen of hulp nodig? Neem contact op met ons support team. Meestal reactie binnen 24 uur op werkdagen."
+        ogDescription="Vragen of hulp nodig? Neem contact op met CoParenting via e-mail. Meestal reactie binnen 24 uur op werkdagen."
         ogImage=""
-        keywords={["contact co-ouderschap", "support co-ouderschap app", "helpdesk co-ouderschap", "privacy co-ouderschap", "technische support co-ouderschap"]}
+        keywords={[
+          "CoParenting contact",
+          "CoParenting support",
+          "coparenting helpdesk",
+          "co-ouderschap app support",
+          "co-ouderschap platform help",
+          "privacy coparenting",
+          "technische support coparenting",
+          "co parenting communicatie app",
+        ]}
       />
 
       <SiteHeader />
@@ -315,7 +378,6 @@ export default function Contact() {
       <section style={{ background: tk.cream, padding: "80px 0 96px" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 32px" }}>
           <div className="ct-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "start" }}>
-
             {/* Left */}
             <div>
               <p className="ct-fade-up" style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 20px" }}>
@@ -325,8 +387,7 @@ export default function Contact() {
                 Contact & Support
               </h1>
               <p className="ct-fade-up ct-delay-2" style={{ fontSize: 18, lineHeight: 1.75, color: tk.muted, margin: "0 0 36px" }}>
-                Heb je vragen of hulp nodig? Kies het onderwerp dat het beste past, dan komt
-                je bericht direct bij het juiste team.
+                Heb je vragen of hulp nodig? Kies het onderwerp dat het beste past, dan kunnen we je sneller helpen.
               </p>
 
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" as const, marginBottom: 24 }}>
@@ -350,7 +411,7 @@ export default function Contact() {
               </h2>
               <div>
                 {[
-                  "Voeg bij technische issues je apparaat + browser toe (bijv. \"Chrome op Windows 11\").",
+                  'Voeg bij technische issues je apparaat + browser toe (bijv. "Chrome op Windows 11").',
                   "Vermeld bij export-problemen de datum en welk scherm je gebruikte.",
                   "Bij dringende technische problemen: zet [URGENT] in het onderwerp.",
                 ].map((tip) => (
@@ -364,8 +425,7 @@ export default function Contact() {
               <div className="ct-quote-block" style={{ marginTop: 24 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: tk.slate, marginBottom: 6 }}>Geen antwoord ontvangen?</div>
                 <p style={{ fontSize: 14, color: tk.muted, lineHeight: 1.7, margin: 0 }}>
-                  Controleer of je e-mail correct is verzonden en kijk in je spam-map.
-                  We streven ernaar binnen 24 uur te reageren op werkdagen.
+                  Controleer of je e-mail correct is verzonden en kijk in je spam-map. We streven ernaar binnen 24 uur te reageren op werkdagen.
                 </p>
               </div>
             </div>
@@ -382,23 +442,26 @@ export default function Contact() {
             Neem contact op
           </p>
           <h2 className="ct-serif" style={{ fontSize: "clamp(32px, 3.5vw, 46px)", fontWeight: 500, lineHeight: 1.2, color: tk.slate, margin: "0 0 48px" }}>
-            Kies het juiste kanaal
+            Kies het juiste onderwerp
           </h2>
 
           <div className="ct-cards-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-            {SUPPORT_CARDS.map((c) => (
-              <div key={c.email} className="ct-support-card">
-                <div className="ct-icon-badge">{c.icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: "0 0 10px" }}>{c.title}</h3>
-                <p style={{ fontSize: 14, color: tk.muted, lineHeight: 1.7, margin: "0 0 20px", flex: 1 }}>{c.desc}</p>
-                <div style={{ background: tk.sand, borderRadius: 12, padding: "14px 16px", border: `1px solid ${tk.borderLight}` }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: tk.warm, marginBottom: 6 }}>
-                    {c.label}
+            {SUPPORT_CARDS.map((c) => {
+              const mailto = buildMailto(c.email, c.subjectPrefix);
+              return (
+                <div key={c.title} className="ct-support-card">
+                  <div className="ct-icon-badge">{c.icon}</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 500, color: tk.slate, margin: "0 0 10px" }}>{c.title}</h3>
+                  <p style={{ fontSize: 14, color: tk.muted, lineHeight: 1.7, margin: "0 0 20px", flex: 1 }}>{c.desc}</p>
+                  <div style={{ background: tk.sand, borderRadius: 12, padding: "14px 16px", border: `1px solid ${tk.borderLight}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: tk.warm, marginBottom: 6 }}>
+                      {c.label}
+                    </div>
+                    <a href={mailto} className="ct-email-link">{c.email}</a>
                   </div>
-                  <a href={`mailto:${c.email}`} className="ct-email-link">{c.email}</a>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -454,13 +517,16 @@ export default function Contact() {
               Stuur een e-mail of bekijk de volledige FAQ. We reageren gewoonlijk binnen 24 uur op werkdagen.
             </p>
             <div className="ct-cta-btns" style={{ position: "relative", zIndex: 1, display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" as const }}>
-              <a href="mailto:info@co-ouderschap.nl" className="ct-btn-white">
+              <a href={buildMailto(SUPPORT_EMAIL, "[ALGEMEEN] ")} className="ct-btn-white">
                 Stuur een e-mail <ArrowRight size={18} />
               </a>
               <Link to="/faq" className="ct-btn-ghost-light">
                 Bekijk FAQ
               </Link>
             </div>
+            <p style={{ position: "relative", zIndex: 1, marginTop: 16, fontSize: 12, color: "rgba(255,255,255,0.55)" }}>
+              E-mail: {SUPPORT_EMAIL}
+            </p>
           </div>
         </div>
       </section>

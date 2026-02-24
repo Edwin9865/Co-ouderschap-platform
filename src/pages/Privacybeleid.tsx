@@ -43,7 +43,7 @@ export function Privacybeleid() {
             </p>
             <div className="bg-gray-50 p-4 rounded-lg text-gray-700">
               <p className="mb-1"><strong>Co-Ouderschap</strong></p>
-              <p className="mb-1">E-mail: privacy@co-ouderschap.nl</p>
+              <p className="mb-1">E-mail: info@coparenting.nl</p>
               <p>Voor vragen over dit privacybeleid kunt u contact met ons opnemen via bovenstaande gegevens.</p>
             </div>
           </section>
@@ -277,7 +277,7 @@ export function Privacybeleid() {
             <h3 className="text-xl font-semibold text-gray-900 mb-3 mt-4">9.7. Uitoefenen van Rechten</h3>
             <p className="text-gray-700 leading-relaxed">
               Om een van deze rechten uit te oefenen, kunt u contact met ons opnemen via
-              privacy@co-ouderschap.nl. Wij zullen binnen één maand reageren op uw verzoek.
+              info@coparenting.nl. Wij zullen binnen één maand reageren op uw verzoek.
             </p>
           </section>
 
@@ -346,7 +346,7 @@ export function Privacybeleid() {
               contact met ons opnemen:
             </p>
             <div className="bg-gray-50 p-4 rounded-lg text-gray-700 mb-4">
-              <p className="mb-1"><strong>E-mail:</strong> privacy@co-ouderschap.nl</p>
+              <p className="mb-1"><strong>E-mail:</strong> info@coparenting.nl</p>
               <p><strong>Via de app:</strong> Ga naar Contact & Support in het menu</p>
             </div>
             <p className="text-gray-700 leading-relaxed">

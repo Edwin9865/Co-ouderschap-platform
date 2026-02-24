@@ -248,7 +248,7 @@ export function AlgemeneVoorwaarden() {
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">14. Contact</h2>
             <p className="text-gray-700 leading-relaxed mb-3">
               Voor vragen over deze algemene voorwaarden kunt u contact opnemen via de contactpagina of per
-              e-mail naar info@co-ouderschap.nl.
+              e-mail naar info@coparenting.nl
             </p>
           </section>
         </div>
