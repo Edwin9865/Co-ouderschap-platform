@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { FamilyProvider } from "./contexts/FamilyContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
+import { ScrollToTop } from "./components/ScrollToTop";
+import { ScrollToTopButton } from "./components/ScrollToTopButton";
 
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -86,6 +88,8 @@ function AppRoutes() {
   return (
     <AuthProvider>
       <FamilyProvider>
+        <ScrollToTop />
+        <ScrollToTopButton />
         <Routes>
           {/* ---------------- Public routes (web + native) ---------------- */}
           <Route path="/login" element={<Login />} />
