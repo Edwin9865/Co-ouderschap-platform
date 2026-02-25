@@ -200,7 +200,7 @@ Deno.serve(async (req: Request) => {
       mode: mode,
       "line_items[0][price]": priceId,
       "line_items[0][quantity]": "1",
-      success_url: `${req.headers.get("origin")}/instellingen/abonnement?success=true`,
+      success_url: `${req.headers.get("origin")}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${req.headers.get("origin")}/instellingen/abonnement?canceled=true`,
       allow_promotion_codes: "true",
       "metadata[family_id]": familyId,

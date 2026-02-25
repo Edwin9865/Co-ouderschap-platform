@@ -68,37 +68,28 @@ export const PLANS: PlanDetails[] = [
 ];
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
-  console.log('[STRIPE] Starting checkout session creation...');
-
-  // Get current session to ensure we have a valid token
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-  if (sessionError || !session) {
-    console.error('[STRIPE] No active session:', sessionError);
-    throw new Error('Please log in to continue');
-  }
-
-  console.log('[STRIPE] Session found, invoking edge function...');
+  console.log('[STRIPE] Creating checkout session...');
 
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
   });
 
   if (error) {
-    console.error('[STRIPE] Edge function error:', error);
+    console.error('[STRIPE] Checkout error:', error);
     throw new Error(error.message || 'Failed to create checkout session');
   }
 
   if (!data?.url) {
-    console.error('[STRIPE] No URL returned:', data);
     throw new Error('No checkout URL returned');
   }
 
-  console.log('[STRIPE] Checkout session created successfully');
+  console.log('[STRIPE] Checkout session created');
   return data.url;
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
+  console.log('[STRIPE] Creating portal session...');
+
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
     body: { familyId },
   });
@@ -112,11 +103,12 @@ export async function createPortalSession(familyId: string): Promise<string> {
     throw new Error('No portal URL returned');
   }
 
+  console.log('[STRIPE] Portal session created');
   return data.url;
 }
 
 export async function syncSubscription(familyId: string): Promise<void> {
-  console.log('[STRIPE] Syncing subscription from Stripe...');
+  console.log('[STRIPE] Syncing subscription...');
 
   const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
     body: { familyId },
@@ -128,6 +120,26 @@ export async function syncSubscription(familyId: string): Promise<void> {
   }
 
   console.log('[STRIPE] Subscription synced:', data);
+}
+
+export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
+  console.log('[STRIPE] Completing checkout...');
+
+  const { data, error } = await supabase.functions.invoke('complete-checkout', {
+    body: { sessionId },
+  });
+
+  if (error) {
+    console.error('[STRIPE] Complete checkout error:', error);
+    throw new Error(error.message || 'Failed to complete checkout');
+  }
+
+  if (!data?.success) {
+    throw new Error('Checkout completion failed');
+  }
+
+  console.log('[STRIPE] Checkout completed:', data);
+  return { plan: data.plan, status: data.status };
 }
 
 export function getPlanDetails(planId: 'FREE' | 'PLUS' | 'PRO'): PlanDetails {
