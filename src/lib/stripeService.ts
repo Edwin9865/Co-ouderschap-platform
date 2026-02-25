@@ -76,12 +76,36 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('Not authenticated - please log in again');
   }
 
+  // Decode JWT to check expiration (for debugging)
+  try {
+    const tokenParts = session.access_token.split('.');
+    if (tokenParts.length === 3) {
+      const payload = JSON.parse(atob(tokenParts[1]));
+      const now = Math.floor(Date.now() / 1000);
+      const expiresIn = payload.exp - now;
+
+      console.log('JWT Debug:', {
+        tokenLength: session.access_token.length,
+        expiresAt: new Date(payload.exp * 1000).toISOString(),
+        expiresInSeconds: expiresIn,
+        isExpired: expiresIn <= 0,
+        userId: payload.sub,
+      });
+
+      if (expiresIn <= 0) {
+        throw new Error('Token is expired - please refresh the page');
+      }
+    }
+  } catch (decodeError) {
+    console.warn('Could not decode JWT:', decodeError);
+  }
+
   console.log('Creating checkout session:', {
     priceId,
     familyId,
     hasToken: !!session.access_token,
-    tokenLength: session.access_token.length,
-    expiresAt: session.expires_at,
+    supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+    hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
   });
 
   const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
@@ -101,7 +125,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
   if (!response.ok) {
     const errorData = await response.json();
     console.error('Edge function error:', errorData);
-    throw new Error(errorData.error || 'Failed to create checkout session');
+    throw new Error(errorData.message || errorData.error || 'Failed to create checkout session');
   }
 
   const data = await response.json();
