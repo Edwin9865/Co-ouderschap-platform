@@ -68,10 +68,12 @@ export const PLANS: PlanDetails[] = [
 ];
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Refresh session to ensure we have a valid token
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
-  if (!session) {
-    throw new Error('Not authenticated');
+  if (sessionError || !session) {
+    console.error('Session refresh error:', sessionError);
+    throw new Error('Not authenticated - please log in again');
   }
 
   console.log('Creating checkout session:', {
@@ -79,6 +81,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     familyId,
     hasToken: !!session.access_token,
     tokenLength: session.access_token.length,
+    expiresAt: session.expires_at,
   });
 
   const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
@@ -111,10 +114,12 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Refresh session to ensure we have a valid token
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
-  if (!session) {
-    throw new Error('Not authenticated');
+  if (sessionError || !session) {
+    console.error('Session refresh error:', sessionError);
+    throw new Error('Not authenticated - please log in again');
   }
 
   const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-portal`;
