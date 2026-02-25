@@ -4,10 +4,15 @@ import { supabase } from './supabase';
 
 let stripePromise: Promise<Stripe | null>;
 
+/**
+ * Stripe.js loader (frontend only)
+ */
 export const getStripe = () => {
   if (!stripePromise) {
     const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-    if (!publishableKey) throw new Error('Stripe publishable key not configured');
+    if (!publishableKey) {
+      throw new Error('Stripe publishable key not configured (VITE_STRIPE_PUBLISHABLE_KEY)');
+    }
     stripePromise = loadStripe(publishableKey);
   }
   return stripePromise;
@@ -61,55 +66,116 @@ export const PLANS: PlanDetails[] = [
   },
 ];
 
-function assertPriceId(priceId: string) {
-  if (!priceId || typeof priceId !== 'string') throw new Error('Invalid priceId');
+/**
+ * Always attach a fresh JWT to Edge Function calls.
+ * This fixes "401 Unauthorized" when Verify JWT is enabled on Supabase Functions.
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  // Ensure we have a valid session (supabase-js may not always auto-attach on web/native hybrids)
+  const { data: s, error: se } = await supabase.auth.getSession();
+
+  const token = s.session?.access_token;
+  if (se || !token) {
+    // Optional: try a refresh once
+    const { data: r, error: re } = await supabase.auth.refreshSession();
+    const refreshedToken = r.session?.access_token;
+
+    if (re || !refreshedToken) {
+      throw new Error('Not authenticated - please log in again');
+    }
+
+    return { Authorization: `Bearer ${refreshedToken}` };
+  }
+
+  return { Authorization: `Bearer ${token}` };
 }
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
-  assertPriceId(priceId);
+  if (!priceId) throw new Error('Missing priceId');
+  if (!familyId) throw new Error('Missing familyId');
+
+  const headers = await getAuthHeaders();
 
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
+    headers,
   });
 
-  if (error) throw new Error(error.message || 'Failed to create checkout session');
-  if (!data?.url) throw new Error('No checkout URL returned');
+  if (error) {
+    console.error('[STRIPE] createCheckoutSession error:', error);
+    throw new Error(error.message || 'Failed to create checkout session');
+  }
 
-  return data.url;
+  if (!data?.url) {
+    throw new Error('No checkout URL returned');
+  }
+
+  return data.url as string;
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
+  if (!familyId) throw new Error('Missing familyId');
+
+  const headers = await getAuthHeaders();
+
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
     body: { familyId },
+    headers,
   });
 
-  if (error) throw new Error(error.message || 'Failed to create portal session');
-  if (!data?.url) throw new Error('No portal URL returned');
+  if (error) {
+    console.error('[STRIPE] createPortalSession error:', error);
+    throw new Error(error.message || 'Failed to create portal session');
+  }
 
-  return data.url;
+  if (!data?.url) {
+    throw new Error('No portal URL returned');
+  }
+
+  return data.url as string;
 }
 
 export async function syncSubscription(familyId: string): Promise<void> {
+  if (!familyId) throw new Error('Missing familyId');
+
+  const headers = await getAuthHeaders();
+
   const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
     body: { familyId },
+    headers,
   });
 
-  if (error) throw new Error(error.message || 'Failed to sync subscription');
-  // optional: log
-  console.log('[STRIPE] synced', data);
+  if (error) {
+    console.error('[STRIPE] syncSubscription error:', error);
+    throw new Error(error.message || 'Failed to sync subscription');
+  }
+
+  // Optional debug
+  console.log('[STRIPE] syncSubscription ok:', data);
 }
 
 export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
+  if (!sessionId) throw new Error('Missing sessionId');
+
+  const headers = await getAuthHeaders();
+
   const { data, error } = await supabase.functions.invoke('complete-checkout', {
     body: { sessionId },
+    headers,
   });
 
-  if (error) throw new Error(error.message || 'Failed to complete checkout');
-  if (!data?.success) throw new Error(data?.error || 'Checkout completion failed');
+  if (error) {
+    console.error('[STRIPE] completeCheckout error:', error);
+    throw new Error(error.message || 'Failed to complete checkout');
+  }
 
-  return { plan: data.plan, status: data.status };
+  if (!data?.success) {
+    throw new Error(data?.error || 'Checkout completion failed');
+  }
+
+  return { plan: data.plan as string, status: data.status as string };
 }
 
 export function getPlanDetails(planId: 'FREE' | 'PLUS' | 'PRO'): PlanDetails {
-  return PLANS.find(p => p.id === planId) || PLANS[0];
+  return PLANS.find((p) => p.id === planId) || PLANS[0];
 }
