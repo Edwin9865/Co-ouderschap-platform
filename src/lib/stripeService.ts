@@ -74,16 +74,24 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('Not authenticated');
   }
 
-  const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-    body: { priceId, familyId },
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
+
+  const response = await fetch(functionUrl, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
+    body: JSON.stringify({ priceId, familyId }),
   });
 
-  if (error) {
-    throw new Error(error.message);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to create checkout session');
   }
+
+  const data = await response.json();
 
   if (!data?.url) {
     throw new Error('No checkout URL returned');
@@ -99,16 +107,24 @@ export async function createPortalSession(familyId: string): Promise<string> {
     throw new Error('Not authenticated');
   }
 
-  const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
-    body: { familyId },
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-portal`;
+
+  const response = await fetch(functionUrl, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
     },
+    body: JSON.stringify({ familyId }),
   });
 
-  if (error) {
-    throw new Error(error.message);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to create portal session');
   }
+
+  const data = await response.json();
 
   if (!data?.url) {
     throw new Error('No portal URL returned');
