@@ -130,6 +130,26 @@ export async function syncSubscription(familyId: string): Promise<void> {
   console.log('[STRIPE] Subscription synced:', data);
 }
 
+export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
+  console.log('[STRIPE] Completing checkout with session:', sessionId);
+
+  const { data, error } = await supabase.functions.invoke('complete-checkout', {
+    body: { sessionId },
+  });
+
+  if (error) {
+    console.error('[STRIPE] Complete checkout error:', error);
+    throw new Error(error.message || 'Failed to complete checkout');
+  }
+
+  if (!data?.success) {
+    throw new Error('Checkout completion failed');
+  }
+
+  console.log('[STRIPE] Checkout completed:', data);
+  return { plan: data.plan, status: data.status };
+}
+
 export function getPlanDetails(planId: 'FREE' | 'PLUS' | 'PRO'): PlanDetails {
   return PLANS.find(p => p.id === planId) || PLANS[0];
 }
