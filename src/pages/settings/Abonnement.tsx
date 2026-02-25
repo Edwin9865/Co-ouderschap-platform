@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
-import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } from '../../lib/stripeService';
+import { PLANS, createCheckoutSession, createPortalSession, syncSubscription } from '../../lib/stripeService';
 import { useSearchParams } from 'react-router-dom';
 
 export function Abonnement() {
@@ -18,41 +18,54 @@ export function Abonnement() {
   useEffect(() => {
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
-    const sessionId = searchParams.get('session_id');
 
     if (!success && !canceled) return;
 
+    let pollInterval: NodeJS.Timeout | null = null;
     let isActive = true;
 
-    if (success && sessionId && currentFamily) {
+    if (success && currentFamily) {
       setError(null);
-      console.log('[SUBSCRIPTION] Payment successful, completing checkout with session:', sessionId);
+      console.log('[SUBSCRIPTION] Payment successful, waiting for webhook sync...');
 
-      (async () => {
-        try {
-          await completeCheckout(sessionId);
-          console.log('[SUBSCRIPTION] Checkout completed, refreshing family data...');
+      let pollCount = 0;
+      const maxPolls = 10;
+      let syncAttempted = false;
 
-          if (refreshFamily) {
-            await refreshFamily();
-          }
-
-          setTimeout(() => {
-            if (isActive) {
-              setSearchParams({});
-            }
-          }, 3000);
-        } catch (err) {
-          console.error('[SUBSCRIPTION] Failed to complete checkout:', err);
-          setError(err instanceof Error ? err.message : 'Er is een fout opgetreden bij het afronden van de betaling');
-
-          setTimeout(() => {
-            if (isActive) {
-              setSearchParams({});
-            }
-          }, 5000);
+      pollInterval = setInterval(async () => {
+        if (!isActive) {
+          if (pollInterval) clearInterval(pollInterval);
+          return;
         }
-      })();
+
+        pollCount++;
+        console.log(`[SUBSCRIPTION] Polling attempt ${pollCount}/${maxPolls}`);
+
+        if (refreshFamily) {
+          await refreshFamily();
+        }
+
+        if (pollCount === 5 && !syncAttempted && subscriptionRef.current?.plan === 'FREE') {
+          syncAttempted = true;
+          console.log('[SUBSCRIPTION] Webhook not received yet, trying manual sync...');
+          try {
+            await syncSubscription(currentFamily.id);
+            if (refreshFamily) {
+              await refreshFamily();
+            }
+          } catch (err) {
+            console.error('[SUBSCRIPTION] Manual sync failed:', err);
+          }
+        }
+
+        if (pollCount >= maxPolls) {
+          console.log('[SUBSCRIPTION] Polling complete, clearing params');
+          if (pollInterval) clearInterval(pollInterval);
+          if (isActive) {
+            setSearchParams({});
+          }
+        }
+      }, 3000);
     }
 
     if (canceled) {
@@ -67,8 +80,11 @@ export function Abonnement() {
 
     return () => {
       isActive = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
-  }, [searchParams.get('success'), searchParams.get('canceled'), searchParams.get('session_id')]);
+  }, [searchParams.get('success'), searchParams.get('canceled')]);
 
   const handleUpgrade = async (priceId: string) => {
     if (!currentFamily) {
