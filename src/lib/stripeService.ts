@@ -70,12 +70,12 @@ export const PLANS: PlanDetails[] = [
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
   console.log('[STRIPE] Starting checkout session creation...');
 
-  // Get current session to ensure we have a valid token
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  // Refresh session to get a valid token
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
   if (sessionError || !session?.access_token) {
-    console.error('[STRIPE] No active session:', sessionError);
-    throw new Error('Please log in to continue');
+    console.error('[STRIPE] Failed to refresh session:', sessionError);
+    throw new Error('Sessie verlopen. Log opnieuw in.');
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -85,7 +85,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('Supabase configuration missing');
   }
 
-  console.log('[STRIPE] Calling edge function with direct fetch...');
+  console.log('[STRIPE] Using access token:', session.access_token.substring(0, 20) + '...');
 
   const response = await fetch(`${supabaseUrl}/functions/v1/create-stripe-checkout`, {
     method: 'POST',
@@ -128,10 +128,10 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error('Please log in to continue');
+    throw new Error('Sessie verlopen. Log opnieuw in.');
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -178,10 +178,10 @@ export async function createPortalSession(familyId: string): Promise<string> {
 export async function syncSubscription(familyId: string): Promise<void> {
   console.log('[STRIPE] Syncing subscription from Stripe...');
 
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error('Please log in to continue');
+    throw new Error('Sessie verlopen. Log opnieuw in.');
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -223,10 +223,10 @@ export async function syncSubscription(familyId: string): Promise<void> {
 export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
   console.log('[STRIPE] Completing checkout with session:', sessionId);
 
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
   if (sessionError || !session?.access_token) {
-    throw new Error('Please log in to continue');
+    throw new Error('Sessie verlopen. Log opnieuw in.');
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
