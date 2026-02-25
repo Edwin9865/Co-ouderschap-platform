@@ -73,15 +73,18 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
   // Get current session to ensure we have a valid token
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-  if (sessionError || !session) {
+  if (sessionError || !session?.access_token) {
     console.error('[STRIPE] No active session:', sessionError);
     throw new Error('Please log in to continue');
   }
 
-  console.log('[STRIPE] Session found, invoking edge function...');
+  console.log('[STRIPE] Session found, invoking edge function with auth...');
 
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
@@ -99,8 +102,17 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error('Please log in to continue');
+  }
+
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
     body: { familyId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
@@ -118,8 +130,17 @@ export async function createPortalSession(familyId: string): Promise<string> {
 export async function syncSubscription(familyId: string): Promise<void> {
   console.log('[STRIPE] Syncing subscription from Stripe...');
 
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error('Please log in to continue');
+  }
+
   const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
     body: { familyId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
@@ -133,8 +154,17 @@ export async function syncSubscription(familyId: string): Promise<void> {
 export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
   console.log('[STRIPE] Completing checkout with session:', sessionId);
 
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session?.access_token) {
+    throw new Error('Please log in to continue');
+  }
+
   const { data, error } = await supabase.functions.invoke('complete-checkout', {
     body: { sessionId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
