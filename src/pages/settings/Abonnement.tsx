@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
-import { PLANS, createCheckoutSession, createPortalSession, syncSubscription } from '../../lib/stripeService';
+import { PLANS, createCheckoutSession, createPortalSession } from '../../lib/stripeService';
 import { useSearchParams } from 'react-router-dom';
 
 export function Abonnement() {
@@ -14,66 +14,58 @@ export function Abonnement() {
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
 
+    if (!success && !canceled) return;
+
+    let pollInterval: NodeJS.Timeout | null = null;
+    let isActive = true;
+
     if (success && currentFamily) {
       setError(null);
+      console.log('[SUBSCRIPTION] Payment successful, waiting for webhook sync...');
 
-      const syncAndPoll = async () => {
-        try {
-          console.log('[SUBSCRIPTION] Syncing subscription from Stripe...');
-          await syncSubscription(currentFamily.id);
-          console.log('[SUBSCRIPTION] Sync complete, refreshing family data...');
+      let pollCount = 0;
+      const maxPolls = 10;
 
-          if (refreshFamily) {
-            await refreshFamily();
-          }
-
-          setTimeout(() => {
-            setSearchParams({});
-          }, 3000);
-        } catch (err) {
-          console.error('[SUBSCRIPTION] Sync failed, falling back to polling:', err);
-
-          let pollCount = 0;
-          const maxPolls = 10;
-
-          const pollSubscription = setInterval(async () => {
-            pollCount++;
-            console.log(`[SUBSCRIPTION] Polling attempt ${pollCount}/${maxPolls}`);
-
-            if (refreshFamily) {
-              await refreshFamily();
-            }
-
-            if (subscription && subscription.plan !== 'FREE') {
-              console.log('[SUBSCRIPTION] Subscription updated:', subscription.plan);
-              clearInterval(pollSubscription);
-              setTimeout(() => {
-                setSearchParams({});
-              }, 3000);
-            } else if (pollCount >= maxPolls) {
-              console.warn('[SUBSCRIPTION] Max polls reached, subscription may not be updated yet');
-              clearInterval(pollSubscription);
-              setTimeout(() => {
-                setSearchParams({});
-              }, 3000);
-            }
-          }, 2000);
-
-          return () => clearInterval(pollSubscription);
+      pollInterval = setInterval(async () => {
+        if (!isActive) {
+          if (pollInterval) clearInterval(pollInterval);
+          return;
         }
-      };
 
-      syncAndPoll();
+        pollCount++;
+        console.log(`[SUBSCRIPTION] Polling attempt ${pollCount}/${maxPolls}`);
+
+        if (refreshFamily) {
+          await refreshFamily();
+        }
+
+        if (pollCount >= maxPolls) {
+          console.log('[SUBSCRIPTION] Polling complete, clearing params');
+          if (pollInterval) clearInterval(pollInterval);
+          if (isActive) {
+            setSearchParams({});
+          }
+        }
+      }, 3000);
     }
 
     if (canceled) {
       setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
       setTimeout(() => {
-        setSearchParams({});
-        setError(null);
+        if (isActive) {
+          setSearchParams({});
+          setError(null);
+        }
       }, 5000);
     }
-  }, [searchParams, refreshFamily, setSearchParams, subscription, currentFamily]);
+
+    return () => {
+      isActive = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [searchParams.get('success'), searchParams.get('canceled')]);
 
   const handleUpgrade = async (priceId: string) => {
     if (!currentFamily) {
