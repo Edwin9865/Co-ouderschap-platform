@@ -5,12 +5,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface CompleteCheckoutRequest {
+type CompleteCheckoutRequest = {
   sessionId: string;
-}
+};
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -19,129 +19,148 @@ function json(status: number, body: unknown) {
   });
 }
 
+function mustEnv(name: string) {
+  const v = Deno.env.get(name);
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
+}
+
+async function stripeGet(url: string, secretKey: string) {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  if (!res.ok) {
+    throw new Error(`Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
+  }
+  return data;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!STRIPE_SECRET_KEY) return json(500, { error: "Missing STRIPE_SECRET_KEY" });
-    if (!SUPABASE_URL) return json(500, { error: "Missing SUPABASE_URL" });
-    if (!SERVICE_ROLE) return json(500, { error: "Missing SUPABASE_SERVICE_ROLE_KEY" });
-
-    // Auth header is optional if you turned Verify JWT off.
-    // But we still accept it if present.
-    const authHeader = req.headers.get("Authorization") || "";
-
-    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
-
-    // If you want to require login even with Verify JWT off:
-    // (recommended)
-    if (!authHeader.startsWith("Bearer ")) {
+    // ---- Auth header
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
       return json(401, { error: "Missing authorization header" });
     }
+    const jwt = authHeader.replace("Bearer ", "").trim();
 
-    const jwt = authHeader.replace("Bearer ", "");
+    // ---- Required envs (IMPORTANT: these are Supabase Function secrets, NOT Netlify envs)
+    const SUPABASE_URL = mustEnv("SUPABASE_URL");
+    const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
+
+    // Optional but recommended
+    const STRIPE_PRICE_PLUS = Deno.env.get("STRIPE_PRICE_PLUS") ?? "";
+    const STRIPE_PRICE_PRO = Deno.env.get("STRIPE_PRICE_PRO") ?? "";
+
+    // ---- Verify user (service role)
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(jwt);
     if (userErr || !userData?.user) {
-      return json(401, { error: "Invalid JWT", details: userErr?.message });
+      return json(401, { error: "Invalid JWT", message: userErr?.message ?? "Auth failed" });
     }
-    const user = userData.user;
 
-    const { sessionId }: CompleteCheckoutRequest = await req.json();
+    // ---- Body
+    let body: CompleteCheckoutRequest;
+    try {
+      body = await req.json();
+    } catch {
+      return json(400, { error: "Invalid JSON body" });
+    }
+
+    const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    // 1) Fetch checkout session
-    const sRes = await fetch(
-      `https://api.stripe.com/v1/checkout/sessions/${sessionId}?expand[]=subscription`,
-      { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } }
-    );
+    // ---- Fetch checkout session (try with expand)
+    const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
+    sessionUrl.searchParams.append("expand[]", "subscription");
+    sessionUrl.searchParams.append("expand[]", "line_items");
 
-    const sText = await sRes.text();
-    if (!sRes.ok) {
-      return json(500, { error: "Stripe session fetch failed", status: sRes.status, details: sText });
-    }
+    const session = await stripeGet(sessionUrl.toString(), STRIPE_SECRET_KEY);
 
-    const session = JSON.parse(sText);
     const familyId = session?.metadata?.family_id;
+    const customerId = session?.customer;
+    const subscriptionRef = session?.subscription; // can be object OR string
 
-    if (!familyId) return json(400, { error: "No family_id in session.metadata" });
+    if (!familyId) return json(400, { error: "No family_id in session metadata" });
+    if (!customerId) return json(400, { error: "No customer on session" });
+    if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // 2) Security: check that this user is a parent in that family
-    const { data: fm, error: fmErr } = await supabaseAdmin
-      .from("family_members")
-      .select("role")
-      .eq("family_id", familyId)
-      .eq("user_id", user.id)
-      .single();
-
-    if (fmErr || !fm || fm.role !== "PARENT") {
-      return json(403, { error: "Only parents can complete checkout for this family" });
-    }
-
-    // 3) Subscription could be object OR string
-    let stripeSub: any = session.subscription;
-
-    if (typeof stripeSub === "string") {
-      const subId = stripeSub;
-      const subRes = await fetch(`https://api.stripe.com/v1/subscriptions/${subId}`, {
-        headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
-      });
-
-      const subText = await subRes.text();
-      if (!subRes.ok) {
-        return json(500, { error: "Stripe subscription fetch failed", status: subRes.status, details: subText });
+    // ---- Ensure we have a full subscription object
+    let stripeSub: any;
+    if (typeof subscriptionRef === "string") {
+      // fetch subscription by id
+      stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`, STRIPE_SECRET_KEY);
+    } else {
+      stripeSub = subscriptionRef;
+      // safety: if critical fields missing, fetch full object
+      if (!stripeSub?.current_period_start || !stripeSub?.items?.data?.length) {
+        const id = stripeSub?.id;
+        if (!id) return json(400, { error: "Subscription object missing id" });
+        stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${id}`, STRIPE_SECRET_KEY);
       }
-      stripeSub = JSON.parse(subText);
     }
 
-    if (!stripeSub || typeof stripeSub !== "object") {
-      return json(400, { error: "No subscription found on session" });
-    }
+    // ---- Determine plan via priceId
+    const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
+    let plan: "FREE" | "PLUS" | "PRO" = "FREE";
+    if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
+    if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
 
-    // 4) Determine plan from priceId
-    const priceId = stripeSub?.items?.data?.[0]?.price?.id;
-    const PRICE_PLUS = Deno.env.get("STRIPE_PRICE_PLUS");
-    const PRICE_PRO = Deno.env.get("STRIPE_PRICE_PRO");
+    // ---- Determine status
+    const stripeStatus = stripeSub?.status;
+    let status: string = "ACTIVE";
+    if (stripeStatus === "trialing") status = "TRIALING";
+    else if (stripeStatus === "past_due") status = "PAST_DUE";
+    else if (stripeStatus === "canceled") status = "CANCELLED";
+    else if (stripeStatus === "incomplete") status = "INCOMPLETE";
+    else if (stripeStatus === "unpaid") status = "PAST_DUE";
 
-    let plan = "FREE";
-    if (priceId && PRICE_PLUS && priceId === PRICE_PLUS) plan = "PLUS";
-    if (priceId && PRICE_PRO && priceId === PRICE_PRO) plan = "PRO";
+    // ---- Safe date conversion
+    const cps = Number(stripeSub?.current_period_start);
+    const cpe = Number(stripeSub?.current_period_end);
 
-    // 5) Map status
-    let status = "ACTIVE";
-    if (stripeSub.status === "trialing") status = "TRIALING";
-    else if (stripeSub.status === "past_due") status = "PAST_DUE";
-    else if (stripeSub.status === "canceled") status = "CANCELLED";
-    else if (stripeSub.status === "incomplete") status = "INCOMPLETE";
+    const current_period_start = Number.isFinite(cps) && cps > 0 ? new Date(cps * 1000).toISOString() : null;
+    const current_period_end = Number.isFinite(cpe) && cpe > 0 ? new Date(cpe * 1000).toISOString() : null;
 
-    // 6) Update DB
-    const { error: upErr } = await supabaseAdmin
+    const trial_start = stripeSub?.trial_start ? new Date(Number(stripeSub.trial_start) * 1000).toISOString() : null;
+    const trial_end = stripeSub?.trial_end ? new Date(Number(stripeSub.trial_end) * 1000).toISOString() : null;
+
+    // ---- Upsert subscription row (works even if row didn't exist yet)
+    const payload = {
+      family_id: familyId,
+      plan,
+      status,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: stripeSub.id,
+      current_period_start,
+      current_period_end,
+      cancel_at_period_end: !!stripeSub.cancel_at_period_end,
+      trial_start,
+      trial_end,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: upsertError } = await supabaseAdmin
       .from("subscriptions")
-      .update({
-        plan,
-        status,
-        stripe_customer_id: session.customer,
-        stripe_subscription_id: stripeSub.id,
-        current_period_start: stripeSub.current_period_start
-          ? new Date(stripeSub.current_period_start * 1000).toISOString()
-          : null,
-        current_period_end: stripeSub.current_period_end
-          ? new Date(stripeSub.current_period_end * 1000).toISOString()
-          : null,
-        cancel_at_period_end: !!stripeSub.cancel_at_period_end,
-        trial_start: stripeSub.trial_start ? new Date(stripeSub.trial_start * 1000).toISOString() : null,
-        trial_end: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000).toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("family_id", familyId);
+      .upsert(payload, { onConflict: "family_id" });
 
-    if (upErr) return json(500, { error: "DB update failed", details: upErr.message });
+    if (upsertError) {
+      return json(500, { error: "DB update failed", message: upsertError.message, details: upsertError });
+    }
 
-    return json(200, { success: true, plan, status });
-  } catch (e) {
-    return json(500, { error: "Unhandled error", details: e?.message ?? String(e) });
+    return json(200, { success: true, plan, status, subscriptionId: stripeSub.id });
+  } catch (err) {
+    console.error("[complete-checkout] ERROR:", err);
+    return json(500, { error: err?.message ?? "Unknown error" });
   }
 });
