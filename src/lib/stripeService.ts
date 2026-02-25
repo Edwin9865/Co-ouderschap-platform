@@ -68,15 +68,40 @@ export const PLANS: PlanDetails[] = [
 ];
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
-  // Refresh session to ensure we have a valid token
+  console.log('[STRIPE] Starting checkout session creation...');
+
+  // STEP 1: Get current session first
+  console.log('[STRIPE] Step 1: Getting current session');
+  const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+  console.log('[STRIPE] Current session state:', {
+    hasSession: !!currentSession,
+    hasToken: !!currentSession?.access_token,
+    tokenPreview: currentSession?.access_token?.substring(0, 20) + '...',
+  });
+
+  // STEP 2: Refresh session to ensure we have a valid token
+  console.log('[STRIPE] Step 2: Refreshing session');
   const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
 
-  if (sessionError || !session) {
-    console.error('Session refresh error:', sessionError);
+  if (sessionError) {
+    console.error('[STRIPE] Session refresh ERROR:', {
+      message: sessionError.message,
+      status: sessionError.status,
+      name: sessionError.name,
+    });
     throw new Error('Not authenticated - please log in again');
   }
 
-  // Decode JWT to check expiration (for debugging)
+  if (!session) {
+    console.error('[STRIPE] No session returned after refresh');
+    throw new Error('Not authenticated - please log in again');
+  }
+
+  console.log('[STRIPE] Session refreshed successfully');
+
+  // STEP 3: Decode JWT to check expiration (for debugging)
+  console.log('[STRIPE] Step 3: Decoding JWT');
   try {
     const tokenParts = session.access_token.split('.');
     if (tokenParts.length === 3) {
@@ -84,12 +109,14 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
       const now = Math.floor(Date.now() / 1000);
       const expiresIn = payload.exp - now;
 
-      console.log('JWT Debug:', {
+      console.log('[STRIPE] JWT Debug:', {
         tokenLength: session.access_token.length,
         expiresAt: new Date(payload.exp * 1000).toISOString(),
         expiresInSeconds: expiresIn,
         isExpired: expiresIn <= 0,
         userId: payload.sub,
+        aud: payload.aud,
+        role: payload.role,
       });
 
       if (expiresIn <= 0) {
@@ -97,18 +124,21 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
       }
     }
   } catch (decodeError) {
-    console.warn('Could not decode JWT:', decodeError);
+    console.error('[STRIPE] Could not decode JWT:', decodeError);
   }
 
-  console.log('Creating checkout session:', {
+  // STEP 4: Prepare request
+  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
+
+  console.log('[STRIPE] Step 4: Calling edge function:', {
+    url: functionUrl,
     priceId,
     familyId,
     hasToken: !!session.access_token,
+    tokenLength: session.access_token.length,
     supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
     hasAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
   });
-
-  const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
 
   const response = await fetch(functionUrl, {
     method: 'POST',
@@ -120,11 +150,18 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     body: JSON.stringify({ priceId, familyId }),
   });
 
-  console.log('Response status:', response.status);
+  console.log('[STRIPE] Response status:', response.status);
 
   if (!response.ok) {
     const errorData = await response.json();
-    console.error('Edge function error:', errorData);
+    console.error('[STRIPE] Edge function error:', errorData);
+
+    // Log response headers for debugging
+    console.error('[STRIPE] Response headers:', {
+      contentType: response.headers.get('content-type'),
+      cors: response.headers.get('access-control-allow-origin'),
+    });
+
     throw new Error(errorData.message || errorData.error || 'Failed to create checkout session');
   }
 
@@ -134,6 +171,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('No checkout URL returned');
   }
 
+  console.log('[STRIPE] Checkout session created successfully');
   return data.url;
 }
 
