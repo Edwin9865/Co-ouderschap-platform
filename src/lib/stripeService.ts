@@ -70,6 +70,16 @@ export const PLANS: PlanDetails[] = [
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
   console.log('[STRIPE] Starting checkout session creation...');
 
+  // Get current session to ensure we have a valid token
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+  if (sessionError || !session) {
+    console.error('[STRIPE] No active session:', sessionError);
+    throw new Error('Please log in to continue');
+  }
+
+  console.log('[STRIPE] Session found, invoking edge function...');
+
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
   });

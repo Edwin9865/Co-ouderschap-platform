@@ -56,31 +56,48 @@ Deno.serve(async (req: Request) => {
     );
 
     // Verify the JWT token using service role client
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseAdmin.auth.getUser(jwt);
+    let user;
+    try {
+      const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
 
-    console.log("User verification:", {
-      userId: user?.id,
-      email: user?.email,
-      hasError: !!authError,
-      errorMessage: authError?.message,
-      errorStatus: authError?.status,
-    });
-
-    if (authError || !user) {
-      console.error("JWT verification failed:", {
-        error: authError,
-        jwtPreview: jwt.substring(0, 50) + "...",
+      console.log("[EDGE] User verification:", {
+        userId: data?.user?.id,
+        email: data?.user?.email,
+        hasError: !!authError,
+        errorMessage: authError?.message,
+        errorStatus: authError?.status,
+        errorCode: authError?.code,
       });
 
+      if (authError || !data?.user) {
+        console.error("[EDGE] JWT verification failed:", {
+          error: authError,
+          errorName: authError?.name,
+          errorCode: authError?.code,
+          jwtPreview: jwt.substring(0, 50) + "...",
+        });
+
+        return new Response(
+          JSON.stringify({
+            error: "Invalid JWT",
+            code: 401,
+            message: authError?.message || "Authentication failed",
+            details: authError?.code || "Please log in again"
+          }),
+          {
+            status: 401,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      user = data.user;
+    } catch (verifyError) {
+      console.error("[EDGE] JWT verification exception:", verifyError);
       return new Response(
         JSON.stringify({
-          error: "Invalid JWT",
-          code: 401,
-          message: authError?.message || "Authentication failed",
-          details: "Please log in again"
+          error: "JWT verification failed",
+          message: verifyError.message || "Authentication error",
         }),
         {
           status: 401,
