@@ -22,6 +22,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
+    const apiKey = req.headers.get("apikey");
+
+    console.log("[EDGE] Headers received:", {
+      hasAuth: !!authHeader,
+      hasApiKey: !!apiKey,
+      authPreview: authHeader?.substring(0, 30) + "...",
+      allHeaders: Array.from(req.headers.entries()).map(([k]) => k),
+    });
 
     if (!authHeader) {
       return new Response(
@@ -33,12 +41,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log("Auth header present:", !!authHeader);
-    console.log("Auth header length:", authHeader.length);
-
     // Extract JWT from "Bearer <token>" format
     const jwt = authHeader.replace("Bearer ", "");
-    console.log("JWT extracted, length:", jwt.length);
+    console.log("[EDGE] JWT extracted:", {
+      length: jwt.length,
+      preview: jwt.substring(0, 50) + "...",
+      isBearer: authHeader.startsWith("Bearer "),
+    });
 
     // Create Supabase client with service role for admin operations
     const supabaseAdmin = createClient(
