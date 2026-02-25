@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
-import { PLANS, createCheckoutSession, createPortalSession } from '../../lib/stripeService';
+import { PLANS, createCheckoutSession, createPortalSession, syncSubscription } from '../../lib/stripeService';
 import { useSearchParams } from 'react-router-dom';
 
 export function Abonnement() {
@@ -9,6 +9,11 @@ export function Abonnement() {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const subscriptionRef = useRef(subscription);
+
+  useEffect(() => {
+    subscriptionRef.current = subscription;
+  }, [subscription]);
 
   useEffect(() => {
     const success = searchParams.get('success');
@@ -25,6 +30,7 @@ export function Abonnement() {
 
       let pollCount = 0;
       const maxPolls = 10;
+      let syncAttempted = false;
 
       pollInterval = setInterval(async () => {
         if (!isActive) {
@@ -37,6 +43,19 @@ export function Abonnement() {
 
         if (refreshFamily) {
           await refreshFamily();
+        }
+
+        if (pollCount === 5 && !syncAttempted && subscriptionRef.current?.plan === 'FREE') {
+          syncAttempted = true;
+          console.log('[SUBSCRIPTION] Webhook not received yet, trying manual sync...');
+          try {
+            await syncSubscription(currentFamily.id);
+            if (refreshFamily) {
+              await refreshFamily();
+            }
+          } catch (err) {
+            console.error('[SUBSCRIPTION] Manual sync failed:', err);
+          }
         }
 
         if (pollCount >= maxPolls) {
