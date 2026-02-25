@@ -74,6 +74,13 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('Not authenticated');
   }
 
+  console.log('Creating checkout session:', {
+    priceId,
+    familyId,
+    hasToken: !!session.access_token,
+    tokenLength: session.access_token.length,
+  });
+
   const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-stripe-checkout`;
 
   const response = await fetch(functionUrl, {
@@ -86,8 +93,11 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     body: JSON.stringify({ priceId, familyId }),
   });
 
+  console.log('Response status:', response.status);
+
   if (!response.ok) {
     const errorData = await response.json();
+    console.error('Edge function error:', errorData);
     throw new Error(errorData.error || 'Failed to create checkout session');
   }
 
