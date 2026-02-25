@@ -1,111 +1,52 @@
+// supabase/functions/create-stripe-portal/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
 };
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function requireUser(req: Request) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return { user: null, error: "Missing authorization header" };
+
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+  const { data, error } = await supabaseAdmin.auth.getUser(jwt);
+  if (error || !data?.user) return { user: null, error: error?.message || "Invalid JWT" };
+
+  return { user: data.user, error: null, authHeader: `Bearer ${jwt}` };
+}
 
 interface PortalRequest {
   familyId: string;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
+    const { user, error: authErr, authHeader } = await requireUser(req);
+    if (authErr || !user) return json(401, { error: "Invalid JWT", message: authErr });
 
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const jwt = authHeader.replace("Bearer ", "");
-    console.log("[PORTAL] JWT extracted:", {
-      length: jwt.length,
-      preview: jwt.substring(0, 50) + "...",
-    });
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    let user;
-    try {
-      const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
-
-      console.log("[PORTAL] User verification:", {
-        userId: data?.user?.id,
-        email: data?.user?.email,
-        hasError: !!authError,
-        errorMessage: authError?.message,
-      });
-
-      if (authError || !data?.user) {
-        console.error("[PORTAL] JWT verification failed:", authError);
-        return new Response(
-          JSON.stringify({
-            error: "Invalid JWT",
-            code: 401,
-            message: authError?.message || "Authentication failed",
-            details: authError?.code || "Please log in again"
-          }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      user = data.user;
-    } catch (verifyError) {
-      console.error("[PORTAL] JWT verification exception:", verifyError);
-      return new Response(
-        JSON.stringify({
-          error: "JWT verification failed",
-          message: verifyError.message || "Authentication error",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const { familyId } = (await req.json()) as PortalRequest;
+    if (!familyId) return json(400, { error: "Missing familyId" });
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      { global: { headers: { Authorization: authHeader! } } }
     );
-
-    const { familyId }: PortalRequest = await req.json();
-
-    if (!familyId) {
-      return new Response(
-        JSON.stringify({ error: "Missing familyId" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
 
     const { data: familyMember } = await supabaseClient
       .from("family_members")
@@ -114,15 +55,7 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", user.id)
       .single();
 
-    if (!familyMember || familyMember.role !== "PARENT") {
-      return new Response(
-        JSON.stringify({ error: "Only parents can access billing portal" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    if (!familyMember || familyMember.role !== "PARENT") return json(403, { error: "Only parents can access billing portal" });
 
     const { data: subscription } = await supabaseClient
       .from("subscriptions")
@@ -130,55 +63,31 @@ Deno.serve(async (req: Request) => {
       .eq("family_id", familyId)
       .single();
 
-    if (!subscription?.stripe_customer_id) {
-      return new Response(
-        JSON.stringify({ error: "No Stripe customer found" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    if (!subscription?.stripe_customer_id) return json(404, { error: "No Stripe customer found" });
 
     const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!STRIPE_SECRET_KEY) {
-      throw new Error("Stripe secret key not configured");
-    }
+    if (!STRIPE_SECRET_KEY) return json(500, { error: "Stripe secret key not configured" });
+
+    const origin = req.headers.get("origin") || "http://localhost:5173";
 
     const sessionResponse = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         customer: subscription.stripe_customer_id,
-        return_url: `${req.headers.get("origin")}/instellingen/abonnement`,
+        return_url: `${origin}/instellingen/abonnement`,
       }),
     });
 
-    if (!sessionResponse.ok) {
-      const error = await sessionResponse.json();
-      throw new Error(`Stripe API error: ${JSON.stringify(error)}`);
-    }
+    if (!sessionResponse.ok) return json(500, { error: "Stripe API error", details: await sessionResponse.text() });
 
     const session = await sessionResponse.json();
-
-    return new Response(
-      JSON.stringify({ url: session.url }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    console.error("Error creating portal session:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json(200, { url: session.url });
+  } catch (e) {
+    console.error(e);
+    return json(500, { error: e instanceof Error ? e.message : "Unknown error" });
   }
 });

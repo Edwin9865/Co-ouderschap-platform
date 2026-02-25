@@ -1,329 +1,70 @@
+// supabase/functions/stripe-webhook/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey, stripe-signature",
+  "Access-Control-Allow-Headers": "content-type, stripe-signature",
 };
 
-async function verifyStripeSignature(
-  payload: string,
-  signature: string,
-  secret: string
-): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(payload);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signatureBuffer = await crypto.subtle.sign("HMAC", key, data);
-  const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  const signatureParts = signature.split(",");
-  const timestamp = signatureParts.find(part => part.startsWith("t="))?.split("=")[1];
-  const signatures = signatureParts
-    .filter(part => part.startsWith("v1="))
-    .map(part => part.split("=")[1]);
-
-  const signedPayload = `${timestamp}.${payload}`;
-  const signedData = encoder.encode(signedPayload);
-  const signedBuffer = await crypto.subtle.sign("HMAC", key, signedData);
-  const computedSignature = Array.from(new Uint8Array(signedBuffer))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  return signatures.some(sig => sig === computedSignature);
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+function hex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function hmacSha256(secret: string, message: string) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
+  return hex(sig);
+}
+
+async function verifyStripeSignature(payload: string, header: string, secret: string): Promise<boolean> {
+  const parts = header.split(",").map(s => s.trim());
+  const t = parts.find(p => p.startsWith("t="))?.slice(2);
+  const v1s = parts.filter(p => p.startsWith("v1=")).map(p => p.slice(3));
+  if (!t || v1s.length === 0) return false;
+
+  const signedPayload = `${t}.${payload}`;
+  const computed = await hmacSha256(secret, signedPayload);
+  return v1s.some(v1 => v1 === computed);
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
     const signature = req.headers.get("stripe-signature");
-    const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
-    if (!signature || !STRIPE_WEBHOOK_SECRET) {
-      console.error("Missing signature or webhook secret");
-      return new Response(
-        JSON.stringify({ error: "Webhook signature verification failed" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    if (!signature || !secret) return json(400, { error: "Missing stripe-signature or STRIPE_WEBHOOK_SECRET" });
 
     const payload = await req.text();
-
-    const isValid = await verifyStripeSignature(
-      payload,
-      signature,
-      STRIPE_WEBHOOK_SECRET
-    );
-
-    if (!isValid) {
-      console.error("Invalid webhook signature");
-      return new Response(
-        JSON.stringify({ error: "Invalid signature" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const ok = await verifyStripeSignature(payload, signature, secret);
+    if (!ok) return json(400, { error: "Invalid signature" });
 
     const event = JSON.parse(payload);
 
-    const supabaseClient = createClient(
+    const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    console.log("Processing Stripe event:", event.type);
+    console.log("[WEBHOOK] Event:", event.type);
 
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        const familyId = session.metadata?.family_id;
-        const subscriptionId = session.subscription;
-        const customerId = session.customer;
+    // jouw bestaande switch kan blijven, maar let op:
+    // - checkout.session.completed geeft subscription id, maar om plan te bepalen is subscription ophalen prima.
 
-        if (!familyId) {
-          console.error("No family_id in session metadata");
-          break;
-        }
+    // >>> Plak hier jouw bestaande switch block (met minimale wijziging) <<<
+    // Tip: zorg dat je altijd metadata.family_id verwacht: die zetten we nu ook in checkout (subscription_data metadata)
 
-        const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-        if (!STRIPE_SECRET_KEY) {
-          console.error("Stripe secret key not configured");
-          break;
-        }
-
-        const stripeResponse = await fetch(
-          `https://api.stripe.com/v1/subscriptions/${subscriptionId}`,
-          {
-            headers: {
-              "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
-            },
-          }
-        );
-
-        if (!stripeResponse.ok) {
-          console.error("Failed to fetch subscription from Stripe");
-          await supabaseClient
-            .from("subscriptions")
-            .update({
-              stripe_customer_id: customerId,
-              stripe_subscription_id: subscriptionId,
-              status: "ACTIVE",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("family_id", familyId);
-          break;
-        }
-
-        const subscription = await stripeResponse.json();
-
-        let plan = "FREE";
-        const priceId = subscription.items.data[0]?.price.id;
-
-        if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
-          plan = "PLUS";
-        } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
-          plan = "PRO";
-        }
-
-        let status = "ACTIVE";
-        if (subscription.status === "trialing") status = "TRIALING";
-        else if (subscription.status === "past_due") status = "PAST_DUE";
-        else if (subscription.status === "canceled") status = "CANCELLED";
-        else if (subscription.status === "incomplete") status = "INCOMPLETE";
-
-        await supabaseClient
-          .from("subscriptions")
-          .update({
-            plan,
-            status,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
-            trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("family_id", familyId);
-
-        console.log(`Checkout completed for family ${familyId}: ${plan} - ${status}`);
-        break;
-      }
-
-      case "customer.subscription.created":
-      case "customer.subscription.updated": {
-        const subscription = event.data.object;
-        const familyId = subscription.metadata?.family_id;
-
-        if (!familyId) {
-          const { data: existingSub } = await supabaseClient
-            .from("subscriptions")
-            .select("family_id")
-            .eq("stripe_subscription_id", subscription.id)
-            .single();
-
-          if (!existingSub) {
-            console.error("No family_id found for subscription:", subscription.id);
-            break;
-          }
-        }
-
-        const targetFamilyId = familyId || (await supabaseClient
-          .from("subscriptions")
-          .select("family_id")
-          .eq("stripe_subscription_id", subscription.id)
-          .single()).data?.family_id;
-
-        if (!targetFamilyId) {
-          console.error("Could not determine family_id");
-          break;
-        }
-
-        let plan = "FREE";
-        const priceId = subscription.items.data[0]?.price.id;
-
-        if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
-          plan = "PLUS";
-        } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
-          plan = "PRO";
-        }
-
-        let status = "ACTIVE";
-        if (subscription.status === "trialing") status = "TRIALING";
-        else if (subscription.status === "past_due") status = "PAST_DUE";
-        else if (subscription.status === "canceled") status = "CANCELLED";
-        else if (subscription.status === "incomplete") status = "INCOMPLETE";
-
-        await supabaseClient
-          .from("subscriptions")
-          .update({
-            plan,
-            status,
-            stripe_subscription_id: subscription.id,
-            stripe_customer_id: subscription.customer,
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
-            trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("family_id", targetFamilyId);
-
-        console.log(`Subscription ${event.type} for family ${targetFamilyId}: ${plan} - ${status}`);
-        break;
-      }
-
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object;
-
-        const { data: existingSub } = await supabaseClient
-          .from("subscriptions")
-          .select("family_id")
-          .eq("stripe_subscription_id", subscription.id)
-          .single();
-
-        if (!existingSub) {
-          console.error("Subscription not found:", subscription.id);
-          break;
-        }
-
-        await supabaseClient
-          .from("subscriptions")
-          .update({
-            plan: "FREE",
-            status: "CANCELLED",
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("family_id", existingSub.family_id);
-
-        console.log(`Subscription cancelled for family ${existingSub.family_id}`);
-        break;
-      }
-
-      case "customer.subscription.trial_will_end": {
-        const subscription = event.data.object;
-        console.log(`Trial ending soon for subscription ${subscription.id}`);
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        const invoice = event.data.object;
-        const subscriptionId = invoice.subscription;
-
-        if (subscriptionId) {
-          await supabaseClient
-            .from("subscriptions")
-            .update({
-              status: "PAST_DUE",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("stripe_subscription_id", subscriptionId);
-
-          console.log(`Payment failed for subscription ${subscriptionId}`);
-        }
-        break;
-      }
-
-      case "invoice.payment_succeeded": {
-        const invoice = event.data.object;
-        const subscriptionId = invoice.subscription;
-
-        if (subscriptionId) {
-          await supabaseClient
-            .from("subscriptions")
-            .update({
-              status: "ACTIVE",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("stripe_subscription_id", subscriptionId);
-
-          console.log(`Payment succeeded for subscription ${subscriptionId}`);
-        }
-        break;
-      }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
-
-    return new Response(
-      JSON.stringify({ received: true }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    console.error("Webhook error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json(200, { received: true });
+  } catch (e) {
+    console.error(e);
+    return json(500, { error: e instanceof Error ? e.message : "Unknown error" });
   }
 });

@@ -1,3 +1,4 @@
+// src/lib/stripeService.ts
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { supabase } from './supabase';
 
@@ -6,9 +7,7 @@ let stripePromise: Promise<Stripe | null>;
 export const getStripe = () => {
   if (!stripePromise) {
     const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-    if (!publishableKey) {
-      throw new Error('Stripe publishable key not configured');
-    }
+    if (!publishableKey) throw new Error('Stripe publishable key not configured');
     stripePromise = loadStripe(publishableKey);
   }
   return stripePromise;
@@ -29,12 +28,7 @@ export const PLANS: PlanDetails[] = [
     name: 'Free',
     price: 0,
     priceId: null,
-    features: [
-      'Basis agenda',
-      'Beperkt logboek (50 entries)',
-      'Maximaal 2 kinderen',
-      'Basis communicatie',
-    ],
+    features: ['Basis agenda', 'Beperkt logboek (50 entries)', 'Maximaal 2 kinderen', 'Basis communicatie'],
   },
   {
     id: 'PLUS',
@@ -67,78 +61,52 @@ export const PLANS: PlanDetails[] = [
   },
 ];
 
+function assertPriceId(priceId: string) {
+  if (!priceId || typeof priceId !== 'string') throw new Error('Invalid priceId');
+}
+
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
-  console.log('[STRIPE] Creating checkout session...');
+  assertPriceId(priceId);
 
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
   });
 
-  if (error) {
-    console.error('[STRIPE] Checkout error:', error);
-    throw new Error(error.message || 'Failed to create checkout session');
-  }
+  if (error) throw new Error(error.message || 'Failed to create checkout session');
+  if (!data?.url) throw new Error('No checkout URL returned');
 
-  if (!data?.url) {
-    throw new Error('No checkout URL returned');
-  }
-
-  console.log('[STRIPE] Checkout session created');
   return data.url;
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
-  console.log('[STRIPE] Creating portal session...');
-
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
     body: { familyId },
   });
 
-  if (error) {
-    console.error('[STRIPE] Portal error:', error);
-    throw new Error(error.message || 'Failed to create portal session');
-  }
+  if (error) throw new Error(error.message || 'Failed to create portal session');
+  if (!data?.url) throw new Error('No portal URL returned');
 
-  if (!data?.url) {
-    throw new Error('No portal URL returned');
-  }
-
-  console.log('[STRIPE] Portal session created');
   return data.url;
 }
 
 export async function syncSubscription(familyId: string): Promise<void> {
-  console.log('[STRIPE] Syncing subscription...');
-
   const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
     body: { familyId },
   });
 
-  if (error) {
-    console.error('[STRIPE] Sync error:', error);
-    throw new Error(error.message || 'Failed to sync subscription');
-  }
-
-  console.log('[STRIPE] Subscription synced:', data);
+  if (error) throw new Error(error.message || 'Failed to sync subscription');
+  // optional: log
+  console.log('[STRIPE] synced', data);
 }
 
 export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {
-  console.log('[STRIPE] Completing checkout...');
-
   const { data, error } = await supabase.functions.invoke('complete-checkout', {
     body: { sessionId },
   });
 
-  if (error) {
-    console.error('[STRIPE] Complete checkout error:', error);
-    throw new Error(error.message || 'Failed to complete checkout');
-  }
+  if (error) throw new Error(error.message || 'Failed to complete checkout');
+  if (!data?.success) throw new Error(data?.error || 'Checkout completion failed');
 
-  if (!data?.success) {
-    throw new Error('Checkout completion failed');
-  }
-
-  console.log('[STRIPE] Checkout completed:', data);
   return { plan: data.plan, status: data.status };
 }
 

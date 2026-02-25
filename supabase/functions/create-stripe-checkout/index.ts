@@ -1,133 +1,55 @@
+// supabase/functions/create-stripe-checkout/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
 };
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function requireUser(req: Request) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return { user: null, error: "Missing authorization header" };
+
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+
+  const url = Deno.env.get("SUPABASE_URL") ?? "";
+  const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!url || !service) return { user: null, error: "Missing SUPABASE_URL or SERVICE_ROLE key" };
+
+  const supabaseAdmin = createClient(url, service);
+  const { data, error } = await supabaseAdmin.auth.getUser(jwt);
+  if (error || !data?.user) return { user: null, error: error?.message || "Invalid JWT" };
+
+  return { user: data.user, error: null, authHeader: `Bearer ${jwt}` };
+}
 
 interface CheckoutRequest {
   priceId: string;
   familyId: string;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    const apiKey = req.headers.get("apikey");
+    const { user, error: authErr, authHeader } = await requireUser(req);
+    if (authErr || !user) return json(401, { error: "Invalid JWT", message: authErr });
 
-    console.log("[EDGE] Headers received:", {
-      hasAuth: !!authHeader,
-      hasApiKey: !!apiKey,
-      authPreview: authHeader?.substring(0, 30) + "...",
-      allHeaders: Array.from(req.headers.entries()).map(([k]) => k),
-    });
+    const body = (await req.json()) as CheckoutRequest;
+    const { priceId, familyId } = body || {};
+    if (!priceId || !familyId) return json(400, { error: "Missing priceId or familyId" });
 
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Extract JWT from "Bearer <token>" format
-    const jwt = authHeader.replace("Bearer ", "");
-    console.log("[EDGE] JWT extracted:", {
-      length: jwt.length,
-      preview: jwt.substring(0, 50) + "...",
-      isBearer: authHeader.startsWith("Bearer "),
-    });
-
-    // Create Supabase client with service role for admin operations
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    // Verify the JWT token using service role client
-    let user;
-    try {
-      const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
-
-      console.log("[EDGE] User verification:", {
-        userId: data?.user?.id,
-        email: data?.user?.email,
-        hasError: !!authError,
-        errorMessage: authError?.message,
-        errorStatus: authError?.status,
-        errorCode: authError?.code,
-      });
-
-      if (authError || !data?.user) {
-        console.error("[EDGE] JWT verification failed:", {
-          error: authError,
-          errorName: authError?.name,
-          errorCode: authError?.code,
-          jwtPreview: jwt.substring(0, 50) + "...",
-        });
-
-        return new Response(
-          JSON.stringify({
-            error: "Invalid JWT",
-            code: 401,
-            message: authError?.message || "Authentication failed",
-            details: authError?.code || "Please log in again"
-          }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      user = data.user;
-    } catch (verifyError) {
-      console.error("[EDGE] JWT verification exception:", verifyError);
-      return new Response(
-        JSON.stringify({
-          error: "JWT verification failed",
-          message: verifyError.message || "Authentication error",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Create client with user's auth for RLS queries
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
+      { global: { headers: { Authorization: authHeader! } } }
     );
-
-    const { priceId, familyId }: CheckoutRequest = await req.json();
-
-    if (!priceId || !familyId) {
-      return new Response(
-        JSON.stringify({ error: "Missing priceId or familyId" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
 
     const { data: familyMember } = await supabaseClient
       .from("family_members")
@@ -136,15 +58,7 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", user.id)
       .single();
 
-    if (!familyMember || familyMember.role !== "PARENT") {
-      return new Response(
-        JSON.stringify({ error: "Only parents can manage subscriptions" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    if (!familyMember || familyMember.role !== "PARENT") return json(403, { error: "Only parents can manage subscriptions" });
 
     const { data: subscription } = await supabaseClient
       .from("subscriptions")
@@ -153,95 +67,62 @@ Deno.serve(async (req: Request) => {
       .single();
 
     const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!STRIPE_SECRET_KEY) {
-      throw new Error("Stripe secret key not configured");
-    }
+    if (!STRIPE_SECRET_KEY) return json(500, { error: "Stripe secret key not configured" });
 
     let customerId = subscription?.stripe_customer_id;
 
     if (!customerId) {
-      console.log("[EDGE] Creating Stripe customer for:", { email: user.email, familyId });
-
       const customerResponse = await fetch("https://api.stripe.com/v1/customers", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+          Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          email: user.email!,
+          email: user.email ?? "",
           "metadata[family_id]": familyId,
           "metadata[user_id]": user.id,
         }),
       });
 
-      if (!customerResponse.ok) {
-        const errorText = await customerResponse.text();
-        console.error("[EDGE] Stripe customer creation failed:", {
-          status: customerResponse.status,
-          statusText: customerResponse.statusText,
-          error: errorText,
-        });
-        throw new Error(`Failed to create Stripe customer: ${errorText}`);
-      }
+      if (!customerResponse.ok) return json(500, { error: "Failed to create Stripe customer", details: await customerResponse.text() });
 
       const customer = await customerResponse.json();
       customerId = customer.id;
 
-      await supabaseClient
-        .from("subscriptions")
-        .update({ stripe_customer_id: customerId })
-        .eq("family_id", familyId);
+      await supabaseClient.from("subscriptions").update({ stripe_customer_id: customerId }).eq("family_id", familyId);
     }
 
-    const mode = subscription?.stripe_subscription_id ? "subscription" : "subscription";
+    const origin = req.headers.get("origin") || "http://localhost:5173";
+
     const sessionParams: Record<string, string> = {
       customer: customerId,
-      mode: mode,
+      mode: "subscription",
       "line_items[0][price]": priceId,
       "line_items[0][quantity]": "1",
-      success_url: `${req.headers.get("origin")}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.headers.get("origin")}/instellingen/abonnement?canceled=true`,
+      success_url: `${origin}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/instellingen/abonnement?canceled=true`,
       allow_promotion_codes: "true",
       "metadata[family_id]": familyId,
       "metadata[user_id]": user.id,
+      "subscription_data[metadata][family_id]": familyId, // belangrijk voor latere webhook events
     };
-
-    if (subscription?.stripe_subscription_id) {
-      sessionParams["subscription_data[metadata][family_id]"] = familyId;
-    }
 
     const sessionResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+        Authorization: `Bearer ${STRIPE_SECRET_KEY}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams(sessionParams),
     });
 
-    if (!sessionResponse.ok) {
-      const error = await sessionResponse.json();
-      throw new Error(`Stripe API error: ${JSON.stringify(error)}`);
-    }
+    if (!sessionResponse.ok) return json(500, { error: "Stripe API error", details: await sessionResponse.text() });
 
     const session = await sessionResponse.json();
-
-    return new Response(
-      JSON.stringify({ sessionId: session.id, url: session.url }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    console.error("Error creating checkout session:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json(200, { sessionId: session.id, url: session.url });
+  } catch (e) {
+    console.error(e);
+    return json(500, { error: e instanceof Error ? e.message : "Unknown error" });
   }
 });

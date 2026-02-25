@@ -1,126 +1,80 @@
+// supabase/functions/complete-checkout/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  "Access-Control-Allow-Headers": "content-type, authorization, x-client-info, apikey",
 };
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
+async function requireUser(req: Request) {
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+  if (!authHeader) return { user: null, error: "Missing authorization header" };
+
+  const jwt = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+  const { data, error } = await supabaseAdmin.auth.getUser(jwt);
+  if (error || !data?.user) return { user: null, error: error?.message || "Invalid JWT" };
+
+  return { user: data.user, error: null };
+}
 
 interface CompleteCheckoutRequest {
   sessionId: string;
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const { error: authErr } = await requireUser(req);
+    if (authErr) return json(401, { error: "Invalid JWT", message: authErr });
 
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    const jwt = authHeader.replace("Bearer ", "");
-    const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
-
-    if (authError || !data?.user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid JWT" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const { sessionId }: CompleteCheckoutRequest = await req.json();
-
-    if (!sessionId) {
-      return new Response(
-        JSON.stringify({ error: "Missing sessionId" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const { sessionId } = (await req.json()) as CompleteCheckoutRequest;
+    if (!sessionId) return json(400, { error: "Missing sessionId" });
 
     const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!STRIPE_SECRET_KEY) {
-      throw new Error("Stripe secret key not configured");
-    }
-
-    console.log("[COMPLETE_CHECKOUT] Fetching session from Stripe:", sessionId);
+    if (!STRIPE_SECRET_KEY) return json(500, { error: "Stripe secret key not configured" });
 
     const sessionResponse = await fetch(
       `https://api.stripe.com/v1/checkout/sessions/${sessionId}?expand[]=subscription`,
-      {
-        headers: {
-          "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
-        },
-      }
+      { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } }
     );
 
-    if (!sessionResponse.ok) {
-      const error = await sessionResponse.text();
-      console.error("[COMPLETE_CHECKOUT] Stripe API error:", error);
-      throw new Error(`Failed to fetch session: ${error}`);
-    }
+    if (!sessionResponse.ok) return json(500, { error: "Failed to fetch session", details: await sessionResponse.text() });
 
     const session = await sessionResponse.json();
     const familyId = session.metadata?.family_id;
     const subscription = session.subscription;
 
-    if (!familyId) {
-      return new Response(
-        JSON.stringify({ error: "No family_id in session" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (!subscription || typeof subscription !== 'object') {
-      return new Response(
-        JSON.stringify({ error: "No subscription in session" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    if (!familyId) return json(400, { error: "No family_id in session" });
+    if (!subscription || typeof subscription !== "object") return json(400, { error: "No subscription in session" });
 
     let plan = "FREE";
     const priceId = subscription.items?.data?.[0]?.price?.id;
 
-    if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
-      plan = "PLUS";
-    } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
-      plan = "PRO";
-    }
+    if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) plan = "PLUS";
+    else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) plan = "PRO";
 
     let status = "ACTIVE";
     if (subscription.status === "trialing") status = "TRIALING";
     else if (subscription.status === "past_due") status = "PAST_DUE";
     else if (subscription.status === "canceled") status = "CANCELLED";
     else if (subscription.status === "incomplete") status = "INCOMPLETE";
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
 
     const { error: updateError } = await supabaseAdmin
       .from("subscriptions")
@@ -138,32 +92,11 @@ Deno.serve(async (req: Request) => {
       })
       .eq("family_id", familyId);
 
-    if (updateError) {
-      console.error("[COMPLETE_CHECKOUT] Failed to update subscription:", updateError);
-      throw new Error(`Failed to update subscription: ${updateError.message}`);
-    }
+    if (updateError) return json(500, { error: "Failed to update subscription", details: updateError.message });
 
-    console.log(`[COMPLETE_CHECKOUT] Subscription updated for family ${familyId}: ${plan} - ${status}`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        plan,
-        status
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    console.error("[COMPLETE_CHECKOUT] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json(200, { success: true, plan, status });
+  } catch (e) {
+    console.error(e);
+    return json(500, { error: e instanceof Error ? e.message : "Unknown error" });
   }
 });

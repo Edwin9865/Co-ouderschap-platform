@@ -1,85 +1,67 @@
-import { useState, useEffect, useRef } from 'react';
+// src/pages/settings/Abonnement.tsx
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
 import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } from '../../lib/stripeService';
-import { useSearchParams } from 'react-router-dom';
 
 export function Abonnement() {
   const { subscription, currentFamily, refreshFamily } = useFamily();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const subscriptionRef = useRef(subscription);
+
+  const success = searchParams.get('success');
+  const canceled = searchParams.get('canceled');
+  const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
-    subscriptionRef.current = subscription;
-  }, [subscription]);
+    let alive = true;
 
-  useEffect(() => {
-    const success = searchParams.get('success');
-    const canceled = searchParams.get('canceled');
-    const sessionId = searchParams.get('session_id');
+    const run = async () => {
+      if (!success && !canceled) return;
 
-    if (!success && !canceled) return;
-
-    let isActive = true;
-
-    if (success && sessionId && currentFamily) {
-      setError(null);
-      console.log('[SUBSCRIPTION] Payment successful, completing checkout with session:', sessionId);
-
-      (async () => {
-        try {
-          await completeCheckout(sessionId);
-          console.log('[SUBSCRIPTION] Checkout completed, refreshing family data...');
-
-          if (refreshFamily) {
-            await refreshFamily();
-          }
-
-          setTimeout(() => {
-            if (isActive) {
-              setSearchParams({});
-            }
-          }, 3000);
-        } catch (err) {
-          console.error('[SUBSCRIPTION] Failed to complete checkout:', err);
-          setError(err instanceof Error ? err.message : 'Er is een fout opgetreden bij het afronden van de betaling');
-
-          setTimeout(() => {
-            if (isActive) {
-              setSearchParams({});
-            }
-          }, 5000);
-        }
-      })();
-    }
-
-    if (canceled) {
-      setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
-      setTimeout(() => {
-        if (isActive) {
+      if (canceled) {
+        setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
+        setTimeout(() => {
+          if (!alive) return;
           setSearchParams({});
           setError(null);
-        }
-      }, 5000);
-    }
+        }, 4000);
+        return;
+      }
 
-    return () => {
-      isActive = false;
+      // success
+      if (success && sessionId && currentFamily) {
+        setError(null);
+        try {
+          await completeCheckout(sessionId);
+          if (refreshFamily) await refreshFamily();
+
+          setTimeout(() => {
+            if (!alive) return;
+            setSearchParams({});
+          }, 2500);
+        } catch (e) {
+          console.error(e);
+          setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
+          setTimeout(() => {
+            if (!alive) return;
+            setSearchParams({});
+          }, 4500);
+        }
+      }
     };
-  }, [searchParams.get('success'), searchParams.get('canceled'), searchParams.get('session_id')]);
+
+    run();
+    return () => {
+      alive = false;
+    };
+  }, [success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
-    if (!currentFamily) {
-      setError('Geen gezin geselecteerd');
-      return;
-    }
-
-    if (!priceId) {
-      setError('Ongeldig plan geselecteerd');
-      return;
-    }
+    if (!currentFamily) return setError('Geen gezin geselecteerd');
+    if (!priceId) return setError('Ongeldig plan geselecteerd');
 
     setLoading(priceId);
     setError(null);
@@ -87,18 +69,15 @@ export function Abonnement() {
     try {
       const checkoutUrl = await createCheckoutSession(priceId, currentFamily.id);
       window.location.href = checkoutUrl;
-    } catch (err) {
-      console.error('Failed to create checkout session:', err);
-      setError(err instanceof Error ? err.message : 'Er is een fout opgetreden bij het starten van de betaling');
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het starten van de betaling');
       setLoading(null);
     }
   };
 
   const handleManageBilling = async () => {
-    if (!currentFamily) {
-      setError('Geen gezin geselecteerd');
-      return;
-    }
+    if (!currentFamily) return setError('Geen gezin geselecteerd');
 
     setLoading('portal');
     setError(null);
@@ -106,15 +85,15 @@ export function Abonnement() {
     try {
       const portalUrl = await createPortalSession(currentFamily.id);
       window.location.href = portalUrl;
-    } catch (err) {
-      console.error('Failed to create portal session:', err);
-      setError(err instanceof Error ? err.message : 'Er is een fout opgetreden bij het openen van het klantenportaal');
+    } catch (e) {
+      console.error(e);
+      setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het openen van het klantenportaal');
       setLoading(null);
     }
   };
 
   const currentPlan = subscription?.plan || 'FREE';
-  const hasPaidSubscription = subscription?.stripe_subscription_id;
+  const hasPaidSubscription = !!subscription?.stripe_subscription_id;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -123,14 +102,12 @@ export function Abonnement() {
         <p className="text-gray-600">Kies het plan dat bij jullie past</p>
       </div>
 
-      {searchParams.get('success') && (
+      {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-            <p className="text-green-800 text-sm mt-1">
-              Je betaling is succesvol verwerkt. Je hebt nu toegang tot alle functies van je plan.
-            </p>
+            <p className="text-green-800 text-sm mt-1">Je betaling is succesvol verwerkt.</p>
           </div>
         </div>
       )}
@@ -151,7 +128,7 @@ export function Abonnement() {
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Beheer je abonnement</h3>
               <p className="text-sm text-slate-700 mb-4">
-                Bekijk je facturen, wijzig je betaalmethode of annuleer je abonnement via het klantenportaal.
+                Bekijk je facturen, wijzig je betaalmethode of annuleer via Stripe.
               </p>
             </div>
             <button
@@ -210,7 +187,11 @@ export function Abonnement() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Crown className={`w-6 h-6 ${isActive ? 'text-green-600' : plan.popular ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <Crown
+                      className={`w-6 h-6 ${
+                        isActive ? 'text-green-600' : plan.popular ? 'text-blue-600' : 'text-gray-400'
+                      }`}
+                    />
                     <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
                   </div>
                   {isActive && <CheckCircle2 className="w-6 h-6 text-green-600" />}
@@ -233,10 +214,7 @@ export function Abonnement() {
                 </ul>
 
                 {plan.id === 'FREE' ? (
-                  <button
-                    disabled
-                    className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed"
-                  >
+                  <button disabled className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
                     {isActive ? 'Huidig plan' : 'Gratis plan'}
                   </button>
                 ) : (
@@ -269,38 +247,6 @@ export function Abonnement() {
             </div>
           );
         })}
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-2">Belangrijk om te weten</h3>
-        <ul className="space-y-2 text-sm text-blue-900">
-          <li className="flex items-start">
-            <span className="mr-2">•</span>
-            <span>
-              Het abonnement geldt voor het hele gezin. Als je het pakket wijzigt, heeft dit
-              effect op alle gekoppelde ouders.
-            </span>
-          </li>
-          <li className="flex items-start">
-            <span className="mr-2">•</span>
-            <span>
-              Je kunt op elk moment upgraden of downgraden. Bij een upgrade zijn de extra functies
-              direct beschikbaar.
-            </span>
-          </li>
-          <li className="flex items-start">
-            <span className="mr-2">•</span>
-            <span>
-              Bij downgrade blijven je gegevens bewaard, maar sommige functies worden beperkt.
-            </span>
-          </li>
-          <li className="flex items-start">
-            <span className="mr-2">•</span>
-            <span>
-              Alle betalingen worden veilig verwerkt via Stripe. Je kunt kortingscodes invoeren tijdens het afrekenproces.
-            </span>
-          </li>
-        </ul>
       </div>
     </div>
   );
