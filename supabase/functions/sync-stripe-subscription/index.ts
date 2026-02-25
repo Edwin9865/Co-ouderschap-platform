@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface PortalRequest {
+interface SyncRequest {
   familyId: string;
 }
 
@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const jwt = authHeader.replace("Bearer ", "");
-    console.log("[PORTAL] JWT extracted:", {
+    console.log("[SYNC] JWT extracted:", {
       length: jwt.length,
       preview: jwt.substring(0, 50) + "...",
     });
@@ -47,21 +47,12 @@ Deno.serve(async (req: Request) => {
     try {
       const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
 
-      console.log("[PORTAL] User verification:", {
-        userId: data?.user?.id,
-        email: data?.user?.email,
-        hasError: !!authError,
-        errorMessage: authError?.message,
-      });
-
       if (authError || !data?.user) {
-        console.error("[PORTAL] JWT verification failed:", authError);
+        console.error("[SYNC] JWT verification failed:", authError);
         return new Response(
           JSON.stringify({
             error: "Invalid JWT",
-            code: 401,
             message: authError?.message || "Authentication failed",
-            details: authError?.code || "Please log in again"
           }),
           {
             status: 401,
@@ -72,7 +63,7 @@ Deno.serve(async (req: Request) => {
 
       user = data.user;
     } catch (verifyError) {
-      console.error("[PORTAL] JWT verification exception:", verifyError);
+      console.error("[SYNC] JWT verification exception:", verifyError);
       return new Response(
         JSON.stringify({
           error: "JWT verification failed",
@@ -95,7 +86,7 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    const { familyId }: PortalRequest = await req.json();
+    const { familyId }: SyncRequest = await req.json();
 
     if (!familyId) {
       return new Response(
@@ -116,7 +107,7 @@ Deno.serve(async (req: Request) => {
 
     if (!familyMember || familyMember.role !== "PARENT") {
       return new Response(
-        JSON.stringify({ error: "Only parents can access billing portal" }),
+        JSON.stringify({ error: "Only parents can sync subscriptions" }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -124,15 +115,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const { data: subscription } = await supabaseClient
+    const { data: subscription } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, stripe_subscription_id")
       .eq("family_id", familyId)
       .single();
 
-    if (!subscription?.stripe_customer_id) {
+    if (!subscription?.stripe_subscription_id) {
       return new Response(
-        JSON.stringify({ error: "No Stripe customer found" }),
+        JSON.stringify({
+          error: "No subscription found to sync",
+          subscription: null
+        }),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -145,34 +139,76 @@ Deno.serve(async (req: Request) => {
       throw new Error("Stripe secret key not configured");
     }
 
-    const sessionResponse = await fetch("https://api.stripe.com/v1/billing_portal/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        customer: subscription.stripe_customer_id,
-        return_url: `${req.headers.get("origin")}/instellingen/abonnement`,
-      }),
-    });
+    console.log("[SYNC] Fetching subscription from Stripe:", subscription.stripe_subscription_id);
 
-    if (!sessionResponse.ok) {
-      const error = await sessionResponse.json();
-      throw new Error(`Stripe API error: ${JSON.stringify(error)}`);
+    const stripeResponse = await fetch(
+      `https://api.stripe.com/v1/subscriptions/${subscription.stripe_subscription_id}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+        },
+      }
+    );
+
+    if (!stripeResponse.ok) {
+      const error = await stripeResponse.text();
+      console.error("[SYNC] Stripe API error:", error);
+      throw new Error(`Failed to fetch subscription: ${error}`);
     }
 
-    const session = await sessionResponse.json();
+    const stripeSubscription = await stripeResponse.json();
+
+    console.log("[SYNC] Stripe subscription status:", stripeSubscription.status);
+
+    let plan = "FREE";
+    const priceId = stripeSubscription.items.data[0]?.price.id;
+
+    if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
+      plan = "PLUS";
+    } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
+      plan = "PRO";
+    }
+
+    let status = "ACTIVE";
+    if (stripeSubscription.status === "trialing") status = "TRIALING";
+    else if (stripeSubscription.status === "past_due") status = "PAST_DUE";
+    else if (stripeSubscription.status === "canceled") status = "CANCELLED";
+    else if (stripeSubscription.status === "incomplete") status = "INCOMPLETE";
+
+    const { error: updateError } = await supabaseAdmin
+      .from("subscriptions")
+      .update({
+        plan,
+        status,
+        current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+        trial_start: stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null,
+        trial_end: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("family_id", familyId);
+
+    if (updateError) {
+      console.error("[SYNC] Failed to update subscription:", updateError);
+      throw new Error(`Failed to update subscription: ${updateError.message}`);
+    }
+
+    console.log("[SYNC] Subscription synced successfully:", { plan, status });
 
     return new Response(
-      JSON.stringify({ url: session.url }),
+      JSON.stringify({
+        success: true,
+        plan,
+        status
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   } catch (error) {
-    console.error("Error creating portal session:", error);
+    console.error("[SYNC] Error syncing subscription:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {

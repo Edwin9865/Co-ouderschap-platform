@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
-import { PLANS, createCheckoutSession, createPortalSession } from '../../lib/stripeService';
+import { PLANS, createCheckoutSession, createPortalSession, syncSubscription } from '../../lib/stripeService';
 import { useSearchParams } from 'react-router-dom';
 
 export function Abonnement() {
@@ -14,14 +14,56 @@ export function Abonnement() {
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
 
-    if (success) {
+    if (success && currentFamily) {
       setError(null);
-      if (refreshFamily) {
-        refreshFamily();
-      }
-      setTimeout(() => {
-        setSearchParams({});
-      }, 3000);
+
+      const syncAndPoll = async () => {
+        try {
+          console.log('[SUBSCRIPTION] Syncing subscription from Stripe...');
+          await syncSubscription(currentFamily.id);
+          console.log('[SUBSCRIPTION] Sync complete, refreshing family data...');
+
+          if (refreshFamily) {
+            await refreshFamily();
+          }
+
+          setTimeout(() => {
+            setSearchParams({});
+          }, 3000);
+        } catch (err) {
+          console.error('[SUBSCRIPTION] Sync failed, falling back to polling:', err);
+
+          let pollCount = 0;
+          const maxPolls = 10;
+
+          const pollSubscription = setInterval(async () => {
+            pollCount++;
+            console.log(`[SUBSCRIPTION] Polling attempt ${pollCount}/${maxPolls}`);
+
+            if (refreshFamily) {
+              await refreshFamily();
+            }
+
+            if (subscription && subscription.plan !== 'FREE') {
+              console.log('[SUBSCRIPTION] Subscription updated:', subscription.plan);
+              clearInterval(pollSubscription);
+              setTimeout(() => {
+                setSearchParams({});
+              }, 3000);
+            } else if (pollCount >= maxPolls) {
+              console.warn('[SUBSCRIPTION] Max polls reached, subscription may not be updated yet');
+              clearInterval(pollSubscription);
+              setTimeout(() => {
+                setSearchParams({});
+              }, 3000);
+            }
+          }, 2000);
+
+          return () => clearInterval(pollSubscription);
+        }
+      };
+
+      syncAndPoll();
     }
 
     if (canceled) {
@@ -31,7 +73,7 @@ export function Abonnement() {
         setError(null);
       }, 5000);
     }
-  }, [searchParams, refreshFamily, setSearchParams]);
+  }, [searchParams, refreshFamily, setSearchParams, subscription, currentFamily]);
 
   const handleUpgrade = async (priceId: string) => {
     if (!currentFamily) {

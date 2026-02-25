@@ -115,6 +115,21 @@ export async function createPortalSession(familyId: string): Promise<string> {
   return data.url;
 }
 
+export async function syncSubscription(familyId: string): Promise<void> {
+  console.log('[STRIPE] Syncing subscription from Stripe...');
+
+  const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
+    body: { familyId },
+  });
+
+  if (error) {
+    console.error('[STRIPE] Sync error:', error);
+    throw new Error(error.message || 'Failed to sync subscription');
+  }
+
+  console.log('[STRIPE] Subscription synced:', data);
+}
+
 export function getPlanDetails(planId: 'FREE' | 'PLUS' | 'PRO'): PlanDetails {
   return PLANS.find(p => p.id === planId) || PLANS[0];
 }
