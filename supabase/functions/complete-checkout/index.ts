@@ -8,9 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-type CompleteCheckoutRequest = {
-  sessionId: string;
-};
+type CompleteCheckoutRequest = { sessionId: string };
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -25,19 +23,31 @@ function mustEnv(name: string) {
   return v;
 }
 
+function toIsoFromStripeSeconds(v: unknown): string | null {
+  // Stripe geeft meestal unix seconds (number). Maar soms null/undefined/string.
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return null;
+
+  const d = new Date(n * 1000);
+  const t = d.getTime();
+  if (!Number.isFinite(t)) return null;
+
+  return d.toISOString();
+}
+
 async function stripeGet(url: string, secretKey: string) {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${secretKey}` },
-  });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${secretKey}` } });
   const text = await res.text();
-  let data: any = null;
+  let data: any;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
     data = text;
   }
   if (!res.ok) {
-    throw new Error(`Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
+    throw new Error(
+      `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
+    );
   }
   return data;
 }
@@ -46,30 +56,28 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    // ---- Auth header
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json(401, { error: "Missing authorization header" });
-    }
+    if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization header" });
+
     const jwt = authHeader.replace("Bearer ", "").trim();
 
-    // ---- Required envs (IMPORTANT: these are Supabase Function secrets, NOT Netlify envs)
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
     const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
 
-    // Optional but recommended
+    // Let op: dit zijn function secrets (Supabase), niet Netlify envs
     const STRIPE_PRICE_PLUS = Deno.env.get("STRIPE_PRICE_PLUS") ?? "";
     const STRIPE_PRICE_PRO = Deno.env.get("STRIPE_PRICE_PRO") ?? "";
 
-    // ---- Verify user (service role)
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // verify user
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(jwt);
     if (userErr || !userData?.user) {
       return json(401, { error: "Invalid JWT", message: userErr?.message ?? "Auth failed" });
     }
 
-    // ---- Body
+    // body
     let body: CompleteCheckoutRequest;
     try {
       body = await req.json();
@@ -80,7 +88,7 @@ Deno.serve(async (req: Request) => {
     const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    // ---- Fetch checkout session (try with expand)
+    // fetch session + expand subscription
     const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
     sessionUrl.searchParams.append("expand[]", "subscription");
     sessionUrl.searchParams.append("expand[]", "line_items");
@@ -89,62 +97,55 @@ Deno.serve(async (req: Request) => {
 
     const familyId = session?.metadata?.family_id;
     const customerId = session?.customer;
-    const subscriptionRef = session?.subscription; // can be object OR string
+    const subscriptionRef = session?.subscription;
 
     if (!familyId) return json(400, { error: "No family_id in session metadata" });
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // ---- Ensure we have a full subscription object
+    // ensure subscription object
     let stripeSub: any;
     if (typeof subscriptionRef === "string") {
-      // fetch subscription by id
       stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`, STRIPE_SECRET_KEY);
     } else {
       stripeSub = subscriptionRef;
-      // safety: if critical fields missing, fetch full object
-      if (!stripeSub?.current_period_start || !stripeSub?.items?.data?.length) {
+      // als critical fields ontbreken -> refetch
+      if (!stripeSub?.items?.data?.length) {
         const id = stripeSub?.id;
         if (!id) return json(400, { error: "Subscription object missing id" });
         stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${id}`, STRIPE_SECRET_KEY);
       }
     }
 
-    // ---- Determine plan via priceId
     const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
+
     let plan: "FREE" | "PLUS" | "PRO" = "FREE";
     if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
     if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
 
-    // ---- Determine status
     const stripeStatus = stripeSub?.status;
-    let status: string = "ACTIVE";
+    let status = "ACTIVE";
     if (stripeStatus === "trialing") status = "TRIALING";
     else if (stripeStatus === "past_due") status = "PAST_DUE";
     else if (stripeStatus === "canceled") status = "CANCELLED";
     else if (stripeStatus === "incomplete") status = "INCOMPLETE";
     else if (stripeStatus === "unpaid") status = "PAST_DUE";
 
-    // ---- Safe date conversion
-    const cps = Number(stripeSub?.current_period_start);
-    const cpe = Number(stripeSub?.current_period_end);
+    // ✅ SAFE date conversion (no more RangeError)
+    const current_period_start = toIsoFromStripeSeconds(stripeSub?.current_period_start);
+    const current_period_end = toIsoFromStripeSeconds(stripeSub?.current_period_end);
+    const trial_start = toIsoFromStripeSeconds(stripeSub?.trial_start);
+    const trial_end = toIsoFromStripeSeconds(stripeSub?.trial_end);
 
-    const current_period_start = Number.isFinite(cps) && cps > 0 ? new Date(cps * 1000).toISOString() : null;
-    const current_period_end = Number.isFinite(cpe) && cpe > 0 ? new Date(cpe * 1000).toISOString() : null;
-
-    const trial_start = stripeSub?.trial_start ? new Date(Number(stripeSub.trial_start) * 1000).toISOString() : null;
-    const trial_end = stripeSub?.trial_end ? new Date(Number(stripeSub.trial_end) * 1000).toISOString() : null;
-
-    // ---- Upsert subscription row (works even if row didn't exist yet)
     const payload = {
       family_id: familyId,
       plan,
       status,
       stripe_customer_id: customerId,
-      stripe_subscription_id: stripeSub.id,
+      stripe_subscription_id: stripeSub?.id ?? null,
       current_period_start,
       current_period_end,
-      cancel_at_period_end: !!stripeSub.cancel_at_period_end,
+      cancel_at_period_end: !!stripeSub?.cancel_at_period_end,
       trial_start,
       trial_end,
       updated_at: new Date().toISOString(),
@@ -158,9 +159,9 @@ Deno.serve(async (req: Request) => {
       return json(500, { error: "DB update failed", message: upsertError.message, details: upsertError });
     }
 
-    return json(200, { success: true, plan, status, subscriptionId: stripeSub.id });
+    return json(200, { success: true, plan, status, subscriptionId: stripeSub?.id ?? null });
   } catch (err) {
-    console.error("[complete-checkout] ERROR:", err);
+    console.error("[COMPLETE_CHECKOUT] Error:", err);
     return json(500, { error: err?.message ?? "Unknown error" });
   }
 });
