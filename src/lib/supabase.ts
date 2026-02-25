@@ -1,3 +1,4 @@
+// src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
 import { Preferences } from '@capacitor/preferences';
 import type { Database } from './types';
@@ -10,55 +11,39 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-const capacitorStorage = {
+/**
+ * ✅ WEB: gebruik sync localStorage (meest stabiel voor supabase-js + functions.invoke)
+ * ✅ NATIVE: gebruik Capacitor Preferences (async)
+ *
+ * Belangrijk: supabase-js werkt het meest voorspelbaar met sync storage op web.
+ */
+const webStorage: Storage = localStorage;
+
+const nativeStorage = {
   getItem: async (key: string) => {
-    try {
-      if (isNative()) {
-        const { value } = await Preferences.get({ key });
-        console.log('[CapacitorStorage] Get (native):', key, value ? 'exists' : 'null');
-        return value;
-      }
-      const value = localStorage.getItem(key);
-      console.log('[CapacitorStorage] Get (web):', key, value ? 'exists' : 'null');
-      return value;
-    } catch (error) {
-      console.error('[CapacitorStorage] Get error:', key, error);
-      return null;
-    }
+    const { value } = await Preferences.get({ key });
+    return value ?? null;
   },
   setItem: async (key: string, value: string) => {
-    try {
-      if (isNative()) {
-        await Preferences.set({ key, value });
-        console.log('[CapacitorStorage] Set (native):', key);
-      } else {
-        localStorage.setItem(key, value);
-        console.log('[CapacitorStorage] Set (web):', key);
-      }
-    } catch (error) {
-      console.error('[CapacitorStorage] Set error:', key, error);
-    }
+    await Preferences.set({ key, value });
   },
   removeItem: async (key: string) => {
-    try {
-      if (isNative()) {
-        await Preferences.remove({ key });
-        console.log('[CapacitorStorage] Remove (native):', key);
-      } else {
-        localStorage.removeItem(key);
-        console.log('[CapacitorStorage] Remove (web):', key);
-      }
-    } catch (error) {
-      console.error('[CapacitorStorage] Remove error:', key, error);
-    }
+    await Preferences.remove({ key });
   },
 };
 
+/**
+ * We kiezen storage op basis van platform.
+ * Op web géén async wrapper gebruiken.
+ */
+const storage = isNative() ? (nativeStorage as any) : webStorage;
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: capacitorStorage,
+    storage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // op web meestal true, op native kan false maar true is ook oké
+    detectSessionInUrl: !isNative(),
   },
 });
