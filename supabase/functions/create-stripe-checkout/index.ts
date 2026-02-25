@@ -160,6 +160,8 @@ Deno.serve(async (req: Request) => {
     let customerId = subscription?.stripe_customer_id;
 
     if (!customerId) {
+      console.log("[EDGE] Creating Stripe customer for:", { email: user.email, familyId });
+
       const customerResponse = await fetch("https://api.stripe.com/v1/customers", {
         method: "POST",
         headers: {
@@ -168,15 +170,19 @@ Deno.serve(async (req: Request) => {
         },
         body: new URLSearchParams({
           email: user.email!,
-          metadata: JSON.stringify({
-            family_id: familyId,
-            user_id: user.id,
-          }),
+          "metadata[family_id]": familyId,
+          "metadata[user_id]": user.id,
         }),
       });
 
       if (!customerResponse.ok) {
-        throw new Error("Failed to create Stripe customer");
+        const errorText = await customerResponse.text();
+        console.error("[EDGE] Stripe customer creation failed:", {
+          status: customerResponse.status,
+          statusText: customerResponse.statusText,
+          error: errorText,
+        });
+        throw new Error(`Failed to create Stripe customer: ${errorText}`);
       }
 
       const customer = await customerResponse.json();
