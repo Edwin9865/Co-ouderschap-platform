@@ -105,17 +105,69 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
+        const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
+        if (!STRIPE_SECRET_KEY) {
+          console.error("Stripe secret key not configured");
+          break;
+        }
+
+        const stripeResponse = await fetch(
+          `https://api.stripe.com/v1/subscriptions/${subscriptionId}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
+            },
+          }
+        );
+
+        if (!stripeResponse.ok) {
+          console.error("Failed to fetch subscription from Stripe");
+          await supabaseClient
+            .from("subscriptions")
+            .update({
+              stripe_customer_id: customerId,
+              stripe_subscription_id: subscriptionId,
+              status: "ACTIVE",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("family_id", familyId);
+          break;
+        }
+
+        const subscription = await stripeResponse.json();
+
+        let plan = "FREE";
+        const priceId = subscription.items.data[0]?.price.id;
+
+        if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
+          plan = "PLUS";
+        } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
+          plan = "PRO";
+        }
+
+        let status = "ACTIVE";
+        if (subscription.status === "trialing") status = "TRIALING";
+        else if (subscription.status === "past_due") status = "PAST_DUE";
+        else if (subscription.status === "canceled") status = "CANCELLED";
+        else if (subscription.status === "incomplete") status = "INCOMPLETE";
+
         await supabaseClient
           .from("subscriptions")
           .update({
+            plan,
+            status,
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
-            status: "ACTIVE",
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            trial_start: subscription.trial_start ? new Date(subscription.trial_start * 1000).toISOString() : null,
+            trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
             updated_at: new Date().toISOString(),
           })
           .eq("family_id", familyId);
 
-        console.log(`Checkout completed for family ${familyId}`);
+        console.log(`Checkout completed for family ${familyId}: ${plan} - ${status}`);
         break;
       }
 
