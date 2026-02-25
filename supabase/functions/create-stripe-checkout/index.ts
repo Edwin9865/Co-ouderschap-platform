@@ -36,28 +36,21 @@ Deno.serve(async (req: Request) => {
     console.log("Auth header present:", !!authHeader);
     console.log("Auth header length:", authHeader.length);
 
+    // Extract JWT from "Bearer <token>" format
+    const jwt = authHeader.replace("Bearer ", "");
+    console.log("JWT extracted, length:", jwt.length);
+
     // Create Supabase client with service role for admin operations
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Create regular client with user's JWT for auth verification
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
-
-    // Verify the JWT token
+    // Verify the JWT token using service role client
     const {
       data: { user },
       error: authError,
-    } = await supabaseClient.auth.getUser();
+    } = await supabaseAdmin.auth.getUser(jwt);
 
     console.log("User verification:", {
       userId: user?.id,
@@ -68,6 +61,11 @@ Deno.serve(async (req: Request) => {
     });
 
     if (authError || !user) {
+      console.error("JWT verification failed:", {
+        error: authError,
+        jwtPreview: jwt.substring(0, 50) + "...",
+      });
+
       return new Response(
         JSON.stringify({
           error: "Invalid JWT",
@@ -81,6 +79,17 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    // Create client with user's auth for RLS queries
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
 
     const { priceId, familyId }: CheckoutRequest = await req.json();
 
