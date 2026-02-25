@@ -78,19 +78,45 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('Please log in to continue');
   }
 
-  console.log('[STRIPE] Session found, invoking edge function with auth...');
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-    body: { priceId, familyId },
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing');
+  }
+
+  console.log('[STRIPE] Calling edge function with direct fetch...');
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/create-stripe-checkout`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ priceId, familyId }),
   });
 
-  if (error) {
-    console.error('[STRIPE] Edge function error:', error);
-    throw new Error(error.message || 'Failed to create checkout session');
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[STRIPE] Edge function error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorText,
+    });
+
+    let errorMessage = 'Failed to create checkout session';
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+
+    throw new Error(errorMessage);
   }
+
+  const data = await response.json();
 
   if (!data?.url) {
     console.error('[STRIPE] No URL returned:', data);
@@ -108,17 +134,39 @@ export async function createPortalSession(familyId: string): Promise<string> {
     throw new Error('Please log in to continue');
   }
 
-  const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
-    body: { familyId },
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/create-stripe-portal`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ familyId }),
   });
 
-  if (error) {
-    console.error('[STRIPE] Portal error:', error);
-    throw new Error(error.message || 'Failed to create portal session');
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[STRIPE] Portal error:', errorText);
+
+    let errorMessage = 'Failed to create portal session';
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+
+    throw new Error(errorMessage);
   }
+
+  const data = await response.json();
 
   if (!data?.url) {
     throw new Error('No portal URL returned');
@@ -136,18 +184,39 @@ export async function syncSubscription(familyId: string): Promise<void> {
     throw new Error('Please log in to continue');
   }
 
-  const { data, error } = await supabase.functions.invoke('sync-stripe-subscription', {
-    body: { familyId },
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-  if (error) {
-    console.error('[STRIPE] Sync error:', error);
-    throw new Error(error.message || 'Failed to sync subscription');
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing');
   }
 
+  const response = await fetch(`${supabaseUrl}/functions/v1/sync-stripe-subscription`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ familyId }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[STRIPE] Sync error:', errorText);
+
+    let errorMessage = 'Failed to sync subscription';
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
   console.log('[STRIPE] Subscription synced:', data);
 }
 
@@ -160,17 +229,39 @@ export async function completeCheckout(sessionId: string): Promise<{ plan: strin
     throw new Error('Please log in to continue');
   }
 
-  const { data, error } = await supabase.functions.invoke('complete-checkout', {
-    body: { sessionId },
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase configuration missing');
+  }
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/complete-checkout`, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${session.access_token}`,
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify({ sessionId }),
   });
 
-  if (error) {
-    console.error('[STRIPE] Complete checkout error:', error);
-    throw new Error(error.message || 'Failed to complete checkout');
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[STRIPE] Complete checkout error:', errorText);
+
+    let errorMessage = 'Failed to complete checkout';
+    try {
+      const errorData = JSON.parse(errorText);
+      errorMessage = errorData.error || errorData.message || errorMessage;
+    } catch {
+      errorMessage = errorText || errorMessage;
+    }
+
+    throw new Error(errorMessage);
   }
+
+  const data = await response.json();
 
   if (!data?.success) {
     throw new Error('Checkout completion failed');
