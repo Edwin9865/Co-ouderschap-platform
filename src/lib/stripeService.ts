@@ -68,8 +68,17 @@ export const PLANS: PlanDetails[] = [
 ];
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
     body: { priceId, familyId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
@@ -84,8 +93,17 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
     body: { familyId },
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
 
   if (error) {
