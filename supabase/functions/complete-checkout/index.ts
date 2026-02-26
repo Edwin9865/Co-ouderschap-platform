@@ -23,15 +23,34 @@ function mustEnv(name: string) {
   return v;
 }
 
+function safeNowIso() {
+  try {
+    return new Date().toISOString();
+  } catch {
+    // theoretisch bijna onmogelijk, maar we houden 'm bulletproof
+    return null;
+  }
+}
+
 function toIsoFromStripeSeconds(v: unknown): string | null {
-  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+  const n =
+    typeof v === "number"
+      ? v
+      : typeof v === "string"
+      ? Number(v)
+      : NaN;
+
   if (!Number.isFinite(n) || n <= 0) return null;
 
   const d = new Date(n * 1000);
   const t = d.getTime();
   if (!Number.isFinite(t)) return null;
 
-  return d.toISOString();
+  try {
+    return d.toISOString();
+  } catch {
+    return null;
+  }
 }
 
 async function stripeGet(url: string, secretKey: string) {
@@ -61,29 +80,27 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
   try {
-    // ---------- Auth ----------
+    // ---- Auth header ----
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json(401, { error: "Missing authorization header" });
-    }
+    if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization header" });
     const jwt = authHeader.replace("Bearer ", "").trim();
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
     const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
 
-    // Deze twee zijn function secrets (Supabase -> Edge Function secrets)
     const STRIPE_PRICE_PLUS = Deno.env.get("STRIPE_PRICE_PLUS") ?? "";
     const STRIPE_PRICE_PRO = Deno.env.get("STRIPE_PRICE_PRO") ?? "";
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+    // Verify user
     const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(jwt);
     if (userErr || !userData?.user) {
       return json(401, { error: "Invalid JWT", message: userErr?.message ?? "Auth failed" });
     }
 
-    // ---------- Body ----------
+    // ---- Body ----
     let body: CompleteCheckoutRequest;
     try {
       body = await req.json();
@@ -94,7 +111,7 @@ Deno.serve(async (req: Request) => {
     const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    // ---------- Fetch Checkout Session (expand subscription + line_items) ----------
+    // ---- Fetch session ----
     const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
     sessionUrl.searchParams.append("expand[]", "subscription");
     sessionUrl.searchParams.append("expand[]", "line_items");
@@ -109,91 +126,73 @@ Deno.serve(async (req: Request) => {
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // ---------- Ensure Subscription Object ----------
+    // ---- Ensure subscription ----
     let stripeSub: any;
 
-    if (typeof subscriptionRef === "string") {
-      const subUrl = new URL(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`);
+    const fetchSub = async (subId: string) => {
+      const subUrl = new URL(`https://api.stripe.com/v1/subscriptions/${subId}`);
       subUrl.searchParams.append("expand[]", "items.data.price");
-      stripeSub = await stripeGet(subUrl.toString(), STRIPE_SECRET_KEY);
+      return stripeGet(subUrl.toString(), STRIPE_SECRET_KEY);
+    };
+
+    if (typeof subscriptionRef === "string") {
+      stripeSub = await fetchSub(subscriptionRef);
     } else {
       stripeSub = subscriptionRef;
-      // Als de items niet aanwezig zijn, refetch met expand
       if (!stripeSub?.id) return json(400, { error: "Subscription object missing id" });
-
       if (!stripeSub?.items?.data?.length) {
-        const subUrl = new URL(`https://api.stripe.com/v1/subscriptions/${stripeSub.id}`);
-        subUrl.searchParams.append("expand[]", "items.data.price");
-        stripeSub = await stripeGet(subUrl.toString(), STRIPE_SECRET_KEY);
+        stripeSub = await fetchSub(stripeSub.id);
       }
     }
 
-    // ---------- Retry (Stripe race condition na checkout) ----------
-    // Soms zijn period velden nog null direct na checkout.
-    let attempts = 0;
-    while (
-      attempts < 4 &&
-      (
-        !stripeSub?.items?.data?.length ||
-        (!stripeSub?.current_period_end && stripeSub?.status !== "canceled")
-      )
-    ) {
+    // Soms duurt Stripe 1-2s voordat period fields gevuld zijn (race)
+    for (let i = 0; i < 4; i++) {
+      const hasItems = !!stripeSub?.items?.data?.length;
+      const hasPeriod = !!stripeSub?.current_period_end || stripeSub?.status === "canceled";
+      if (hasItems && hasPeriod) break;
       await sleep(1200);
-      const subUrl = new URL(`https://api.stripe.com/v1/subscriptions/${stripeSub.id}`);
-      subUrl.searchParams.append("expand[]", "items.data.price");
-      stripeSub = await stripeGet(subUrl.toString(), STRIPE_SECRET_KEY);
-      attempts++;
+      stripeSub = await fetchSub(stripeSub.id);
     }
 
-    // ---------- Determine Plan ----------
     const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
 
     let plan: "FREE" | "PLUS" | "PRO" = "FREE";
     if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
     if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
 
-    // ---------- Determine Status ----------
+    // Status mapping
     const stripeStatus = stripeSub?.status;
     let status = "ACTIVE";
-
     if (stripeStatus === "trialing") status = "TRIALING";
     else if (stripeStatus === "past_due") status = "PAST_DUE";
     else if (stripeStatus === "canceled") status = "CANCELLED";
     else if (stripeStatus === "unpaid") status = "PAST_DUE";
-    else if (stripeStatus === "incomplete") status = "ACTIVE"; // pragmatic: voorkomt hangen direct na checkout
     else if (stripeStatus === "incomplete_expired") status = "INCOMPLETE";
 
-    // ---------- Dates (SAFE) ----------
     const current_period_start = toIsoFromStripeSeconds(stripeSub?.current_period_start);
     const current_period_end = toIsoFromStripeSeconds(stripeSub?.current_period_end);
     const trial_start = toIsoFromStripeSeconds(stripeSub?.trial_start);
     const trial_end = toIsoFromStripeSeconds(stripeSub?.trial_end);
 
-    // valid_until: neem current period end, anders trial_end
     const valid_until = current_period_end ?? trial_end;
-
     const cancel_at_period_end = !!stripeSub?.cancel_at_period_end;
 
-    // ---------- Debug log (laat dit even staan tot het werkt) ----------
-    console.log("[COMPLETE_CHECKOUT] session", {
+    console.log("[COMPLETE_CHECKOUT] OK", {
       sessionId,
       familyId,
       customerId,
       subscriptionId: stripeSub?.id,
       stripeStatus,
+      plan,
       priceId,
+      current_period_start,
+      current_period_end,
+      trial_start,
+      trial_end,
+      valid_until,
+      cancel_at_period_end,
     });
 
-    console.log("[COMPLETE_CHECKOUT] periods", {
-      current_period_start: stripeSub?.current_period_start,
-      current_period_end: stripeSub?.current_period_end,
-      trial_start: stripeSub?.trial_start,
-      trial_end: stripeSub?.trial_end,
-      iso: { current_period_start, current_period_end, trial_start, trial_end, valid_until },
-    });
-
-    // ---------- Upsert subscription row ----------
-    // Let op: als je 'id' uuid NOT NULL hebt met default uuid_generate_v4(), is upsert zonder id ok.
     const payload = {
       family_id: familyId,
       plan,
@@ -206,7 +205,7 @@ Deno.serve(async (req: Request) => {
       cancel_at_period_end,
       trial_start,
       trial_end,
-      updated_at: new Date().toISOString(),
+      updated_at: safeNowIso(),
     };
 
     const { error: upsertError } = await supabaseAdmin
@@ -215,23 +214,19 @@ Deno.serve(async (req: Request) => {
 
     if (upsertError) {
       console.error("[COMPLETE_CHECKOUT] DB upsert failed:", upsertError);
-      return json(500, { error: "DB update failed", message: upsertError.message });
+      return json(500, {
+        error: "DB update failed",
+        message: upsertError.message,
+        code: (upsertError as any).code ?? null,
+        details: upsertError,
+      });
     }
 
-    return json(200, {
-      success: true,
-      plan,
-      status,
-      subscriptionId: stripeSub?.id ?? null,
-      valid_until,
-      current_period_start,
-      current_period_end,
-      cancel_at_period_end,
-      trial_start,
-      trial_end,
-    });
+    return json(200, { success: true, plan, status });
   } catch (err) {
     console.error("[COMPLETE_CHECKOUT] Error:", err);
-    return json(500, { error: err?.message ?? "Unknown error" });
+    return json(500, {
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
   }
 });

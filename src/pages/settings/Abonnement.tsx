@@ -1,5 +1,5 @@
 // src/pages/settings/Abonnement.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
@@ -16,67 +16,73 @@ export function Abonnement() {
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
 
-  const currentPlan = subscription?.plan || 'FREE';
-  const hasPaidSubscription = !!subscription?.stripe_subscription_id;
+  // ✅ Guard: completeCheckout mag maar 1x per sessionId
+  const processedSessionsRef = useRef<Set<string>>(new Set());
 
-  // voorkomt dubbele runs bij rerenders
-  const shouldFinalize = useMemo(() => {
-    return !!(success && sessionId && currentFamily?.id);
-  }, [success, sessionId, currentFamily?.id]);
+  const hasCheckoutParams = useMemo(() => {
+    return (success === 'true' && !!sessionId) || canceled === 'true';
+  }, [success, sessionId, canceled]);
 
   useEffect(() => {
     let alive = true;
 
+    const clearParams = () => {
+      // behoud eventueel andere params als je die later gebruikt; nu gooien we alles weg
+      setSearchParams({});
+    };
+
     const run = async () => {
-      if (!success && !canceled) return;
+      if (!hasCheckoutParams) return;
 
-      // reset eventuele UI loading van button
-      setLoading(null);
-
-      if (canceled) {
+      // Cancel flow
+      if (canceled === 'true') {
         setFinalizing(false);
         setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
-        setTimeout(() => {
-          if (!alive) return;
-          setSearchParams({});
-          setError(null);
-        }, 3500);
+        // ✅ direct opruimen zodat er geen loop kan ontstaan
+        clearParams();
         return;
       }
 
-      if (!shouldFinalize) return;
+      // Success flow
+      if (success === 'true' && sessionId && currentFamily) {
+        // ✅ voorkom herhaald triggeren bij re-renders/refreshFamily
+        if (processedSessionsRef.current.has(sessionId)) return;
+        processedSessionsRef.current.add(sessionId);
 
-      setError(null);
-      setFinalizing(true);
+        setFinalizing(true);
+        setError(null);
 
-      try {
-        await completeCheckout(sessionId!);
-        if (refreshFamily) await refreshFamily();
+        try {
+          await completeCheckout(sessionId);
 
-        // param cleanup
-        setTimeout(() => {
+          // refresh je familie/subscription state
+          if (refreshFamily) await refreshFamily();
+
           if (!alive) return;
-          setSearchParams({});
-        }, 1200);
-      } catch (e) {
-        console.error('[Abonnement] completeCheckout failed:', e);
-        setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
 
-        setTimeout(() => {
+          // ✅ opruimen zodat success state niet blijft hangen
+          clearParams();
+          setFinalizing(false);
+        } catch (e) {
+          console.error('[Abonnement] completeCheckout failed:', e);
+
           if (!alive) return;
-          setSearchParams({});
-        }, 3500);
-      } finally {
-        if (!alive) return;
-        setFinalizing(false);
+
+          setFinalizing(false);
+          setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
+
+          // ✅ ook bij fout: opruimen -> anders blijft hij retry-en
+          clearParams();
+        }
       }
     };
 
     run();
+
     return () => {
       alive = false;
     };
-  }, [success, canceled, sessionId, shouldFinalize, refreshFamily, setSearchParams]);
+  }, [hasCheckoutParams, success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
     if (!currentFamily) return setError('Geen gezin geselecteerd');
@@ -111,6 +117,9 @@ export function Abonnement() {
     }
   };
 
+  const currentPlan = subscription?.plan || 'FREE';
+  const hasPaidSubscription = !!subscription?.stripe_subscription_id;
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -118,22 +127,13 @@ export function Abonnement() {
         <p className="text-gray-600">Kies het plan dat bij jullie past</p>
       </div>
 
+      {/* ✅ Finalizing banner (stop met draaien als finalizing=false) */}
       {finalizing && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <Loader2 className="w-5 h-5 text-green-700 animate-spin flex-shrink-0 mt-0.5" />
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <Loader2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5 animate-spin" />
           <div>
-            <h3 className="text-green-900 font-semibold">We ronden je abonnement nu af…</h3>
-            <p className="text-green-800 text-sm mt-1">Dit duurt meestal maar een paar seconden.</p>
-          </div>
-        </div>
-      )}
-
-      {success && !finalizing && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-            <p className="text-green-800 text-sm mt-1">Je betaling is succesvol verwerkt.</p>
+            <h3 className="text-blue-900 font-semibold">We ronden je abonnement nu af…</h3>
+            <p className="text-blue-800 text-sm mt-1">Even moment, we verwerken de terugkoppeling van Stripe.</p>
           </div>
         </div>
       )}
@@ -159,7 +159,7 @@ export function Abonnement() {
             </div>
             <button
               onClick={handleManageBilling}
-              disabled={loading === 'portal' || finalizing}
+              disabled={loading === 'portal'}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading === 'portal' ? (
@@ -194,6 +194,22 @@ export function Abonnement() {
                   : 'border-gray-200 bg-white hover:border-blue-400 hover:shadow-md'
               }`}
             >
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="px-4 py-1 bg-blue-600 text-white text-sm font-semibold rounded-full shadow-lg">
+                    Populair
+                  </span>
+                </div>
+              )}
+
+              {isActive && !plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <span className="px-4 py-1 bg-green-600 text-white text-sm font-semibold rounded-full shadow-lg">
+                    Huidig plan
+                  </span>
+                </div>
+              )}
+
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
