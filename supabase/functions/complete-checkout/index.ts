@@ -2,6 +2,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+const COMPLETE_CHECKOUT_VERSION = "v2026-02-26-1";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -23,7 +25,7 @@ function mustEnv(name: string) {
   return v;
 }
 
-// ✅ Never throws
+// ✅ Never throws (even if input is garbage)
 function toIsoFromStripeSeconds(v: unknown): string | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   if (!Number.isFinite(n) || n <= 0) return null;
@@ -39,6 +41,17 @@ function toIsoFromStripeSeconds(v: unknown): string | null {
     return d.toISOString();
   } catch {
     return null;
+  }
+}
+
+function safeNowIso(): string {
+  try {
+    const d = new Date();
+    const t = d.getTime();
+    if (!Number.isFinite(t)) return new Date(0).toISOString();
+    return d.toISOString();
+  } catch {
+    return new Date(0).toISOString();
   }
 }
 
@@ -64,9 +77,13 @@ async function stripeGet(url: string, secretKey: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
+  console.log("[COMPLETE_CHECKOUT] VERSION:", COMPLETE_CHECKOUT_VERSION);
+
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization header" });
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json(401, { error: "Missing authorization header" });
+    }
 
     const jwt = authHeader.replace("Bearer ", "").trim();
 
@@ -108,13 +125,12 @@ Deno.serve(async (req: Request) => {
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // Ensure we have full subscription object
+    // Ensure full subscription object
     let stripeSub: any;
     if (typeof subscriptionRef === "string") {
       stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`, STRIPE_SECRET_KEY);
     } else {
       stripeSub = subscriptionRef;
-      // Sometimes expand gives partial object: refetch if items missing
       if (!stripeSub?.items?.data?.length) {
         const id = stripeSub?.id;
         if (!id) return json(400, { error: "Subscription object missing id" });
@@ -122,12 +138,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Debug: laat in logs zien wat Stripe teruggeeft
-    console.log("[COMPLETE_CHECKOUT] stripeSub timestamps:", {
-      current_period_start: stripeSub?.current_period_start,
-      current_period_end: stripeSub?.current_period_end,
-      trial_start: stripeSub?.trial_start,
-      trial_end: stripeSub?.trial_end,
+    console.log("[COMPLETE_CHECKOUT] Stripe timestamps raw:", {
+      cps: stripeSub?.current_period_start,
+      cpe: stripeSub?.current_period_end,
+      ts: stripeSub?.trial_start,
+      te: stripeSub?.trial_end,
       status: stripeSub?.status,
       id: stripeSub?.id,
     });
@@ -157,7 +172,7 @@ Deno.serve(async (req: Request) => {
       cancel_at_period_end: !!stripeSub?.cancel_at_period_end,
       trial_start: toIsoFromStripeSeconds(stripeSub?.trial_start),
       trial_end: toIsoFromStripeSeconds(stripeSub?.trial_end),
-      updated_at: new Date().toISOString(),
+      updated_at: safeNowIso(),
     };
 
     const { error: upsertError } = await supabaseAdmin
@@ -169,9 +184,9 @@ Deno.serve(async (req: Request) => {
       return json(500, { error: "DB update failed", message: upsertError.message });
     }
 
-    return json(200, { success: true, plan, status, subscriptionId: stripeSub?.id ?? null });
+    return json(200, { success: true, plan, status, subscriptionId: stripeSub?.id ?? null, version: COMPLETE_CHECKOUT_VERSION });
   } catch (err: any) {
     console.error("[COMPLETE_CHECKOUT] Error:", err);
-    return json(500, { error: err?.message ?? "Unknown error" });
+    return json(500, { error: err?.message ?? "Unknown error", version: COMPLETE_CHECKOUT_VERSION });
   }
 });
