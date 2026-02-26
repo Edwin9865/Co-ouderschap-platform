@@ -1,5 +1,5 @@
 // src/pages/settings/Abonnement.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
@@ -8,6 +8,7 @@ import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } f
 export function Abonnement() {
   const { subscription, currentFamily, refreshFamily } = useFamily();
   const [loading, setLoading] = useState<string | null>(null);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -15,53 +16,86 @@ export function Abonnement() {
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
 
+  // Prevent multiple completeCheckout calls (React strict mode, rerenders, context refreshes)
+  const completedRef = useRef(false);
+
   useEffect(() => {
     let alive = true;
 
+    const clearParamsSoon = (ms: number) => {
+      setTimeout(() => {
+        if (!alive) return;
+        setSearchParams({});
+      }, ms);
+    };
+
     const run = async () => {
+      // Nothing to do
       if (!success && !canceled) return;
 
+      // Payment canceled
       if (canceled) {
+        setCompleting(false);
         setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
+        setLoading(null);
+
         setTimeout(() => {
           if (!alive) return;
           setSearchParams({});
           setError(null);
         }, 4000);
+
         return;
       }
 
-      // success
-      if (success && sessionId && currentFamily) {
+      // Payment success
+      if (success === 'true' && sessionId && currentFamily) {
+        // Only run once
+        if (completedRef.current) return;
+        completedRef.current = true;
+
         setError(null);
+        setCompleting(true);
+
         try {
           await completeCheckout(sessionId);
-          if (refreshFamily) await refreshFamily();
 
-          setTimeout(() => {
-            if (!alive) return;
-            setSearchParams({});
-          }, 2500);
+          // Refresh DB state
+          if (refreshFamily) {
+            await refreshFamily();
+          }
+
+          // Clear query params (leave the success message visible for a moment)
+          clearParamsSoon(2000);
         } catch (e) {
-          console.error(e);
+          console.error('[Abonnement] completeCheckout failed:', e);
+
+          // Allow retry by reloading page if needed
+          // (we keep completedRef true to prevent loops; user can refresh manually)
           setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
-          setTimeout(() => {
-            if (!alive) return;
-            setSearchParams({});
-          }, 4500);
+          clearParamsSoon(4500);
+        } finally {
+          if (alive) setCompleting(false);
         }
       }
     };
 
     run();
+
     return () => {
       alive = false;
     };
   }, [success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
-    if (!currentFamily) return setError('Geen gezin geselecteerd');
-    if (!priceId) return setError('Ongeldig plan geselecteerd');
+    if (!currentFamily) {
+      setError('Geen gezin geselecteerd');
+      return;
+    }
+    if (!priceId) {
+      setError('Ongeldig plan geselecteerd');
+      return;
+    }
 
     setLoading(priceId);
     setError(null);
@@ -70,14 +104,17 @@ export function Abonnement() {
       const checkoutUrl = await createCheckoutSession(priceId, currentFamily.id);
       window.location.href = checkoutUrl;
     } catch (e) {
-      console.error(e);
+      console.error('[Abonnement] createCheckoutSession failed:', e);
       setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het starten van de betaling');
       setLoading(null);
     }
   };
 
   const handleManageBilling = async () => {
-    if (!currentFamily) return setError('Geen gezin geselecteerd');
+    if (!currentFamily) {
+      setError('Geen gezin geselecteerd');
+      return;
+    }
 
     setLoading('portal');
     setError(null);
@@ -86,7 +123,7 @@ export function Abonnement() {
       const portalUrl = await createPortalSession(currentFamily.id);
       window.location.href = portalUrl;
     } catch (e) {
-      console.error(e);
+      console.error('[Abonnement] createPortalSession failed:', e);
       setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het openen van het klantenportaal');
       setLoading(null);
     }
@@ -105,10 +142,14 @@ export function Abonnement() {
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
           <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-            <p className="text-green-800 text-sm mt-1">Je betaling is succesvol verwerkt.</p>
+            <p className="text-green-800 text-sm mt-1">
+              Je betaling is succesvol verwerkt.
+              {completing ? ' We ronden je abonnement nu af...' : ''}
+            </p>
           </div>
+          {completing && <Loader2 className="w-5 h-5 text-green-700 animate-spin mt-0.5" />}
         </div>
       )}
 
@@ -214,13 +255,16 @@ export function Abonnement() {
                 </ul>
 
                 {plan.id === 'FREE' ? (
-                  <button disabled className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
+                  <button
+                    disabled
+                    className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed"
+                  >
                     {isActive ? 'Huidig plan' : 'Gratis plan'}
                   </button>
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan.priceId!)}
-                    disabled={isLoading || loading !== null || isActive}
+                    disabled={isLoading || loading !== null || isActive || completing}
                     className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                       isActive
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
