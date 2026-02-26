@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-checkout-2";
+const VERSION = "v2026-02-26-create-checkout-safe-1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,14 +67,11 @@ async function stripePostForm(url: string, secretKey: string, params: URLSearchP
       `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
     );
   }
-
   return data;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
-
-  console.log("[CREATE_CHECKOUT] VERSION:", VERSION);
 
   try {
     const { user, error: authErr, authHeader } = await requireUser(req);
@@ -84,25 +81,20 @@ Deno.serve(async (req) => {
     const priceId = (body?.priceId ?? "").trim();
     const familyId = (body?.familyId ?? "").trim();
 
-    // ✅ Solution 2: family is mandatory
     if (!familyId) return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
     if (!priceId) return json(400, { error: "Missing priceId", version: VERSION });
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
-    const SUPABASE_ANON = mustEnv("SUPABASE_ANON_KEY");
+    const SUPABASE_ANON_KEY = mustEnv("SUPABASE_ANON_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
-
-    // ✅ Use a fixed app URL (origin is unreliable in mobile / webviews)
     const APP_URL = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").trim();
-    if (!APP_URL) {
-      return json(500, { error: "APP_URL not configured", message: "Set APP_URL (or SITE_URL) in function env.", version: VERSION });
-    }
+    if (!APP_URL) return json(500, { error: "Missing APP_URL (or SITE_URL)", version: VERSION });
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: authHeader! } },
     });
 
-    // ✅ Must be ACTIVE PARENT in this family
+    // ✅ IMPORTANT: maybeSingle, and require ACTIVE
     const { data: familyMember, error: fmErr } = await supabaseClient
       .from("family_members")
       .select("role,status")
@@ -115,13 +107,20 @@ Deno.serve(async (req) => {
       console.error("[CREATE_CHECKOUT] family_members error:", fmErr);
       return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
     }
-    if (!familyMember) return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
-    if (familyMember.role !== "PARENT") return json(403, { error: "Only parents can manage subscriptions", version: VERSION });
 
-    // Read subscription row (may not exist)
+    if (!familyMember) {
+      // ✅ this is your case: not a family member -> 403 (NOT 500)
+      return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
+    }
+
+    if (familyMember.role !== "PARENT") {
+      return json(403, { error: "Only parents can manage subscriptions", message: "Alleen ouders kunnen upgraden.", version: VERSION });
+    }
+
+    // read existing subscription row (optional)
     const { data: subscription, error: subErr } = await supabaseClient
       .from("subscriptions")
-      .select("stripe_customer_id, stripe_subscription_id")
+      .select("stripe_customer_id")
       .eq("family_id", familyId)
       .maybeSingle();
 
@@ -130,9 +129,8 @@ Deno.serve(async (req) => {
       return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
     }
 
-    let customerId = subscription?.stripe_customer_id ?? null;
+    let customerId = (subscription?.stripe_customer_id ?? "").trim();
 
-    // Create Stripe customer if missing
     if (!customerId) {
       const customerParams = new URLSearchParams();
       if (user.email) customerParams.set("email", user.email);
@@ -140,23 +138,17 @@ Deno.serve(async (req) => {
       customerParams.set("metadata[user_id]", user.id);
 
       const customer = await stripePostForm("https://api.stripe.com/v1/customers", STRIPE_SECRET_KEY, customerParams);
-      customerId = customer?.id ?? null;
-
+      customerId = (customer?.id ?? "").trim();
       if (!customerId) return json(500, { error: "Stripe customer creation failed", version: VERSION });
 
-      // Ensure subscription row exists, then set customer id
-      // (update may affect 0 rows if row doesn't exist yet, so we upsert minimal row)
+      // upsert minimal row
       const { error: upsertErr } = await supabaseClient
         .from("subscriptions")
         .upsert({ family_id: familyId, stripe_customer_id: customerId }, { onConflict: "family_id" });
 
-      if (upsertErr) {
-        console.error("[CREATE_CHECKOUT] subscriptions upsert error:", upsertErr);
-        return json(500, { error: "Failed to persist Stripe customer", message: upsertErr.message, version: VERSION });
-      }
+      if (upsertErr) return json(500, { error: "Failed to persist stripe_customer_id", message: upsertErr.message, version: VERSION });
     }
 
-    // Checkout session
     const successUrl = `${APP_URL}/settings/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${APP_URL}/settings/abonnement?canceled=true`;
 
@@ -167,23 +159,20 @@ Deno.serve(async (req) => {
     sessionParams.set("line_items[0][quantity]", "1");
     sessionParams.set("success_url", successUrl);
     sessionParams.set("cancel_url", cancelUrl);
-
-    // If you want promo codes:
     sessionParams.set("allow_promotion_codes", "true");
 
-    // ✅ Metadata for complete-checkout + webhook usage
     sessionParams.set("metadata[family_id]", familyId);
     sessionParams.set("metadata[user_id]", user.id);
     sessionParams.set("subscription_data[metadata][family_id]", familyId);
     sessionParams.set("subscription_data[metadata][user_id]", user.id);
 
     const session = await stripePostForm("https://api.stripe.com/v1/checkout/sessions", STRIPE_SECRET_KEY, sessionParams);
-
     if (!session?.url) return json(500, { error: "No checkout URL returned", version: VERSION });
 
     return json(200, { sessionId: session.id, url: session.url, version: VERSION });
   } catch (e) {
     console.error("[CREATE_CHECKOUT] Error:", e);
+    // ✅ Still 500, but now with a readable message (and not caused by "not member")
     return json(500, { error: e instanceof Error ? e.message : "Unknown error", version: VERSION });
   }
 });
