@@ -1,5 +1,5 @@
 // src/pages/settings/Abonnement.tsx
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
 import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
@@ -8,7 +8,6 @@ import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } f
 export function Abonnement() {
   const { subscription, currentFamily, refreshFamily } = useFamily();
   const [loading, setLoading] = useState<string | null>(null);
-  const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -16,73 +15,49 @@ export function Abonnement() {
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
 
-  // ✅ Guard: completeCheckout mag maar 1x per sessionId
-  const processedSessionsRef = useRef<Set<string>>(new Set());
-
-  const hasCheckoutParams = useMemo(() => {
-    return (success === 'true' && !!sessionId) || canceled === 'true';
-  }, [success, sessionId, canceled]);
-
   useEffect(() => {
     let alive = true;
 
-    const clearParams = () => {
-      // behoud eventueel andere params als je die later gebruikt; nu gooien we alles weg
-      setSearchParams({});
-    };
-
     const run = async () => {
-      if (!hasCheckoutParams) return;
+      if (!success && !canceled) return;
 
-      // Cancel flow
-      if (canceled === 'true') {
-        setFinalizing(false);
+      if (canceled) {
         setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
-        // ✅ direct opruimen zodat er geen loop kan ontstaan
-        clearParams();
+        setTimeout(() => {
+          if (!alive) return;
+          setSearchParams({});
+          setError(null);
+        }, 4000);
         return;
       }
 
-      // Success flow
-      if (success === 'true' && sessionId && currentFamily) {
-        // ✅ voorkom herhaald triggeren bij re-renders/refreshFamily
-        if (processedSessionsRef.current.has(sessionId)) return;
-        processedSessionsRef.current.add(sessionId);
-
-        setFinalizing(true);
+      // success
+      if (success && sessionId && currentFamily) {
         setError(null);
-
         try {
           await completeCheckout(sessionId);
-
-          // refresh je familie/subscription state
           if (refreshFamily) await refreshFamily();
 
-          if (!alive) return;
-
-          // ✅ opruimen zodat success state niet blijft hangen
-          clearParams();
-          setFinalizing(false);
+          setTimeout(() => {
+            if (!alive) return;
+            setSearchParams({});
+          }, 2500);
         } catch (e) {
-          console.error('[Abonnement] completeCheckout failed:', e);
-
-          if (!alive) return;
-
-          setFinalizing(false);
+          console.error(e);
           setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
-
-          // ✅ ook bij fout: opruimen -> anders blijft hij retry-en
-          clearParams();
+          setTimeout(() => {
+            if (!alive) return;
+            setSearchParams({});
+          }, 4500);
         }
       }
     };
 
     run();
-
     return () => {
       alive = false;
     };
-  }, [hasCheckoutParams, success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
+  }, [success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
     if (!currentFamily) return setError('Geen gezin geselecteerd');
@@ -127,13 +102,12 @@ export function Abonnement() {
         <p className="text-gray-600">Kies het plan dat bij jullie past</p>
       </div>
 
-      {/* ✅ Finalizing banner (stop met draaien als finalizing=false) */}
-      {finalizing && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-          <Loader2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5 animate-spin" />
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-blue-900 font-semibold">We ronden je abonnement nu af…</h3>
-            <p className="text-blue-800 text-sm mt-1">Even moment, we verwerken de terugkoppeling van Stripe.</p>
+            <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
+            <p className="text-green-800 text-sm mt-1">Je betaling is succesvol verwerkt.</p>
           </div>
         </div>
       )}
@@ -246,7 +220,7 @@ export function Abonnement() {
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan.priceId!)}
-                    disabled={isLoading || loading !== null || isActive || finalizing}
+                    disabled={isLoading || loading !== null || isActive}
                     className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                       isActive
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
