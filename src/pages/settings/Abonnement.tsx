@@ -1,12 +1,14 @@
 // src/pages/settings/Abonnement.tsx
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
-import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle } from 'lucide-react';
+import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle, Users } from 'lucide-react';
 import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } from '../../lib/stripeService';
 
 export function Abonnement() {
+  const navigate = useNavigate();
   const { subscription, currentFamily, refreshFamily } = useFamily();
+
   const [loading, setLoading] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +51,9 @@ export function Abonnement() {
       }
 
       // Payment success
-      if (success === 'true' && sessionId && currentFamily) {
-        // Only run once
+      // ✅ We allow completing even if currentFamily isn't loaded yet,
+      // BUT complete-checkout will enforce membership/family_id anyway.
+      if (success === 'true' && sessionId) {
         if (completedRef.current) return;
         completedRef.current = true;
 
@@ -65,17 +68,16 @@ export function Abonnement() {
             await refreshFamily();
           }
 
-          // Clear query params (leave the success message visible for a moment)
           clearParamsSoon(2000);
         } catch (e) {
           console.error('[Abonnement] completeCheckout failed:', e);
-
-          // Allow retry by reloading page if needed
-          // (we keep completedRef true to prevent loops; user can refresh manually)
           setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
           clearParamsSoon(4500);
         } finally {
-          if (alive) setCompleting(false);
+          if (alive) {
+            setCompleting(false);
+            setLoading(null);
+          }
         }
       }
     };
@@ -85,11 +87,11 @@ export function Abonnement() {
     return () => {
       alive = false;
     };
-  }, [success, canceled, sessionId, currentFamily?.id, refreshFamily, setSearchParams]);
+  }, [success, canceled, sessionId, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
-    if (!currentFamily) {
-      setError('Geen gezin geselecteerd');
+    if (!currentFamily?.id) {
+      setError('Selecteer of maak eerst een gezin aan voordat je kunt upgraden.');
       return;
     }
     if (!priceId) {
@@ -111,8 +113,8 @@ export function Abonnement() {
   };
 
   const handleManageBilling = async () => {
-    if (!currentFamily) {
-      setError('Geen gezin geselecteerd');
+    if (!currentFamily?.id) {
+      setError('Selecteer of maak eerst een gezin aan voordat je je facturen kunt beheren.');
       return;
     }
 
@@ -131,6 +133,7 @@ export function Abonnement() {
 
   const currentPlan = subscription?.plan || 'FREE';
   const hasPaidSubscription = !!subscription?.stripe_subscription_id;
+  const hasFamilySelected = !!currentFamily?.id;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -138,6 +141,32 @@ export function Abonnement() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Abonnement</h1>
         <p className="text-gray-600">Kies het plan dat bij jullie past</p>
       </div>
+
+      {/* ✅ Hard requirement for plan changes */}
+      {!hasFamilySelected && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <Users className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-amber-900 font-semibold">Selecteer eerst een gezin</h3>
+            <p className="text-amber-800 text-sm mt-1">
+              Abonnementen zijn gekoppeld aan een gezin. Maak een gezin aan of selecteer een bestaand gezin voordat je
+              kunt upgraden.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => navigate('/families')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800"
+              >
+                <Users className="w-4 h-4" />
+                Naar gezinnen
+              </button>
+              <Link to="/dashboard" className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100">
+                Terug naar dashboard
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
@@ -172,9 +201,10 @@ export function Abonnement() {
                 Bekijk je facturen, wijzig je betaalmethode of annuleer via Stripe.
               </p>
             </div>
+
             <button
               onClick={handleManageBilling}
-              disabled={loading === 'portal'}
+              disabled={loading === 'portal' || completing || !hasFamilySelected}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading === 'portal' ? (
@@ -264,7 +294,13 @@ export function Abonnement() {
                 ) : (
                   <button
                     onClick={() => handleUpgrade(plan.priceId!)}
-                    disabled={isLoading || loading !== null || isActive || completing}
+                    disabled={
+                      isLoading ||
+                      loading !== null ||
+                      isActive ||
+                      completing ||
+                      !hasFamilySelected
+                    }
                     className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                       isActive
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'

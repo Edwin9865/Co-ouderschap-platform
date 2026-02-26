@@ -1,6 +1,8 @@
-//supabase/functions/sync-stripe-subscription/index.ts
+// supabase/functions/sync-stripe-subscription/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const VERSION = "v2026-02-26-sync-2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,210 +14,128 @@ interface SyncRequest {
   familyId: string;
 }
 
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function mustEnv(name: string) {
+  const v = (Deno.env.get(name) ?? "").trim();
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
+}
+
 Deno.serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method !== "POST") return json(405, { error: "Method not allowed", version: VERSION });
 
   try {
     const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return json(401, { error: "Missing authorization header", version: VERSION });
 
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    const jwt = authHeader.replace("Bearer ", "").trim();
+
+    const SUPABASE_URL = mustEnv("SUPABASE_URL");
+    const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
+    const ANON = mustEnv("SUPABASE_ANON_KEY");
+    const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
+
+    const PRICE_PLUS = (Deno.env.get("STRIPE_PRICE_PLUS") ?? "").trim();
+    const PRICE_PRO = (Deno.env.get("STRIPE_PRICE_PRO") ?? "").trim();
+
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(jwt);
+    if (authError || !authData?.user) {
+      return json(401, { error: "Invalid JWT", message: authError?.message || "Authentication failed", version: VERSION });
     }
-
-    const jwt = authHeader.replace("Bearer ", "");
-    console.log("[SYNC] JWT extracted:", {
-      length: jwt.length,
-      preview: jwt.substring(0, 50) + "...",
-    });
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
-
-    let user;
-    try {
-      const { data, error: authError } = await supabaseAdmin.auth.getUser(jwt);
-
-      if (authError || !data?.user) {
-        console.error("[SYNC] JWT verification failed:", authError);
-        return new Response(
-          JSON.stringify({
-            error: "Invalid JWT",
-            message: authError?.message || "Authentication failed",
-          }),
-          {
-            status: 401,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          }
-        );
-      }
-
-      user = data.user;
-    } catch (verifyError) {
-      console.error("[SYNC] JWT verification exception:", verifyError);
-      return new Response(
-        JSON.stringify({
-          error: "JWT verification failed",
-          message: verifyError.message || "Authentication error",
-        }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: authHeader },
-        },
-      }
-    );
+    const user = authData.user;
 
     const { familyId }: SyncRequest = await req.json();
+    const famId = (familyId ?? "").trim();
+    if (!famId) return json(400, { error: "Missing familyId", version: VERSION });
 
-    if (!familyId) {
-      return new Response(
-        JSON.stringify({ error: "Missing familyId" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const supabaseClient = createClient(SUPABASE_URL, ANON, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    const { data: familyMember } = await supabaseClient
+    // ✅ Must be ACTIVE PARENT
+    const { data: familyMember, error: fmErr } = await supabaseClient
       .from("family_members")
-      .select("role")
-      .eq("family_id", familyId)
+      .select("role,status")
+      .eq("family_id", famId)
       .eq("user_id", user.id)
-      .single();
+      .eq("status", "ACTIVE")
+      .maybeSingle();
 
+    if (fmErr) return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
     if (!familyMember || familyMember.role !== "PARENT") {
-      return new Response(
-        JSON.stringify({ error: "Only parents can sync subscriptions" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(403, { error: "Only parents can sync subscriptions", version: VERSION });
     }
 
-    const { data: subscription } = await supabaseAdmin
+    const { data: subscription, error: subErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id, stripe_subscription_id")
-      .eq("family_id", familyId)
-      .single();
+      .select("stripe_subscription_id")
+      .eq("family_id", famId)
+      .maybeSingle();
+
+    if (subErr) return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
 
     if (!subscription?.stripe_subscription_id) {
-      return new Response(
-        JSON.stringify({
-          error: "No subscription found to sync",
-          subscription: null
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(404, { error: "No subscription found to sync", subscription: null, version: VERSION });
     }
-
-    const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!STRIPE_SECRET_KEY) {
-      throw new Error("Stripe secret key not configured");
-    }
-
-    console.log("[SYNC] Fetching subscription from Stripe:", subscription.stripe_subscription_id);
 
     const stripeResponse = await fetch(
-      `https://api.stripe.com/v1/subscriptions/${subscription.stripe_subscription_id}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
-        },
-      }
+      `https://api.stripe.com/v1/subscriptions/${subscription.stripe_subscription_id}?expand[]=items.data.price`,
+      { headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` } }
     );
 
     if (!stripeResponse.ok) {
-      const error = await stripeResponse.text();
-      console.error("[SYNC] Stripe API error:", error);
-      throw new Error(`Failed to fetch subscription: ${error}`);
+      const errorText = await stripeResponse.text();
+      return json(500, { error: "Stripe API error", details: errorText, version: VERSION });
     }
 
     const stripeSubscription = await stripeResponse.json();
 
-    console.log("[SYNC] Stripe subscription status:", stripeSubscription.status);
+    const priceId = stripeSubscription?.items?.data?.[0]?.price?.id ?? "";
 
     let plan = "FREE";
-    const priceId = stripeSubscription.items.data[0]?.price.id;
-
-    if (priceId === Deno.env.get("STRIPE_PRICE_PLUS")) {
-      plan = "PLUS";
-    } else if (priceId === Deno.env.get("STRIPE_PRICE_PRO")) {
-      plan = "PRO";
-    }
+    if (priceId && PRICE_PLUS && priceId === PRICE_PLUS) plan = "PLUS";
+    else if (priceId && PRICE_PRO && priceId === PRICE_PRO) plan = "PRO";
 
     let status = "ACTIVE";
     if (stripeSubscription.status === "trialing") status = "TRIALING";
     else if (stripeSubscription.status === "past_due") status = "PAST_DUE";
     else if (stripeSubscription.status === "canceled") status = "CANCELLED";
     else if (stripeSubscription.status === "incomplete") status = "INCOMPLETE";
+    else if (stripeSubscription.status === "unpaid") status = "PAST_DUE";
+
+    const cps = stripeSubscription.current_period_start ? new Date(stripeSubscription.current_period_start * 1000).toISOString() : null;
+    const cpe = stripeSubscription.current_period_end ? new Date(stripeSubscription.current_period_end * 1000).toISOString() : null;
 
     const { error: updateError } = await supabaseAdmin
       .from("subscriptions")
       .update({
         plan,
         status,
-        current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+        current_period_start: cps,
+        current_period_end: cpe,
+        cancel_at_period_end: !!stripeSubscription.cancel_at_period_end,
         trial_start: stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null,
         trial_end: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null,
         updated_at: new Date().toISOString(),
       })
-      .eq("family_id", familyId);
+      .eq("family_id", famId);
 
     if (updateError) {
-      console.error("[SYNC] Failed to update subscription:", updateError);
-      throw new Error(`Failed to update subscription: ${updateError.message}`);
+      return json(500, { error: "Failed to update subscription", message: updateError.message, version: VERSION });
     }
 
-    console.log("[SYNC] Subscription synced successfully:", { plan, status });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        plan,
-        status
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (error) {
-    console.error("[SYNC] Error syncing subscription:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    return json(200, { success: true, plan, status, version: VERSION });
+  } catch (error: any) {
+    console.error("[SYNC] Error:", error);
+    return json(500, { error: error?.message ?? "Unknown error", version: VERSION });
   }
 });

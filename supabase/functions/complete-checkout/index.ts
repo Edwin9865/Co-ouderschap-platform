@@ -2,6 +2,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+const COMPLETE_CHECKOUT_VERSION = "v2026-02-26-3";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -18,82 +20,79 @@ function json(status: number, body: unknown) {
 }
 
 function mustEnv(name: string) {
-  const v = Deno.env.get(name);
+  const v = (Deno.env.get(name) ?? "").trim();
   if (!v) throw new Error(`Missing env var: ${name}`);
   return v;
 }
 
-function safeNowIso() {
-  try { return new Date().toISOString(); } catch { return null; }
-}
-
+// ✅ Never throws (even if input is garbage)
 function toIsoFromStripeSeconds(v: unknown): string | null {
-  const n =
-    typeof v === "number" ? v :
-    typeof v === "string" ? Number(v) :
-    NaN;
-
+  const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   if (!Number.isFinite(n) || n <= 0) return null;
 
-  const d = new Date(n * 1000);
-  if (!Number.isFinite(d.getTime())) return null;
+  const ms = n * 1000;
+  if (!Number.isFinite(ms)) return null;
 
-  try { return d.toISOString(); } catch { return null; }
+  const d = new Date(ms);
+  const t = d.getTime();
+  if (!Number.isFinite(t)) return null;
+
+  try {
+    return d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
+function safeNowIso(): string {
+  try {
+    const d = new Date();
+    const t = d.getTime();
+    if (!Number.isFinite(t)) return new Date(0).toISOString();
+    return d.toISOString();
+  } catch {
+    return new Date(0).toISOString();
+  }
 }
 
 async function stripeGet(url: string, secretKey: string) {
   const res = await fetch(url, { headers: { Authorization: `Bearer ${secretKey}` } });
   const text = await res.text();
 
-  let data: any;
-  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
 
   if (!res.ok) {
-    throw new Error(`Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`);
+    throw new Error(
+      `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
+    );
   }
   return data;
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-function extractPriceIdsFromLineItems(session: any): string[] {
-  const items = session?.line_items?.data ?? [];
-  const ids: string[] = [];
-  for (const li of items) {
-    const pid = li?.price?.id;
-    if (typeof pid === "string" && pid.startsWith("price_")) ids.push(pid);
-  }
-  return Array.from(new Set(ids));
-}
-
-function extractPriceIdsFromSubscription(sub: any): string[] {
-  const items = sub?.items?.data ?? [];
-  const ids: string[] = [];
-  for (const it of items) {
-    const pid = it?.price?.id;
-    if (typeof pid === "string" && pid.startsWith("price_")) ids.push(pid);
-  }
-  return Array.from(new Set(ids));
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
+  console.log("[COMPLETE_CHECKOUT] VERSION:", COMPLETE_CHECKOUT_VERSION);
+
   try {
-    // --- Auth ---
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization header" });
+    if (!authHeader?.startsWith("Bearer ")) {
+      return json(401, { error: "Missing authorization header" });
+    }
+
     const jwt = authHeader.replace("Bearer ", "").trim();
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
     const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
 
-    // ⚠️ Deze moeten écht gevuld zijn in Supabase secrets
-    const STRIPE_PRICE_PLUS = Deno.env.get("STRIPE_PRICE_PLUS") ?? "";
-    const STRIPE_PRICE_PRO = Deno.env.get("STRIPE_PRICE_PRO") ?? "";
+    const STRIPE_PRICE_PLUS = (Deno.env.get("STRIPE_PRICE_PLUS") ?? "").trim();
+    const STRIPE_PRICE_PRO = (Deno.env.get("STRIPE_PRICE_PRO") ?? "").trim();
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -102,98 +101,82 @@ Deno.serve(async (req: Request) => {
       return json(401, { error: "Invalid JWT", message: userErr?.message ?? "Auth failed" });
     }
 
-    // --- Body ---
     let body: CompleteCheckoutRequest;
-    try { body = await req.json(); } catch { return json(400, { error: "Invalid JSON body" }); }
+    try {
+      body = await req.json();
+    } catch {
+      return json(400, { error: "Invalid JSON body" });
+    }
 
     const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    // --- Checkout session ---
+    // Fetch session (expand subscription ref so we can read id quickly)
     const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
     sessionUrl.searchParams.append("expand[]", "subscription");
-    sessionUrl.searchParams.append("expand[]", "line_items.data.price");
-
     const session = await stripeGet(sessionUrl.toString(), STRIPE_SECRET_KEY);
 
-    const familyId = session?.metadata?.family_id;
+    const familyId = (session?.metadata?.family_id ?? "").trim();
     const customerId = session?.customer;
     const subscriptionRef = session?.subscription;
 
-    if (!familyId) return json(400, { error: "No family_id in session metadata" });
+    // ✅ Solution 2: family_id is mandatory
+    if (!familyId) {
+      return json(400, { error: "No family_id in session metadata", message: "Selecteer eerst een gezin." });
+    }
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // --- Subscription fetch (met expand) ---
-    const fetchSub = async (subId: string) => {
-      const subUrl = new URL(`https://api.stripe.com/v1/subscriptions/${subId}`);
-      subUrl.searchParams.append("expand[]", "items.data.price");
-      return stripeGet(subUrl.toString(), STRIPE_SECRET_KEY);
-    };
+    // ✅ Enforce: user must be ACTIVE member of this family
+    const { data: membership, error: memErr } = await supabaseAdmin
+      .from("family_members")
+      .select("id, status")
+      .eq("family_id", familyId)
+      .eq("user_id", userData.user.id)
+      .eq("status", "ACTIVE")
+      .maybeSingle();
 
-    let stripeSub: any;
-    const subId = typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id;
+    if (memErr) {
+      console.error("[COMPLETE_CHECKOUT] membership query error:", memErr);
+      return json(500, { error: "Membership check failed", message: memErr.message });
+    }
+    if (!membership) {
+      return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin." });
+    }
+
+    // ✅ ALWAYS refetch full subscription object to guarantee period fields
+    const subId =
+      typeof subscriptionRef === "string" ? subscriptionRef : (subscriptionRef?.id ?? null);
+
     if (!subId) return json(400, { error: "Subscription missing id" });
 
-    stripeSub = await fetchSub(subId);
+    const stripeSub = await stripeGet(
+      `https://api.stripe.com/v1/subscriptions/${subId}?expand[]=items.data.price`,
+      STRIPE_SECRET_KEY
+    );
 
-    // Soms duurt het even voordat current_period_* gevuld is → retry
-    for (let i = 0; i < 6; i++) {
-      const hasItems = !!stripeSub?.items?.data?.length;
-      const hasPeriod = !!stripeSub?.current_period_end || !!stripeSub?.billing_cycle_anchor;
-      if (hasItems && hasPeriod) break;
-      await sleep(1000);
-      stripeSub = await fetchSub(subId);
-    }
+    console.log("[COMPLETE_CHECKOUT] Stripe timestamps raw:", {
+      cps: stripeSub?.current_period_start,
+      cpe: stripeSub?.current_period_end,
+      ts: stripeSub?.trial_start,
+      te: stripeSub?.trial_end,
+      status: stripeSub?.status,
+      id: stripeSub?.id,
+    });
 
-    // --- Plan detectie (robust) ---
-    const metaPlan = typeof session?.metadata?.plan === "string" ? session.metadata.plan : "";
-    const linePriceIds = extractPriceIdsFromLineItems(session);
-    const subPriceIds = extractPriceIdsFromSubscription(stripeSub);
-
-    // kies eerst line_item price (die is het betrouwbaarst voor “wat is gekocht”)
-    const pickedPriceId = linePriceIds[0] ?? subPriceIds[0] ?? "";
+    const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
 
     let plan: "FREE" | "PLUS" | "PRO" = "FREE";
+    if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
+    if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
 
-    if (metaPlan === "PLUS" || metaPlan === "PRO") {
-      plan = metaPlan as any;
-    } else if (pickedPriceId && STRIPE_PRICE_PLUS && pickedPriceId === STRIPE_PRICE_PLUS) {
-      plan = "PLUS";
-    } else if (pickedPriceId && STRIPE_PRICE_PRO && pickedPriceId === STRIPE_PRICE_PRO) {
-      plan = "PRO";
-    } else if (pickedPriceId) {
-      // ✅ Niet stil terugvallen naar FREE: geef duidelijke fout terug
-      return json(400, {
-        error: "Unknown priceId mapping",
-        pickedPriceId,
-        linePriceIds,
-        subPriceIds,
-        hint: "Check STRIPE_PRICE_PLUS / STRIPE_PRICE_PRO secrets in Supabase and compare to Stripe price IDs.",
-      });
-    }
-
-    // --- Status mapping ---
     const stripeStatus = stripeSub?.status;
     let status = "ACTIVE";
     if (stripeStatus === "trialing") status = "TRIALING";
     else if (stripeStatus === "past_due") status = "PAST_DUE";
     else if (stripeStatus === "canceled") status = "CANCELLED";
+    else if (stripeStatus === "incomplete") status = "INCOMPLETE";
     else if (stripeStatus === "unpaid") status = "PAST_DUE";
-    else if (stripeStatus === "incomplete" || stripeStatus === "incomplete_expired") status = "INCOMPLETE";
-
-    // --- Date fields (met fallbacks) ---
-    const current_period_start =
-      toIsoFromStripeSeconds(stripeSub?.current_period_start) ??
-      toIsoFromStripeSeconds(stripeSub?.billing_cycle_anchor); // fallback
-
-    const current_period_end =
-      toIsoFromStripeSeconds(stripeSub?.current_period_end);
-
-    const trial_start = toIsoFromStripeSeconds(stripeSub?.trial_start);
-    const trial_end = toIsoFromStripeSeconds(stripeSub?.trial_end);
-
-    const valid_until = current_period_end ?? trial_end ?? null;
 
     const payload = {
       family_id: familyId,
@@ -201,12 +184,11 @@ Deno.serve(async (req: Request) => {
       status,
       stripe_customer_id: customerId,
       stripe_subscription_id: stripeSub?.id ?? null,
-      valid_until,
-      current_period_start,
-      current_period_end,
+      current_period_start: toIsoFromStripeSeconds(stripeSub?.current_period_start),
+      current_period_end: toIsoFromStripeSeconds(stripeSub?.current_period_end),
       cancel_at_period_end: !!stripeSub?.cancel_at_period_end,
-      trial_start,
-      trial_end,
+      trial_start: toIsoFromStripeSeconds(stripeSub?.trial_start),
+      trial_end: toIsoFromStripeSeconds(stripeSub?.trial_end),
       updated_at: safeNowIso(),
     };
 
@@ -215,20 +197,20 @@ Deno.serve(async (req: Request) => {
       .upsert(payload, { onConflict: "family_id" });
 
     if (upsertError) {
-      return json(500, { error: "DB update failed", message: upsertError.message, details: upsertError });
+      console.error("[COMPLETE_CHECKOUT] DB upsert failed:", upsertError);
+      return json(500, { error: "DB update failed", message: upsertError.message });
     }
 
     return json(200, {
       success: true,
       plan,
       status,
-      pickedPriceId,
-      linePriceIds,
-      subPriceIds,
-      dates: { current_period_start, current_period_end, trial_start, trial_end, valid_until },
+      familyId,
+      subscriptionId: stripeSub?.id ?? null,
+      version: COMPLETE_CHECKOUT_VERSION,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[COMPLETE_CHECKOUT] Error:", err);
-    return json(500, { error: err instanceof Error ? err.message : "Unknown error" });
+    return json(500, { error: err?.message ?? "Unknown error", version: COMPLETE_CHECKOUT_VERSION });
   }
 });
