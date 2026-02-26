@@ -17,24 +17,29 @@ function json(status: number, body: unknown) {
   });
 }
 
-function getEnv(name: string) {
-  return (Deno.env.get(name) ?? "").trim();
-}
-
 function mustEnv(name: string) {
-  const v = getEnv(name);
+  const v = (Deno.env.get(name) ?? "").trim();
   if (!v) throw new Error(`Missing env var: ${name}`);
   return v;
 }
 
+// ✅ Never throws
 function toIsoFromStripeSeconds(v: unknown): string | null {
   const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
   if (!Number.isFinite(n) || n <= 0) return null;
 
-  const d = new Date(n * 1000);
-  if (!Number.isFinite(d.getTime())) return null;
+  const ms = n * 1000;
+  if (!Number.isFinite(ms)) return null;
 
-  return d.toISOString();
+  const d = new Date(ms);
+  const t = d.getTime();
+  if (!Number.isFinite(t)) return null;
+
+  try {
+    return d.toISOString();
+  } catch {
+    return null;
+  }
 }
 
 async function stripeGet(url: string, secretKey: string) {
@@ -53,29 +58,15 @@ async function stripeGet(url: string, secretKey: string) {
       `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
     );
   }
-
   return data;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
 
-  const executionId = req.headers.get("x-deno-execution-id") ?? null;
-
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return json(401, { error: "Missing authorization header" });
-    }
-
-    // Debug: welke envs zijn aanwezig? (zonder values te tonen)
-    console.log("[COMPLETE_CHECKOUT] env presence:", {
-      SUPABASE_URL: !!getEnv("SUPABASE_URL"),
-      SUPABASE_SERVICE_ROLE_KEY: !!getEnv("SUPABASE_SERVICE_ROLE_KEY"),
-      STRIPE_SECRET_KEY: !!getEnv("STRIPE_SECRET_KEY"),
-      STRIPE_PRICE_PLUS: !!getEnv("STRIPE_PRICE_PLUS"),
-      STRIPE_PRICE_PRO: !!getEnv("STRIPE_PRICE_PRO"),
-    });
+    if (!authHeader?.startsWith("Bearer ")) return json(401, { error: "Missing authorization header" });
 
     const jwt = authHeader.replace("Bearer ", "").trim();
 
@@ -83,8 +74,8 @@ Deno.serve(async (req: Request) => {
     const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
 
-    const STRIPE_PRICE_PLUS = getEnv("STRIPE_PRICE_PLUS");
-    const STRIPE_PRICE_PRO = getEnv("STRIPE_PRICE_PRO");
+    const STRIPE_PRICE_PLUS = (Deno.env.get("STRIPE_PRICE_PLUS") ?? "").trim();
+    const STRIPE_PRICE_PRO = (Deno.env.get("STRIPE_PRICE_PRO") ?? "").trim();
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -103,8 +94,7 @@ Deno.serve(async (req: Request) => {
     const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    console.log("[COMPLETE_CHECKOUT] Fetching Stripe session:", { sessionId });
-
+    // Fetch session (expand subscription)
     const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
     sessionUrl.searchParams.append("expand[]", "subscription");
 
@@ -114,42 +104,35 @@ Deno.serve(async (req: Request) => {
     const customerId = session?.customer;
     const subscriptionRef = session?.subscription;
 
-    console.log("[COMPLETE_CHECKOUT] Session basics:", {
-      hasFamilyId: !!familyId,
-      hasCustomerId: !!customerId,
-      subscriptionRefType: typeof subscriptionRef,
-    });
-
     if (!familyId) return json(400, { error: "No family_id in session metadata" });
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
+    // Ensure we have full subscription object
     let stripeSub: any;
     if (typeof subscriptionRef === "string") {
-      stripeSub = await stripeGet(
-        `https://api.stripe.com/v1/subscriptions/${subscriptionRef}`,
-        STRIPE_SECRET_KEY
-      );
+      stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`, STRIPE_SECRET_KEY);
     } else {
       stripeSub = subscriptionRef;
+      // Sometimes expand gives partial object: refetch if items missing
       if (!stripeSub?.items?.data?.length) {
         const id = stripeSub?.id;
         if (!id) return json(400, { error: "Subscription object missing id" });
-        stripeSub = await stripeGet(
-          `https://api.stripe.com/v1/subscriptions/${id}`,
-          STRIPE_SECRET_KEY
-        );
+        stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${id}`, STRIPE_SECRET_KEY);
       }
     }
 
-    const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
-    console.log("[COMPLETE_CHECKOUT] Subscription details:", {
-      subId: stripeSub?.id,
-      status: stripeSub?.status,
-      priceId,
+    // Debug: laat in logs zien wat Stripe teruggeeft
+    console.log("[COMPLETE_CHECKOUT] stripeSub timestamps:", {
       current_period_start: stripeSub?.current_period_start,
       current_period_end: stripeSub?.current_period_end,
+      trial_start: stripeSub?.trial_start,
+      trial_end: stripeSub?.trial_end,
+      status: stripeSub?.status,
+      id: stripeSub?.id,
     });
+
+    const priceId = stripeSub?.items?.data?.[0]?.price?.id ?? "";
 
     let plan: "FREE" | "PLUS" | "PRO" = "FREE";
     if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
@@ -189,11 +172,6 @@ Deno.serve(async (req: Request) => {
     return json(200, { success: true, plan, status, subscriptionId: stripeSub?.id ?? null });
   } catch (err: any) {
     console.error("[COMPLETE_CHECKOUT] Error:", err);
-    return json(500, {
-      error: err?.message ?? "Unknown error",
-      // handig tijdens debuggen:
-      hint: "Check Supabase Edge Function logs using x-deno-execution-id from response headers.",
-      executionId,
-    });
+    return json(500, { error: err?.message ?? "Unknown error" });
   }
 });
