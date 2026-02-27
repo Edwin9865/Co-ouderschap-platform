@@ -1,5 +1,5 @@
 // src/pages/settings/Abonnement.tsx
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,25 +38,19 @@ export function Abonnement() {
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ✅ zelfde “gekoppeld”-logica als Koppelen.tsx (family_members → PARENT/ACTIVE)
   const [parentMembers, setParentMembers] = useState<ParentMember[]>([]);
   const [linkCheckLoading, setLinkCheckLoading] = useState(false);
+
+  // Separate state to prevent double-execution (replaces useRef)
+  const [checkoutDone, setCheckoutDone] = useState(false);
 
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
 
-  const completedRef = useRef(false);
-
   const hasFamilySelected = !!currentFamily?.id;
-
-  // Zelfde als Koppelen.tsx:
-  // - Haal PARENT + ACTIVE members op voor currentFamily
-  // - "gekoppeld" = er is minimaal 1 andere parent dan jij
   const otherParents = parentMembers.filter((m) => m.user_id !== user?.id);
   const isLinked = hasFamilySelected && otherParents.length > 0;
-
-  // In deze pagina betekent "mag upgraden / billing beheren" = gezin geselecteerd én gekoppeld
   const canManageBilling = hasFamilySelected && isLinked;
 
   const fetchLinkStatus = async () => {
@@ -75,88 +69,54 @@ export function Abonnement() {
         .eq('status', 'ACTIVE');
 
       if (error) throw error;
-
       setParentMembers((data || []) as ParentMember[]);
     } catch (e) {
       console.error('[Abonnement] fetchLinkStatus failed:', e);
-      // Als deze check faalt, blokkeren we liever upgraden (veilig).
       setParentMembers([]);
     } finally {
       setLinkCheckLoading(false);
     }
   };
 
-  // Fetch link-status zodra family/user verandert (zelfde trigger als Koppelen.tsx ongeveer)
   useEffect(() => {
     fetchLinkStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFamily?.id, user?.id]);
 
+  // ✅ Fix: refreshFamily removed from deps, checkoutDone prevents re-runs
   useEffect(() => {
-    let alive = true;
+    if (!success && !canceled) return;
 
-    const clearParamsSoon = (ms: number) => {
-      setTimeout(() => {
-        if (!alive) return;
+    if (canceled) {
+      setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
+      const t = setTimeout(() => {
         setSearchParams({});
-      }, ms);
-    };
-
-    const run = async () => {
-      if (!success && !canceled) return;
-
-      if (canceled) {
-        setCompleting(false);
-        setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
-        setLoading(null);
-
-        setTimeout(() => {
-          if (!alive) return;
-          setSearchParams({});
-          setError(null);
-        }, 4000);
-
-        return;
-      }
-
-      if (success === 'true' && sessionId) {
-        if (completedRef.current) return;
-        completedRef.current = true;
-
         setError(null);
-        setCompleting(true);
+      }, 4000);
+      return () => clearTimeout(t);
+    }
 
-        try {
-          await completeCheckout(sessionId);
+    if (success === 'true' && sessionId && !checkoutDone) {
+      setCheckoutDone(true);
+      setError(null);
+      setCompleting(true);
 
-          if (refreshFamily) {
-            await refreshFamily();
-          }
-
-          // na checkout: opnieuw link-status ophalen (kan relevant zijn voor UI)
+      completeCheckout(sessionId)
+        .then(async () => {
+          if (refreshFamily) await refreshFamily();
           await fetchLinkStatus();
-
-          clearParamsSoon(2000);
-        } catch (e) {
+        })
+        .catch((e) => {
           console.error('[Abonnement] completeCheckout failed:', e);
           setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
-          clearParamsSoon(4500);
-        } finally {
-          if (alive) {
-            setCompleting(false);
-            setLoading(null);
-          }
-        }
-      }
-    };
-
-    run();
-
-    return () => {
-      alive = false;
-    };
+        })
+        .finally(() => {
+          setCompleting(false);
+          setTimeout(() => setSearchParams({}), 2000);
+        });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [success, canceled, sessionId, refreshFamily, setSearchParams]);
+  }, [success, canceled, sessionId]); // ✅ geen refreshFamily in deps
 
   const handleUpgrade = async (priceId: string) => {
     setError(null);
@@ -166,7 +126,6 @@ export function Abonnement() {
       return;
     }
 
-    // ✅ Nieuwe check: zelfde als Koppelen.tsx (niet MERGED)
     if (!isLinked) {
       setError('Dit gezin is nog niet gekoppeld. Koppel eerst met je co-ouder voordat je kunt upgraden.');
       return;
@@ -197,7 +156,6 @@ export function Abonnement() {
       return;
     }
 
-    // ✅ Nieuwe check: zelfde als Koppelen.tsx (niet MERGED)
     if (!isLinked) {
       setError('Dit gezin is nog niet gekoppeld. Je kunt het abonnement pas beheren als het gezin is gekoppeld.');
       return;
@@ -259,8 +217,8 @@ export function Abonnement() {
           <div className="flex-1">
             <h3 className="text-amber-900 font-semibold">Gezin nog niet gekoppeld</h3>
             <p className="text-amber-800 text-sm mt-1">
-              Je kunt pas upgraden als er een co-ouder is gekoppeld. (Zelfde controle als in <b>Koppelen</b>:
-              er moeten <b>2 ouders</b> in <code>family_members</code> staan met status <b>ACTIVE</b>.)
+              Je kunt pas upgraden als er een co-ouder is gekoppeld. Er moeten 2 ouders in{' '}
+              <code>family_members</code> staan met status <b>ACTIVE</b>.
             </p>
             <div className="mt-3 flex gap-2">
               <button
@@ -292,25 +250,27 @@ export function Abonnement() {
         </div>
       )}
 
+      {/* ✅ Spinner banner: alleen tijdens verwerking */}
       {success && completing && (
-  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-    <Loader2 className="w-5 h-5 text-green-600 animate-spin flex-shrink-0 mt-0.5" />
-    <div className="flex-1">
-      <h3 className="text-green-900 font-semibold">Betaling verwerkt!</h3>
-      <p className="text-green-800 text-sm mt-1">We ronden je abonnement nu af...</p>
-    </div>
-  </div>
-)}
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+          <Loader2 className="w-5 h-5 text-green-600 animate-spin flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-green-900 font-semibold">Betaling verwerkt!</h3>
+            <p className="text-green-800 text-sm mt-1">We ronden je abonnement nu af...</p>
+          </div>
+        </div>
+      )}
 
-{success && !completing && (
-  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-    <div className="flex-1">
-      <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-      <p className="text-green-800 text-sm mt-1">Je abonnement is succesvol geactiveerd.</p>
-    </div>
-  </div>
-)}
+      {/* ✅ Bevestiging banner: alleen na succesvolle afronding */}
+      {success && !completing && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
+            <p className="text-green-800 text-sm mt-1">Je abonnement is succesvol geactiveerd.</p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
