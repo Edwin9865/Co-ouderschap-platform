@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-create-portal-safe-1";
+const VERSION = "v2026-02-27-create-portal-safe-2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader! } },
     });
 
+    // ✅ Must be ACTIVE PARENT
     const { data: familyMember, error: fmErr } = await supabaseClient
       .from("family_members")
       .select("role,status")
@@ -115,7 +116,8 @@ Deno.serve(async (req) => {
 
     const params = new URLSearchParams();
     params.set("customer", subscription.stripe_customer_id);
-    params.set("return_url", `${APP_URL}/settings/abonnement`);
+    // ✅ FIX: correcte return_url naar /instellingen/abonnement
+    params.set("return_url", `${APP_URL}/instellingen/abonnement`);
 
     const session = await stripePostForm("https://api.stripe.com/v1/billing_portal/sessions", STRIPE_SECRET_KEY, params);
     return json(200, { url: session.url, version: VERSION });

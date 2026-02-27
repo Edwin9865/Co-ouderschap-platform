@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-create-checkout-safe-2";
+const VERSION = "v2026-02-27-create-checkout-safe-3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -150,9 +150,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Create Checkout Session
-    const successUrl = `${APP_URL}/settings/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${APP_URL}/settings/abonnement?canceled=true`;
+    // ✅ FIX: correcte paden naar /instellingen/abonnement
+    const successUrl = `${APP_URL}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${APP_URL}/instellingen/abonnement?canceled=true`;
 
     const sessionParams = new URLSearchParams();
     sessionParams.set("customer", customerId);
