@@ -185,7 +185,7 @@ export function Abonnement() {
             </p>
             <div className="mt-3 flex gap-2">
               <button
-                onClick={() => navigate('instellingen/koppelen')}
+                onClick={() => navigate('/instellingen/koppelen')}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800"
               >
                 <Users className="w-4 h-4" />
