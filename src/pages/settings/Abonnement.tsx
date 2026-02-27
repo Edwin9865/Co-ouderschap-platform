@@ -1,25 +1,95 @@
-// src/pages/settings/Abonnement.tsx
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
-import { Crown, CheckCircle2, Loader2, ExternalLink, AlertCircle, Users } from 'lucide-react';
-import { PLANS, createCheckoutSession, createPortalSession, completeCheckout } from '../../lib/stripeService';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import {
+  Crown,
+  CheckCircle2,
+  Loader2,
+  ExternalLink,
+  AlertCircle,
+  Users,
+  Link2Off,
+} from 'lucide-react';
+import {
+  PLANS,
+  createCheckoutSession,
+  createPortalSession,
+  completeCheckout,
+} from '../../lib/stripeService';
+
+type ParentMember = {
+  id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  joined_at: string;
+};
 
 export function Abonnement() {
   const navigate = useNavigate();
   const { subscription, currentFamily, refreshFamily } = useFamily();
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ✅ zelfde “gekoppeld”-logica als Koppelen.tsx (family_members → PARENT/ACTIVE)
+  const [parentMembers, setParentMembers] = useState<ParentMember[]>([]);
+  const [linkCheckLoading, setLinkCheckLoading] = useState(false);
+
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
 
-  // Prevent multiple completeCheckout calls (React strict mode, rerenders, context refreshes)
   const completedRef = useRef(false);
+
+  const hasFamilySelected = !!currentFamily?.id;
+
+  // Zelfde als Koppelen.tsx:
+  // - Haal PARENT + ACTIVE members op voor currentFamily
+  // - "gekoppeld" = er is minimaal 1 andere parent dan jij
+  const otherParents = parentMembers.filter((m) => m.user_id !== user?.id);
+  const isLinked = hasFamilySelected && otherParents.length > 0;
+
+  // In deze pagina betekent "mag upgraden / billing beheren" = gezin geselecteerd én gekoppeld
+  const canManageBilling = hasFamilySelected && isLinked;
+
+  const fetchLinkStatus = async () => {
+    if (!currentFamily?.id || !user?.id) {
+      setParentMembers([]);
+      return;
+    }
+
+    setLinkCheckLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('family_members')
+        .select('id,user_id,role,status,joined_at')
+        .eq('family_id', currentFamily.id)
+        .eq('role', 'PARENT')
+        .eq('status', 'ACTIVE');
+
+      if (error) throw error;
+
+      setParentMembers((data || []) as ParentMember[]);
+    } catch (e) {
+      console.error('[Abonnement] fetchLinkStatus failed:', e);
+      // Als deze check faalt, blokkeren we liever upgraden (veilig).
+      setParentMembers([]);
+    } finally {
+      setLinkCheckLoading(false);
+    }
+  };
+
+  // Fetch link-status zodra family/user verandert (zelfde trigger als Koppelen.tsx ongeveer)
+  useEffect(() => {
+    fetchLinkStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFamily?.id, user?.id]);
 
   useEffect(() => {
     let alive = true;
@@ -32,10 +102,8 @@ export function Abonnement() {
     };
 
     const run = async () => {
-      // Nothing to do
       if (!success && !canceled) return;
 
-      // Payment canceled
       if (canceled) {
         setCompleting(false);
         setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
@@ -50,9 +118,6 @@ export function Abonnement() {
         return;
       }
 
-      // Payment success
-      // ✅ We allow completing even if currentFamily isn't loaded yet,
-      // BUT complete-checkout will enforce membership/family_id anyway.
       if (success === 'true' && sessionId) {
         if (completedRef.current) return;
         completedRef.current = true;
@@ -63,10 +128,12 @@ export function Abonnement() {
         try {
           await completeCheckout(sessionId);
 
-          // Refresh DB state
           if (refreshFamily) {
             await refreshFamily();
           }
+
+          // na checkout: opnieuw link-status ophalen (kan relevant zijn voor UI)
+          await fetchLinkStatus();
 
           clearParamsSoon(2000);
         } catch (e) {
@@ -87,20 +154,29 @@ export function Abonnement() {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success, canceled, sessionId, refreshFamily, setSearchParams]);
 
   const handleUpgrade = async (priceId: string) => {
+    setError(null);
+
     if (!currentFamily?.id) {
       setError('Selecteer of maak eerst een gezin aan voordat je kunt upgraden.');
       return;
     }
+
+    // ✅ Nieuwe check: zelfde als Koppelen.tsx (niet MERGED)
+    if (!isLinked) {
+      setError('Dit gezin is nog niet gekoppeld. Koppel eerst met je co-ouder voordat je kunt upgraden.');
+      return;
+    }
+
     if (!priceId) {
       setError('Ongeldig plan geselecteerd');
       return;
     }
 
     setLoading(priceId);
-    setError(null);
 
     try {
       const checkoutUrl = await createCheckoutSession(priceId, currentFamily.id);
@@ -113,13 +189,20 @@ export function Abonnement() {
   };
 
   const handleManageBilling = async () => {
+    setError(null);
+
     if (!currentFamily?.id) {
       setError('Selecteer of maak eerst een gezin aan voordat je je facturen kunt beheren.');
       return;
     }
 
+    // ✅ Nieuwe check: zelfde als Koppelen.tsx (niet MERGED)
+    if (!isLinked) {
+      setError('Dit gezin is nog niet gekoppeld. Je kunt het abonnement pas beheren als het gezin is gekoppeld.');
+      return;
+    }
+
     setLoading('portal');
-    setError(null);
 
     try {
       const portalUrl = await createPortalSession(currentFamily.id);
@@ -133,7 +216,6 @@ export function Abonnement() {
 
   const currentPlan = subscription?.plan || 'FREE';
   const hasPaidSubscription = !!subscription?.stripe_subscription_id;
-  const hasFamilySelected = !!currentFamily?.id;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -142,7 +224,6 @@ export function Abonnement() {
         <p className="text-gray-600">Kies het plan dat bij jullie past</p>
       </div>
 
-      {/* ✅ Hard requirement for plan changes */}
       {!hasFamilySelected && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
           <Users className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
@@ -160,9 +241,51 @@ export function Abonnement() {
                 <Users className="w-4 h-4" />
                 Naar gezinnen
               </button>
-              <Link to="/dashboard" className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100">
+              <Link
+                to="/dashboard"
+                className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100"
+              >
                 Terug naar dashboard
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasFamilySelected && !isLinked && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <Link2Off className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h3 className="text-amber-900 font-semibold">Gezin nog niet gekoppeld</h3>
+            <p className="text-amber-800 text-sm mt-1">
+              Je kunt pas upgraden als er een co-ouder is gekoppeld. (Zelfde controle als in <b>Koppelen</b>:
+              er moeten <b>2 ouders</b> in <code>family_members</code> staan met status <b>ACTIVE</b>.)
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => navigate('/instellingen/koppelen')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800"
+              >
+                <Users className="w-4 h-4" />
+                Naar koppelen
+              </button>
+              <button
+                onClick={fetchLinkStatus}
+                disabled={linkCheckLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 disabled:opacity-50"
+              >
+                {linkCheckLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Controleren...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Opnieuw controleren
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -204,7 +327,7 @@ export function Abonnement() {
 
             <button
               onClick={handleManageBilling}
-              disabled={loading === 'portal' || completing || !hasFamilySelected}
+              disabled={loading === 'portal' || completing || !canManageBilling}
               className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {loading === 'portal' ? (
@@ -285,10 +408,7 @@ export function Abonnement() {
                 </ul>
 
                 {plan.id === 'FREE' ? (
-                  <button
-                    disabled
-                    className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed"
-                  >
+                  <button disabled className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
                     {isActive ? 'Huidig plan' : 'Gratis plan'}
                   </button>
                 ) : (
@@ -299,7 +419,8 @@ export function Abonnement() {
                       loading !== null ||
                       isActive ||
                       completing ||
-                      !hasFamilySelected
+                      !canManageBilling ||
+                      linkCheckLoading
                     }
                     className={`w-full py-3 rounded-lg font-semibold transition-colors ${
                       isActive
