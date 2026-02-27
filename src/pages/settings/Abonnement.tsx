@@ -181,7 +181,7 @@ export function Abonnement() {
           <div className="flex-1">
             <h3 className="text-amber-900 font-semibold">Gezin nog niet gekoppeld</h3>
             <p className="text-amber-800 text-sm mt-1">
-              De status van dit gezin is <b>{familyStatus ?? 'ONBEKEND'}</b>. Upgraden en abonnementbeheer kan pas als de status <b>MERGED</b> is.
+              Upgraden en abonnementbeheer kan pas als je gekoppeld met je Co-Ouder bent.
             </p>
             <div className="mt-3 flex gap-2">
               <button
