@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-create-checkout-safe-1";
+const VERSION = "v2026-02-27-create-checkout-merged-1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +36,7 @@ async function requireUser(req: Request) {
   const { data, error } = await supabaseAdmin.auth.getUser(jwt);
   if (error || !data?.user) return { user: null, error: error?.message || "Invalid JWT" };
 
-  return { user: data.user, error: null, authHeader: `Bearer ${jwt}` };
+  return { user: data.user, error: null, jwt };
 }
 
 interface CheckoutRequest {
@@ -72,30 +72,59 @@ async function stripePostForm(url: string, secretKey: string, params: URLSearchP
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method !== "POST") return json(405, { error: "Method not allowed", version: VERSION });
 
   try {
-    const { user, error: authErr, authHeader } = await requireUser(req);
+    const { user, error: authErr, jwt } = await requireUser(req);
     if (authErr || !user) return json(401, { error: "Invalid JWT", message: authErr, version: VERSION });
 
     const body = (await req.json()) as CheckoutRequest;
     const priceId = (body?.priceId ?? "").trim();
     const familyId = (body?.familyId ?? "").trim();
 
-    if (!familyId) return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
+    if (!familyId) {
+      return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
+    }
     if (!priceId) return json(400, { error: "Missing priceId", version: VERSION });
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
     const SUPABASE_ANON_KEY = mustEnv("SUPABASE_ANON_KEY");
+    const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
+
     const APP_URL = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").trim();
     if (!APP_URL) return json(500, { error: "Missing APP_URL (or SITE_URL)", version: VERSION });
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader! } },
+    // User-scoped client (RLS applies) for membership checks
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
 
-    // ✅ IMPORTANT: maybeSingle, and require ACTIVE
-    const { data: familyMember, error: fmErr } = await supabaseClient
+    // Admin client (bypasses RLS) for reads/writes we control
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // ✅ 1) Family must exist + be MERGED
+    const { data: famRow, error: famErr } = await supabaseAdmin
+      .from("families")
+      .select("status")
+      .eq("id", familyId)
+      .maybeSingle();
+
+    if (famErr) return json(500, { error: "Failed to read family", message: famErr.message, version: VERSION });
+    if (!famRow) return json(404, { error: "Family not found", message: "Gezin niet gevonden.", version: VERSION });
+
+    const famStatus = (famRow.status ?? "").toString().toUpperCase();
+    if (famStatus !== "MERGED") {
+      return json(409, {
+        error: "Family not merged",
+        message: "Dit gezin is nog niet gekoppeld. Rond eerst het koppelen af voordat je kunt upgraden.",
+        status: famStatus,
+        version: VERSION,
+      });
+    }
+
+    // ✅ 2) Must be ACTIVE PARENT in this family
+    const { data: familyMember, error: fmErr } = await supabaseUser
       .from("family_members")
       .select("role,status")
       .eq("family_id", familyId)
@@ -103,34 +132,34 @@ Deno.serve(async (req) => {
       .eq("status", "ACTIVE")
       .maybeSingle();
 
-    if (fmErr) {
-      console.error("[CREATE_CHECKOUT] family_members error:", fmErr);
-      return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
-    }
-
+    if (fmErr) return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
     if (!familyMember) {
-      // ✅ this is your case: not a family member -> 403 (NOT 500)
-      return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
+      return json(403, {
+        error: "Not a family member",
+        message: "Je bent geen actief gezinslid van dit gezin.",
+        version: VERSION,
+      });
     }
-
     if (familyMember.role !== "PARENT") {
-      return json(403, { error: "Only parents can manage subscriptions", message: "Alleen ouders kunnen upgraden.", version: VERSION });
+      return json(403, {
+        error: "Only parents can manage subscriptions",
+        message: "Alleen ouders kunnen upgraden.",
+        version: VERSION,
+      });
     }
 
-    // read existing subscription row (optional)
-    const { data: subscription, error: subErr } = await supabaseClient
+    // Read existing stripe_customer_id (admin)
+    const { data: subscriptionRow, error: subErr } = await supabaseAdmin
       .from("subscriptions")
       .select("stripe_customer_id")
       .eq("family_id", familyId)
       .maybeSingle();
 
-    if (subErr) {
-      console.error("[CREATE_CHECKOUT] subscriptions read error:", subErr);
-      return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
-    }
+    if (subErr) return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
 
-    let customerId = (subscription?.stripe_customer_id ?? "").trim();
+    let customerId = (subscriptionRow?.stripe_customer_id ?? "").trim();
 
+    // Create customer if missing
     if (!customerId) {
       const customerParams = new URLSearchParams();
       if (user.email) customerParams.set("email", user.email);
@@ -141,14 +170,21 @@ Deno.serve(async (req) => {
       customerId = (customer?.id ?? "").trim();
       if (!customerId) return json(500, { error: "Stripe customer creation failed", version: VERSION });
 
-      // upsert minimal row
-      const { error: upsertErr } = await supabaseClient
+      // ✅ Persist with admin client (bypass RLS)
+      const { error: upsertErr } = await supabaseAdmin
         .from("subscriptions")
         .upsert({ family_id: familyId, stripe_customer_id: customerId }, { onConflict: "family_id" });
 
-      if (upsertErr) return json(500, { error: "Failed to persist stripe_customer_id", message: upsertErr.message, version: VERSION });
+      if (upsertErr) {
+        return json(500, {
+          error: "Failed to persist stripe_customer_id",
+          message: upsertErr.message,
+          version: VERSION,
+        });
+      }
     }
 
+    // Create Checkout Session
     const successUrl = `${APP_URL}/settings/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${APP_URL}/settings/abonnement?canceled=true`;
 
@@ -172,7 +208,6 @@ Deno.serve(async (req) => {
     return json(200, { sessionId: session.id, url: session.url, version: VERSION });
   } catch (e) {
     console.error("[CREATE_CHECKOUT] Error:", e);
-    // ✅ Still 500, but now with a readable message (and not caused by "not member")
     return json(500, { error: e instanceof Error ? e.message : "Unknown error", version: VERSION });
   }
 });

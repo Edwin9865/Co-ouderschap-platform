@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-create-portal-safe-1";
+const VERSION = "v2026-02-27-create-portal-merged-1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +36,7 @@ async function requireUser(req: Request) {
   const { data, error } = await supabaseAdmin.auth.getUser(jwt);
   if (error || !data?.user) return { user: null, error: error?.message || "Invalid JWT" };
 
-  return { user: data.user, error: null, authHeader: `Bearer ${jwt}` };
+  return { user: data.user, error: null, jwt };
 }
 
 interface PortalRequest {
@@ -66,15 +66,15 @@ async function stripePostForm(url: string, secretKey: string, params: URLSearchP
       `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
     );
   }
-
   return data;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+  if (req.method !== "POST") return json(405, { error: "Method not allowed", version: VERSION });
 
   try {
-    const { user, error: authErr, authHeader } = await requireUser(req);
+    const { user, error: authErr, jwt } = await requireUser(req);
     if (authErr || !user) return json(401, { error: "Invalid JWT", message: authErr, version: VERSION });
 
     const { familyId } = (await req.json()) as PortalRequest;
@@ -83,15 +83,40 @@ Deno.serve(async (req) => {
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
     const SUPABASE_ANON_KEY = mustEnv("SUPABASE_ANON_KEY");
+    const SERVICE_ROLE = mustEnv("SUPABASE_SERVICE_ROLE_KEY");
     const STRIPE_SECRET_KEY = mustEnv("STRIPE_SECRET_KEY");
+
     const APP_URL = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").trim();
     if (!APP_URL) return json(500, { error: "Missing APP_URL (or SITE_URL)", version: VERSION });
 
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader! } },
+    const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
 
-    const { data: familyMember, error: fmErr } = await supabaseClient
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
+
+    // ✅ 1) Family must exist + be MERGED
+    const { data: famRow, error: famErr } = await supabaseAdmin
+      .from("families")
+      .select("status")
+      .eq("id", famId)
+      .maybeSingle();
+
+    if (famErr) return json(500, { error: "Failed to read family", message: famErr.message, version: VERSION });
+    if (!famRow) return json(404, { error: "Family not found", message: "Gezin niet gevonden.", version: VERSION });
+
+    const famStatus = (famRow.status ?? "").toString().toUpperCase();
+    if (famStatus !== "MERGED") {
+      return json(409, {
+        error: "Family not merged",
+        message: "Dit gezin is nog niet gekoppeld. Je kunt het abonnement pas beheren als het gezin is gekoppeld.",
+        status: famStatus,
+        version: VERSION,
+      });
+    }
+
+    // ✅ 2) Must be ACTIVE PARENT
+    const { data: familyMember, error: fmErr } = await supabaseUser
       .from("family_members")
       .select("role,status")
       .eq("family_id", famId)
@@ -101,22 +126,25 @@ Deno.serve(async (req) => {
 
     if (fmErr) return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
     if (!familyMember) return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
-    if (familyMember.role !== "PARENT") return json(403, { error: "Only parents can access billing portal", version: VERSION });
+    if (familyMember.role !== "PARENT") return json(403, { error: "Only parents can access billing portal", message: "Alleen ouders kunnen het klantenportaal openen.", version: VERSION });
 
-    const { data: subscription, error: subErr } = await supabaseClient
+    // Read stripe_customer_id (admin)
+    const { data: subscription, error: subErr } = await supabaseAdmin
       .from("subscriptions")
       .select("stripe_customer_id")
       .eq("family_id", famId)
       .maybeSingle();
 
     if (subErr) return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
-    if (!subscription?.stripe_customer_id) return json(404, { error: "No Stripe customer found", version: VERSION });
+    if (!subscription?.stripe_customer_id) return json(404, { error: "No Stripe customer found", message: "Nog geen Stripe klant gevonden voor dit gezin.", version: VERSION });
 
     const params = new URLSearchParams();
     params.set("customer", subscription.stripe_customer_id);
     params.set("return_url", `${APP_URL}/settings/abonnement`);
 
     const session = await stripePostForm("https://api.stripe.com/v1/billing_portal/sessions", STRIPE_SECRET_KEY, params);
+    if (!session?.url) return json(500, { error: "No portal URL returned", version: VERSION });
+
     return json(200, { url: session.url, version: VERSION });
   } catch (e) {
     console.error("[CREATE_PORTAL] Error:", e);

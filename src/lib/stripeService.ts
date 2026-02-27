@@ -1,12 +1,8 @@
-// src/lib/stripeService.ts
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { supabase } from './supabase';
 
 let stripePromise: Promise<Stripe | null>;
 
-/**
- * Stripe.js loader (frontend only)
- */
 export const getStripe = () => {
   if (!stripePromise) {
     const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -66,17 +62,12 @@ export const PLANS: PlanDetails[] = [
   },
 ];
 
-/**
- * Always attach a fresh JWT to Edge Function calls.
- * This fixes "401 Unauthorized" when Verify JWT is enabled on Supabase Functions.
- */
+// Always attach a fresh JWT to Edge Function calls.
 async function getAuthHeaders(): Promise<Record<string, string>> {
-  // Ensure we have a valid session (supabase-js may not always auto-attach on web/native hybrids)
   const { data: s, error: se } = await supabase.auth.getSession();
 
   const token = s.session?.access_token;
   if (se || !token) {
-    // Optional: try a refresh once
     const { data: r, error: re } = await supabase.auth.refreshSession();
     const refreshedToken = r.session?.access_token;
 
@@ -88,6 +79,18 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 
   return { Authorization: `Bearer ${token}` };
+}
+
+function getInvokeErrorMessage(error: unknown): string {
+  const anyErr: any = error as any;
+  const body = anyErr?.context?.response?.body;
+
+  return (
+    body?.message ||
+    body?.error ||
+    anyErr?.message ||
+    'Er is een fout opgetreden'
+  );
 }
 
 export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
@@ -103,7 +106,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
 
   if (error) {
     console.error('[STRIPE] createCheckoutSession error:', error);
-    throw new Error(error.message || 'Failed to create checkout session');
+    throw new Error(getInvokeErrorMessage(error));
   }
 
   if (!data?.url) {
@@ -125,7 +128,7 @@ export async function createPortalSession(familyId: string): Promise<string> {
 
   if (error) {
     console.error('[STRIPE] createPortalSession error:', error);
-    throw new Error(error.message || 'Failed to create portal session');
+    throw new Error(getInvokeErrorMessage(error));
   }
 
   if (!data?.url) {
@@ -147,10 +150,9 @@ export async function syncSubscription(familyId: string): Promise<void> {
 
   if (error) {
     console.error('[STRIPE] syncSubscription error:', error);
-    throw new Error(error.message || 'Failed to sync subscription');
+    throw new Error(getInvokeErrorMessage(error));
   }
 
-  // Optional debug
   console.log('[STRIPE] syncSubscription ok:', data);
 }
 
@@ -166,7 +168,7 @@ export async function completeCheckout(sessionId: string): Promise<{ plan: strin
 
   if (error) {
     console.error('[STRIPE] completeCheckout error:', error);
-    throw new Error(error.message || 'Failed to complete checkout');
+    throw new Error(getInvokeErrorMessage(error));
   }
 
   if (!data?.success) {
