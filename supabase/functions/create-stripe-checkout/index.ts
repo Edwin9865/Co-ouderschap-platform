@@ -1,7 +1,8 @@
+// supabase/functions/create-stripe-checkout/index.ts
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-27-create-checkout-merged-1";
+const VERSION = "v2026-02-26-create-checkout-safe-2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,7 +73,6 @@ async function stripePostForm(url: string, secretKey: string, params: URLSearchP
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
-  if (req.method !== "POST") return json(405, { error: "Method not allowed", version: VERSION });
 
   try {
     const { user, error: authErr, jwt } = await requireUser(req);
@@ -82,9 +82,7 @@ Deno.serve(async (req) => {
     const priceId = (body?.priceId ?? "").trim();
     const familyId = (body?.familyId ?? "").trim();
 
-    if (!familyId) {
-      return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
-    }
+    if (!familyId) return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
     if (!priceId) return json(400, { error: "Missing priceId", version: VERSION });
 
     const SUPABASE_URL = mustEnv("SUPABASE_URL");
@@ -95,35 +93,15 @@ Deno.serve(async (req) => {
     const APP_URL = (Deno.env.get("APP_URL") ?? Deno.env.get("SITE_URL") ?? "").trim();
     if (!APP_URL) return json(500, { error: "Missing APP_URL (or SITE_URL)", version: VERSION });
 
-    // User-scoped client (RLS applies) for membership checks
+    // User-scoped client (RLS applies) for membership check
     const supabaseUser = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
 
-    // Admin client (bypasses RLS) for reads/writes we control
+    // Admin client (bypasses RLS) for subscription writes
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-    // ✅ 1) Family must exist + be MERGED
-    const { data: famRow, error: famErr } = await supabaseAdmin
-      .from("families")
-      .select("status")
-      .eq("id", familyId)
-      .maybeSingle();
-
-    if (famErr) return json(500, { error: "Failed to read family", message: famErr.message, version: VERSION });
-    if (!famRow) return json(404, { error: "Family not found", message: "Gezin niet gevonden.", version: VERSION });
-
-    const famStatus = (famRow.status ?? "").toString().toUpperCase();
-    if (famStatus !== "MERGED") {
-      return json(409, {
-        error: "Family not merged",
-        message: "Dit gezin is nog niet gekoppeld. Rond eerst het koppelen af voordat je kunt upgraden.",
-        status: famStatus,
-        version: VERSION,
-      });
-    }
-
-    // ✅ 2) Must be ACTIVE PARENT in this family
+    // ✅ Must be ACTIVE PARENT
     const { data: familyMember, error: fmErr } = await supabaseUser
       .from("family_members")
       .select("role,status")
@@ -133,22 +111,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (fmErr) return json(500, { error: "Membership check failed", message: fmErr.message, version: VERSION });
-    if (!familyMember) {
-      return json(403, {
-        error: "Not a family member",
-        message: "Je bent geen actief gezinslid van dit gezin.",
-        version: VERSION,
-      });
-    }
-    if (familyMember.role !== "PARENT") {
-      return json(403, {
-        error: "Only parents can manage subscriptions",
-        message: "Alleen ouders kunnen upgraden.",
-        version: VERSION,
-      });
-    }
+    if (!familyMember) return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
+    if (familyMember.role !== "PARENT") return json(403, { error: "Only parents can manage subscriptions", message: "Alleen ouders kunnen upgraden.", version: VERSION });
 
-    // Read existing stripe_customer_id (admin)
+    // Read existing subscription row (admin is fine)
     const { data: subscriptionRow, error: subErr } = await supabaseAdmin
       .from("subscriptions")
       .select("stripe_customer_id")
@@ -159,8 +125,8 @@ Deno.serve(async (req) => {
 
     let customerId = (subscriptionRow?.stripe_customer_id ?? "").trim();
 
-    // Create customer if missing
     if (!customerId) {
+      // Create Stripe customer
       const customerParams = new URLSearchParams();
       if (user.email) customerParams.set("email", user.email);
       customerParams.set("metadata[family_id]", familyId);

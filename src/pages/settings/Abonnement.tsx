@@ -1,3 +1,4 @@
+// src/pages/settings/Abonnement.tsx
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useFamily } from '../../contexts/FamilyContext';
@@ -291,19 +292,25 @@ export function Abonnement() {
         </div>
       )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-            <p className="text-green-800 text-sm mt-1">
-              Je betaling is succesvol verwerkt.
-              {completing ? ' We ronden je abonnement nu af...' : ''}
-            </p>
-          </div>
-          {completing && <Loader2 className="w-5 h-5 text-green-700 animate-spin mt-0.5" />}
-        </div>
-      )}
+      {success && completing && (
+  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+    <Loader2 className="w-5 h-5 text-green-600 animate-spin flex-shrink-0 mt-0.5" />
+    <div className="flex-1">
+      <h3 className="text-green-900 font-semibold">Betaling verwerkt!</h3>
+      <p className="text-green-800 text-sm mt-1">We ronden je abonnement nu af...</p>
+    </div>
+  </div>
+)}
+
+{success && !completing && (
+  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+    <div className="flex-1">
+      <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
+      <p className="text-green-800 text-sm mt-1">Je abonnement is succesvol geactiveerd.</p>
+    </div>
+  </div>
+)}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">

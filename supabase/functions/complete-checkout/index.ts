@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const COMPLETE_CHECKOUT_VERSION = "v2026-02-26-3";
+const COMPLETE_CHECKOUT_VERSION = "v2026-02-26-1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,49 +111,32 @@ Deno.serve(async (req: Request) => {
     const sessionId = body?.sessionId?.trim();
     if (!sessionId) return json(400, { error: "Missing sessionId" });
 
-    // Fetch session (expand subscription ref so we can read id quickly)
+    // Fetch session (expand subscription)
     const sessionUrl = new URL(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`);
     sessionUrl.searchParams.append("expand[]", "subscription");
+
     const session = await stripeGet(sessionUrl.toString(), STRIPE_SECRET_KEY);
 
-    const familyId = (session?.metadata?.family_id ?? "").trim();
+    const familyId = session?.metadata?.family_id;
     const customerId = session?.customer;
     const subscriptionRef = session?.subscription;
 
-    // ✅ Solution 2: family_id is mandatory
-    if (!familyId) {
-      return json(400, { error: "No family_id in session metadata", message: "Selecteer eerst een gezin." });
-    }
+    if (!familyId) return json(400, { error: "No family_id in session metadata" });
     if (!customerId) return json(400, { error: "No customer on session" });
     if (!subscriptionRef) return json(400, { error: "No subscription on session" });
 
-    // ✅ Enforce: user must be ACTIVE member of this family
-    const { data: membership, error: memErr } = await supabaseAdmin
-      .from("family_members")
-      .select("id, status")
-      .eq("family_id", familyId)
-      .eq("user_id", userData.user.id)
-      .eq("status", "ACTIVE")
-      .maybeSingle();
-
-    if (memErr) {
-      console.error("[COMPLETE_CHECKOUT] membership query error:", memErr);
-      return json(500, { error: "Membership check failed", message: memErr.message });
+    // Ensure full subscription object
+    let stripeSub: any;
+    if (typeof subscriptionRef === "string") {
+      stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${subscriptionRef}`, STRIPE_SECRET_KEY);
+    } else {
+      stripeSub = subscriptionRef;
+      if (!stripeSub?.items?.data?.length) {
+        const id = stripeSub?.id;
+        if (!id) return json(400, { error: "Subscription object missing id" });
+        stripeSub = await stripeGet(`https://api.stripe.com/v1/subscriptions/${id}`, STRIPE_SECRET_KEY);
+      }
     }
-    if (!membership) {
-      return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin." });
-    }
-
-    // ✅ ALWAYS refetch full subscription object to guarantee period fields
-    const subId =
-      typeof subscriptionRef === "string" ? subscriptionRef : (subscriptionRef?.id ?? null);
-
-    if (!subId) return json(400, { error: "Subscription missing id" });
-
-    const stripeSub = await stripeGet(
-      `https://api.stripe.com/v1/subscriptions/${subId}?expand[]=items.data.price`,
-      STRIPE_SECRET_KEY
-    );
 
     console.log("[COMPLETE_CHECKOUT] Stripe timestamps raw:", {
       cps: stripeSub?.current_period_start,
@@ -201,14 +184,7 @@ Deno.serve(async (req: Request) => {
       return json(500, { error: "DB update failed", message: upsertError.message });
     }
 
-    return json(200, {
-      success: true,
-      plan,
-      status,
-      familyId,
-      subscriptionId: stripeSub?.id ?? null,
-      version: COMPLETE_CHECKOUT_VERSION,
-    });
+    return json(200, { success: true, plan, status, subscriptionId: stripeSub?.id ?? null, version: COMPLETE_CHECKOUT_VERSION });
   } catch (err: any) {
     console.error("[COMPLETE_CHECKOUT] Error:", err);
     return json(500, { error: err?.message ?? "Unknown error", version: COMPLETE_CHECKOUT_VERSION });

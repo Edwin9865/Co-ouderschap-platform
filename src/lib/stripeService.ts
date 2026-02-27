@@ -1,3 +1,4 @@
+//src/lib/stripeService.ts
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { supabase } from './supabase';
 
