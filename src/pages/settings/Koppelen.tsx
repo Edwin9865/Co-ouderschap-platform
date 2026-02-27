@@ -2,8 +2,17 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../../contexts/FamilyContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
-import { User, Child } from '../../lib/types';
-import { Link as LinkIcon, Copy, CheckCircle2, RefreshCw, Users, X, Check, Unlink } from 'lucide-react';
+import { User } from '../../lib/types';
+import {
+  Link as LinkIcon,
+  Copy,
+  CheckCircle2,
+  RefreshCw,
+  Users,
+  X,
+  Check,
+  Unlink,
+} from 'lucide-react';
 
 interface CouplingRequest {
   id: string;
@@ -29,6 +38,7 @@ interface FamilyMemberWithUser {
 export function Koppelen() {
   const { currentFamily, children, refreshFamily } = useFamily();
   const { user, refreshUser } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [familyMembers, setFamilyMembers] = useState<FamilyMemberWithUser[]>([]);
   const [inviteCode, setInviteCode] = useState<string>('');
@@ -45,37 +55,40 @@ export function Koppelen() {
   const fetchFamilyData = async () => {
     if (!currentFamily || !user) return;
 
-    const [membersResult, inviteCodeResult, sentRequestsResult, receivedRequestsResult] = await Promise.all([
-      supabase
-        .from('family_members')
-        .select(`
+    const [membersResult, inviteCodeResult, sentRequestsResult, receivedRequestsResult] =
+      await Promise.all([
+        supabase
+          .from('family_members')
+          .select(
+            `
           id,
           user_id,
           role,
           status,
           joined_at,
           user:users!family_members_user_id_fkey (*)
-        `)
-        .eq('family_id', currentFamily.id)
-        .eq('status', 'ACTIVE')
-        .eq('role', 'PARENT'),
-      supabase
-        .from('family_invite_codes')
-        .select('code')
-        .eq('family_id', currentFamily.id)
-        .is('used_at', null)
-        .maybeSingle(),
-      supabase
-        .from('coupling_requests')
-        .select('*, from_user:users!coupling_requests_from_user_id_fkey(*)')
-        .eq('from_user_id', user.id)
-        .eq('status', 'PENDING'),
-      supabase
-        .from('coupling_requests')
-        .select('*, from_user:users!coupling_requests_from_user_id_fkey(*)')
-        .eq('to_user_id', user.id)
-        .eq('status', 'PENDING'),
-    ]);
+        `
+          )
+          .eq('family_id', currentFamily.id)
+          .eq('status', 'ACTIVE')
+          .eq('role', 'PARENT'),
+        supabase
+          .from('family_invite_codes')
+          .select('code')
+          .eq('family_id', currentFamily.id)
+          .is('used_at', null)
+          .maybeSingle(),
+        supabase
+          .from('coupling_requests')
+          .select('*, from_user:users!coupling_requests_from_user_id_fkey(*)')
+          .eq('from_user_id', user.id)
+          .eq('status', 'PENDING'),
+        supabase
+          .from('coupling_requests')
+          .select('*, from_user:users!coupling_requests_from_user_id_fkey(*)')
+          .eq('to_user_id', user.id)
+          .eq('status', 'PENDING'),
+      ]);
 
     if (membersResult.data) {
       setFamilyMembers(membersResult.data as FamilyMemberWithUser[]);
@@ -96,17 +109,14 @@ export function Koppelen() {
 
   useEffect(() => {
     fetchFamilyData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFamily, user]);
 
   const handleManualRefresh = async () => {
     setLoading(true);
     try {
-      if (refreshUser) {
-        await refreshUser();
-      }
-      if (refreshFamily) {
-        await refreshFamily();
-      }
+      if (refreshUser) await refreshUser();
+      if (refreshFamily) await refreshFamily();
       await fetchFamilyData();
     } finally {
       setLoading(false);
@@ -141,20 +151,22 @@ export function Koppelen() {
 
       if (error) throw error;
 
-      if (!data.success) {
-        throw new Error(data.error);
+      if (!data?.success) {
+        throw new Error(data?.error || 'Onbekende fout');
       }
 
       const targetFamilyId = data.target_family_id;
-      const targetUserId = data.target_user_id;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       if (session && targetFamilyId) {
         try {
           await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
+              Authorization: `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -172,8 +184,8 @@ export function Koppelen() {
 
       setLinkingCode('');
       setLinkingSuccess(`Koppelverzoek verzonden naar ${data.target_user_name}! Wacht op goedkeuring.`);
-
       setTimeout(() => setLinkingSuccess(''), 5000);
+
       await fetchFamilyData();
     } catch (err) {
       setLinkingError(err instanceof Error ? err.message : 'Verzoek verzenden mislukt');
@@ -195,12 +207,51 @@ export function Koppelen() {
     }
   };
 
+  /**
+   * Best-effort helper: zet beide kanten op MERGED.
+   * Let op: als RLS dit blokkeert, moet dit in de DB/RPC gebeuren (SECURITY DEFINER).
+   */
+  const ensureBothSidesMerged = async (request: CouplingRequest) => {
+    const fromFamilyId = request.from_family_id;
+    const toFamilyId = request.to_family_id;
+
+    if (!fromFamilyId || !toFamilyId) return;
+
+    // 1) Families table: beide op MERGED
+    const { error: famErr } = await supabase
+      .from('families')
+      .update({ status: 'MERGED' })
+      .in('id', [fromFamilyId, toFamilyId]);
+
+    if (famErr) {
+      console.warn('families MERGED update failed:', famErr);
+    }
+
+    // 2) Family_members table: beide specifieke parent-members op MERGED
+    // (de relatie: (from_family, from_user) en (to_family, to_user))
+    const { error: memErr } = await supabase
+      .from('family_members')
+      .update({ status: 'MERGED' })
+      .or(
+        [
+          `and(family_id.eq.${fromFamilyId},user_id.eq.${request.from_user_id})`,
+          `and(family_id.eq.${toFamilyId},user_id.eq.${request.to_user_id})`,
+        ].join(',')
+      );
+
+    if (memErr) {
+      console.warn('family_members MERGED update failed:', memErr);
+    }
+  };
+
   const completeAcceptRequest = async (requestId: string, childIds: string[]) => {
     if (!currentFamily || !user) return;
 
     setLoading(true);
+    setLinkingError('');
+
     try {
-      const request = receivedRequests.find(r => r.id === requestId);
+      const request = receivedRequests.find((r) => r.id === requestId);
 
       const { data, error } = await supabase.rpc('accept_coupling_request', {
         request_id: requestId,
@@ -209,14 +260,24 @@ export function Koppelen() {
 
       if (error) throw error;
 
+      // ✅ Extra fix: zet beide kanten op MERGED (families + members)
+      // (Best-effort; als RLS blokkeert, moet dit in de RPC)
       if (request) {
-        const { data: { session } } = await supabase.auth.getSession();
+        await ensureBothSidesMerged(request);
+      }
+
+      // Notify initiator
+      if (request) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (session) {
           try {
             await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${session.access_token}`,
+                Authorization: `Bearer ${session.access_token}`,
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
@@ -237,17 +298,16 @@ export function Koppelen() {
       setActiveRequestId(null);
       setSelectedChildren([]);
 
-      if (refreshUser) {
-        await refreshUser();
-      }
+      if (refreshUser) await refreshUser();
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (refreshFamily) {
-        await refreshFamily();
-      }
+      if (refreshFamily) await refreshFamily();
 
       await fetchFamilyData();
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      void data;
     } catch (err) {
       setLinkingError(err instanceof Error ? err.message : 'Accepteren mislukt');
     } finally {
@@ -258,13 +318,8 @@ export function Koppelen() {
   const handleDeclineRequest = async (requestId: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('coupling_requests')
-        .update({ status: 'DECLINED' })
-        .eq('id', requestId);
-
+      const { error } = await supabase.from('coupling_requests').update({ status: 'DECLINED' }).eq('id', requestId);
       if (error) throw error;
-
       await fetchFamilyData();
     } finally {
       setLoading(false);
@@ -274,13 +329,8 @@ export function Koppelen() {
   const handleCancelRequest = async (requestId: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('coupling_requests')
-        .update({ status: 'CANCELLED' })
-        .eq('id', requestId);
-
+      const { error } = await supabase.from('coupling_requests').update({ status: 'CANCELLED' }).eq('id', requestId);
       if (error) throw error;
-
       await fetchFamilyData();
     } finally {
       setLoading(false);
@@ -288,24 +338,24 @@ export function Koppelen() {
   };
 
   const toggleChildSelection = (childId: string) => {
-    setSelectedChildren((prev) =>
-      prev.includes(childId) ? prev.filter((id) => id !== childId) : [...prev, childId]
-    );
+    setSelectedChildren((prev) => (prev.includes(childId) ? prev.filter((id) => id !== childId) : [...prev, childId]));
   };
 
   const handleUncouple = async (otherParentUserId: string, otherParentName: string) => {
     const confirmed = confirm(
       `Weet je zeker dat je wilt ontkoppelen van ${otherParentName}?\n\n` +
-      `Na ontkoppeling:\n` +
-      `- Jullie kinderen worden gesplitst op basis van wie ze heeft aangemaakt\n` +
-      `- Jullie zien elkaars kinderen niet meer\n` +
-      `- Jullie krijgen elk een eigen gezin\n\n` +
-      `Deze actie kan niet ongedaan worden gemaakt.`
+        `Na ontkoppeling:\n` +
+        `- Jullie kinderen worden gesplitst op basis van wie ze heeft aangemaakt\n` +
+        `- Jullie zien elkaars kinderen niet meer\n` +
+        `- Jullie krijgen elk een eigen gezin\n\n` +
+        `Deze actie kan niet ongedaan worden gemaakt.`
     );
 
     if (!confirmed) return;
 
     setLoading(true);
+    setLinkingError('');
+
     try {
       const { data, error } = await supabase.rpc('uncouple_parents', {
         other_parent_user_id: otherParentUserId,
@@ -313,19 +363,15 @@ export function Koppelen() {
 
       if (error) throw error;
 
-      if (refreshUser) {
-        await refreshUser();
-      }
+      if (refreshUser) await refreshUser();
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (refreshFamily) {
-        await refreshFamily();
-      }
+      if (refreshFamily) await refreshFamily();
 
       await fetchFamilyData();
 
-      alert(`Ontkoppeling voltooid. ${data.moved_children_count} kind(eren) verplaatst naar jouw gezin.`);
+      alert(`Ontkoppeling voltooid. ${data?.moved_children_count ?? 0} kind(eren) verplaatst naar jouw gezin.`);
     } catch (err) {
       setLinkingError(err instanceof Error ? err.message : 'Ontkoppelen mislukt');
     } finally {
@@ -345,9 +391,7 @@ export function Koppelen() {
       {showChildSelection && activeRequestId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Welke kinderen wil je delen?
-            </h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Welke kinderen wil je delen?</h3>
             <p className="text-sm text-gray-600 mb-4">
               Selecteer de kinderen die zichtbaar moeten zijn voor je co-ouder:
             </p>
@@ -479,9 +523,7 @@ export function Koppelen() {
         )}
 
         <div className="border-t pt-6">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-            Stuur koppelverzoek
-          </h2>
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3">Stuur koppelverzoek</h2>
 
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
@@ -550,8 +592,7 @@ export function Koppelen() {
 
           {partneredMembers.length === 0 ? (
             <p className="text-sm sm:text-base text-gray-600">
-              Je bent nog niet gekoppeld met een co-ouder. Gebruik de koppelcode hierboven om te
-              koppelen.
+              Je bent nog niet gekoppeld met een co-ouder. Gebruik de koppelcode hierboven om te koppelen.
             </p>
           ) : (
             <div className="space-y-3">
