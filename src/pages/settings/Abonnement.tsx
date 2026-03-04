@@ -425,7 +425,7 @@ export function Abonnement() {
           {/* Abonnementsdatums */}
           {subscription && (
             <div className="border-t border-slate-200 pt-4 space-y-2">
-              {subscription.status === 'TRIALING' && subscription.trial_end && (
+              {subscription.status === 'TRIALING' && subscription.trial_end && !subscription.cancel_at_period_end && (
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Calendar className="w-4 h-4 flex-shrink-0" />
                   <span>
@@ -450,8 +450,11 @@ export function Abonnement() {
                 <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   <span>
-                    <span className="font-medium">Opgezegd</span> — je abonnement blijft actief t/m{' '}
-                    <span className="font-medium">{formatDate(subscription.current_period_end)}</span>.
+                    <span className="font-medium">Opgezegd</span> —{' '}
+                    {subscription.status === 'TRIALING'
+                      ? <>je trial loopt af op <span className="font-medium">{formatDate(subscription.trial_end)}</span> en wordt dan niet verlengd.</>
+                      : <>je abonnement blijft actief t/m <span className="font-medium">{formatDate(subscription.current_period_end)}</span>.</>
+                    }{' '}
                     Daarna ga je automatisch terug naar Gratis.
                   </span>
                 </div>
