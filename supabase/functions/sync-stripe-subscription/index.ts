@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-26-sync-2";
+const VERSION = "v2026-03-04-sync-diag";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,11 +99,25 @@ Deno.serve(async (req: Request) => {
 
     const stripeSubscription = await stripeResponse.json();
 
+    // Diagnostische logging — zichtbaar in Supabase Edge Function logs
+    console.log("[SYNC] Stripe response:", JSON.stringify({
+      id: stripeSubscription.id,
+      status: stripeSubscription.status,
+      cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+      current_period_start: stripeSubscription.current_period_start,
+      current_period_end: stripeSubscription.current_period_end,
+      trial_start: stripeSubscription.trial_start,
+      trial_end: stripeSubscription.trial_end,
+    }));
+
     const priceId = stripeSubscription?.items?.data?.[0]?.price?.id ?? "";
 
     let plan = "FREE";
     if (priceId && PRICE_PLUS && priceId === PRICE_PLUS) plan = "PLUS";
     else if (priceId && PRICE_PRO && priceId === PRICE_PRO) plan = "PRO";
+
+    // Plan altijd FREE als subscription geannuleerd is
+    if (stripeSubscription.status === "canceled") plan = "FREE";
 
     let status = "ACTIVE";
     if (stripeSubscription.status === "trialing") status = "TRIALING";
@@ -114,26 +128,46 @@ Deno.serve(async (req: Request) => {
 
     const cps = stripeSubscription.current_period_start ? new Date(stripeSubscription.current_period_start * 1000).toISOString() : null;
     const cpe = stripeSubscription.current_period_end ? new Date(stripeSubscription.current_period_end * 1000).toISOString() : null;
+    const ts = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null;
+    const te = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null;
+    const cape = !!stripeSubscription.cancel_at_period_end;
 
-    const { error: updateError } = await supabaseAdmin
+    const payload = {
+      plan,
+      status,
+      current_period_start: cps,
+      current_period_end: cpe,
+      cancel_at_period_end: cape,
+      trial_start: ts,
+      trial_end: te,
+      updated_at: new Date().toISOString(),
+    };
+
+    console.log("[SYNC] Update payload:", JSON.stringify(payload));
+
+    // .select() teruggeven zodat we kunnen zien wat er werkelijk in de DB terechtkomt
+    const { data: updatedRow, error: updateError } = await supabaseAdmin
       .from("subscriptions")
-      .update({
-        plan,
-        status,
-        current_period_start: cps,
-        current_period_end: cpe,
-        cancel_at_period_end: !!stripeSubscription.cancel_at_period_end,
-        trial_start: stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null,
-        trial_end: stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("family_id", famId);
+      .update(payload)
+      .eq("family_id", famId)
+      .select("plan, status, current_period_start, current_period_end, cancel_at_period_end, trial_start, trial_end")
+      .maybeSingle();
 
     if (updateError) {
+      console.error("[SYNC] Update error:", updateError);
       return json(500, { error: "Failed to update subscription", message: updateError.message, version: VERSION });
     }
 
-    return json(200, { success: true, plan, status, version: VERSION });
+    console.log("[SYNC] Updated row:", JSON.stringify(updatedRow));
+
+    return json(200, {
+      success: true,
+      plan,
+      status,
+      stripe: { status: stripeSubscription.status, cancel_at_period_end: cape, cps, cpe, ts, te },
+      db: updatedRow,
+      version: VERSION,
+    });
   } catch (error: any) {
     console.error("[SYNC] Error:", error);
     return json(500, { error: error?.message ?? "Unknown error", version: VERSION });
