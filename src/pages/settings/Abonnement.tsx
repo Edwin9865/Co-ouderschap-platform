@@ -1,5 +1,5 @@
 // src/pages/settings/Abonnement.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
@@ -54,6 +54,8 @@ export function Abonnement() {
 
   // Separate state to prevent double-execution (replaces useRef)
   const [checkoutDone, setCheckoutDone] = useState(false);
+  const portalSyncDone = useRef(false);
+  const autoSyncDone = useRef(false);
 
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
@@ -136,9 +138,20 @@ export function Abonnement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success, canceled, sessionId]); // ✅ geen refreshFamily in deps
 
+  // Auto-sync op paginabezoek: haal verse Stripe-data op als er een actief abonnement is
+  useEffect(() => {
+    if (!currentFamily?.id || !subscription?.stripe_subscription_id || autoSyncDone.current) return;
+    autoSyncDone.current = true;
+    syncSubscription(currentFamily.id)
+      .then(() => refreshFamily?.())
+      .catch(() => {}); // Stille achtergrond-refresh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFamily?.id, subscription?.stripe_subscription_id]);
+
   // Portal return op web: sync subscription na terugkeer uit Stripe portal
   useEffect(() => {
-    if (portal !== 'true' || !currentFamily?.id) return;
+    if (portal !== 'true' || !currentFamily?.id || portalSyncDone.current) return;
+    portalSyncDone.current = true;
 
     setCompleting(true);
     syncSubscription(currentFamily.id)
@@ -149,7 +162,7 @@ export function Abonnement() {
         setTimeout(() => setSearchParams({}), 500);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [portal]);
+  }, [portal, currentFamily?.id]);
 
   // Deep link handler voor mobiel: checkout én portal terugkeer
   useEffect(() => {
