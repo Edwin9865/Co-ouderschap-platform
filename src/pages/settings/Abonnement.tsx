@@ -42,7 +42,7 @@ function formatDate(iso: string | null | undefined) {
 
 export function Abonnement() {
   const navigate = useNavigate();
-  const { subscription, currentFamily, refreshFamily } = useFamily();
+  const { subscription, currentFamily, refreshFamily, patchSubscription } = useFamily();
   const { user } = useAuth();
 
   const [loading, setLoading] = useState<string | null>(null);
@@ -146,7 +146,7 @@ export function Abonnement() {
     autoSyncDone.current = true;
     setAutoSyncing(true);
     syncSubscription(currentFamily.id)
-      .then(() => refreshFamily?.())
+      .then((result) => { if (result) patchSubscription(result); })
       .catch(() => {})
       .finally(() => setAutoSyncing(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +159,7 @@ export function Abonnement() {
 
     setCompleting(true);
     syncSubscription(currentFamily.id)
-      .then(() => refreshFamily?.())
+      .then((result) => { if (result) patchSubscription(result); })
       .catch((e) => {
         console.error('[Abonnement] portal sync failed:', e);
         setError(e instanceof Error ? e.message : 'Synchronisatie mislukt. Klik op Vernieuwen om het opnieuw te proberen.');
@@ -220,8 +220,8 @@ export function Abonnement() {
     setError(null);
     setLoading('sync');
     try {
-      await syncSubscription(currentFamily.id);
-      await refreshFamily?.();
+      const result = await syncSubscription(currentFamily.id);
+      if (result) patchSubscription(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Synchronisatie mislukt');
     } finally {

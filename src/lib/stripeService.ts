@@ -152,7 +152,17 @@ export async function createPortalSession(
   return data.url as string;
 }
 
-export async function syncSubscription(familyId: string): Promise<void> {
+export interface SyncResult {
+  plan: 'FREE' | 'PLUS' | 'PRO';
+  status: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE';
+  cancel_at_period_end: boolean;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  trial_start: string | null;
+  trial_end: string | null;
+}
+
+export async function syncSubscription(familyId: string): Promise<SyncResult | null> {
   if (!familyId) throw new Error('Missing familyId');
 
   const headers = await getAuthHeaders();
@@ -167,7 +177,22 @@ export async function syncSubscription(familyId: string): Promise<void> {
     throw new Error(getInvokeErrorMessage(error));
   }
 
-  console.log('[STRIPE] syncSubscription ok:', data);
+  console.log('[STRIPE] syncSubscription ok — stripe:', JSON.stringify(data?.stripe));
+  console.log('[STRIPE] syncSubscription ok — db:', JSON.stringify(data?.db));
+
+  // Geef de DB-data direct terug zodat de UI hem zonder select() kan gebruiken
+  const db = data?.db;
+  if (!db) return null;
+
+  return {
+    plan: (db.plan ?? 'FREE') as SyncResult['plan'],
+    status: (db.status ?? 'ACTIVE') as SyncResult['status'],
+    cancel_at_period_end: db.cancel_at_period_end ?? false,
+    current_period_start: db.current_period_start ?? null,
+    current_period_end: db.current_period_end ?? null,
+    trial_start: db.trial_start ?? null,
+    trial_end: db.trial_end ?? null,
+  };
 }
 
 export async function completeCheckout(sessionId: string): Promise<{ plan: string; status: string }> {

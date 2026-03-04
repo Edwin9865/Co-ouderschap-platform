@@ -17,6 +17,8 @@ interface FamilyContextType {
   selectFamily: (familyId: string) => void;
   clearHelperFamily: () => void;
   refreshFamily: () => Promise<void>;
+  /** Merge gedeeltelijke subscription-data direct in de context (bypass select) */
+  patchSubscription: (data: Partial<Subscription>) => void;
   canAccessFeature: (feature: 'export' | 'helpers' | 'history' | 'multiple_children') => boolean;
 }
 
@@ -148,6 +150,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const patchSubscription = (data: Partial<Subscription>) => {
+    setSubscription((prev) => (prev ? { ...prev, ...data } : null));
+  };
+
   const canAccessFeature = (feature: 'export' | 'helpers' | 'history' | 'multiple_children'): boolean => {
     const plan = subscription?.plan || 'FREE';
 
@@ -179,6 +185,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         selectFamily,
         clearHelperFamily,
         refreshFamily,
+        patchSubscription,
         canAccessFeature,
       }}
     >
