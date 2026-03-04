@@ -17,6 +17,7 @@ import {
   Link2Off,
   Calendar,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   PLANS,
@@ -156,7 +157,10 @@ export function Abonnement() {
     setCompleting(true);
     syncSubscription(currentFamily.id)
       .then(() => refreshFamily?.())
-      .catch((e) => console.error('[Abonnement] portal sync failed:', e))
+      .catch((e) => {
+        console.error('[Abonnement] portal sync failed:', e);
+        setError(e instanceof Error ? e.message : 'Synchronisatie mislukt. Klik op Vernieuwen om het opnieuw te proberen.');
+      })
       .finally(() => {
         setCompleting(false);
         setTimeout(() => setSearchParams({}), 500);
@@ -207,6 +211,20 @@ export function Abonnement() {
     return () => { listener.then((h) => h.remove()); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFamily?.id]);
+
+  const handleManualSync = async () => {
+    if (!currentFamily?.id) return;
+    setError(null);
+    setLoading('sync');
+    try {
+      await syncSubscription(currentFamily.id);
+      await refreshFamily?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Synchronisatie mislukt');
+    } finally {
+      setLoading(null);
+    }
+  };
 
   const handleUpgrade = async (priceId: string) => {
     setError(null);
@@ -403,23 +421,39 @@ export function Abonnement() {
               </p>
             </div>
 
-            <button
-              onClick={handleManageBilling}
-              disabled={loading === 'portal' || completing || !canManageBilling}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-            >
-              {loading === 'portal' ? (
-                <>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleManualSync}
+                disabled={loading !== null || completing}
+                title="Haal actuele abonnementsstatus op uit Stripe"
+                className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {loading === 'sync' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Openen...
-                </>
-              ) : (
-                <>
-                  <ExternalLink className="w-4 h-4" />
-                  Klantenportaal
-                </>
-              )}
-            </button>
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Vernieuwen
+              </button>
+
+              <button
+                onClick={handleManageBilling}
+                disabled={loading === 'portal' || completing || !canManageBilling}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {loading === 'portal' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Openen...
+                  </>
+                ) : (
+                  <>
+                    <ExternalLink className="w-4 h-4" />
+                    Klantenportaal
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Abonnementsdatums */}
