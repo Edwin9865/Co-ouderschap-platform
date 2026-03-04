@@ -94,14 +94,24 @@ function getInvokeErrorMessage(error: unknown): string {
   );
 }
 
-export async function createCheckoutSession(priceId: string, familyId: string): Promise<string> {
+export interface CheckoutResult {
+  url: string;
+  /** true als het een directe upgrade/downgrade was (geen Stripe Checkout nodig) */
+  updated: boolean;
+}
+
+export async function createCheckoutSession(
+  priceId: string,
+  familyId: string,
+  platform?: 'web' | 'mobile'
+): Promise<CheckoutResult> {
   if (!priceId) throw new Error('Missing priceId');
   if (!familyId) throw new Error('Missing familyId');
 
   const headers = await getAuthHeaders();
 
   const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
-    body: { priceId, familyId },
+    body: { priceId, familyId, platform: platform ?? 'web' },
     headers,
   });
 
@@ -114,7 +124,7 @@ export async function createCheckoutSession(priceId: string, familyId: string): 
     throw new Error('No checkout URL returned');
   }
 
-  return data.url as string;
+  return { url: data.url as string, updated: data.updated === true };
 }
 
 export async function createPortalSession(familyId: string): Promise<string> {

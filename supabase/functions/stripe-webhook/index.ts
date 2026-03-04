@@ -74,9 +74,12 @@ Deno.serve(async (req) => {
 
       const priceId = sub.items.data[0]?.price?.id ?? "";
 
+      // Als de subscription geannuleerd/verwijderd is → altijd FREE
       let plan: "FREE" | "PLUS" | "PRO" = "FREE";
-      if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
-      if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
+      if (sub.status !== "canceled") {
+        if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
+        if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
+      }
 
       let status = "ACTIVE";
       if (sub.status === "trialing") status = "TRIALING";

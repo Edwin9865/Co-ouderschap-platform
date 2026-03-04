@@ -1,6 +1,9 @@
 // src/pages/settings/Abonnement.tsx
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { App as CapApp } from '@capacitor/app';
 import { useFamily } from '../../contexts/FamilyContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -12,6 +15,8 @@ import {
   AlertCircle,
   Users,
   Link2Off,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   PLANS,
@@ -27,6 +32,11 @@ type ParentMember = {
   status: string;
   joined_at: string;
 };
+
+function formatDate(iso: string | null | undefined) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 export function Abonnement() {
   const navigate = useNavigate();
@@ -96,18 +106,24 @@ export function Abonnement() {
       return () => clearTimeout(t);
     }
 
-    if (success === 'true' && sessionId && !checkoutDone) {
+    if (success === 'true' && !checkoutDone) {
       setCheckoutDone(true);
       setError(null);
       setCompleting(true);
 
-      completeCheckout(sessionId)
-        .then(async () => {
-          if (refreshFamily) await refreshFamily();
-          await fetchLinkStatus();
-        })
+      const finish = async () => {
+        if (sessionId) {
+          // Nieuwe checkout: synchroniseer via complete-checkout
+          await completeCheckout(sessionId);
+        }
+        // Upgrade (geen sessionId) of na completeCheckout: refresh gezinsdata
+        if (refreshFamily) await refreshFamily();
+        await fetchLinkStatus();
+      };
+
+      finish()
         .catch((e) => {
-          console.error('[Abonnement] completeCheckout failed:', e);
+          console.error('[Abonnement] finish failed:', e);
           setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het afronden van de betaling');
         })
         .finally(() => {
@@ -117,6 +133,37 @@ export function Abonnement() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success, canceled, sessionId]); // ✅ geen refreshFamily in deps
+
+  // Deep link handler voor mobiel: Stripe redirect via com.coparenting.app://checkout?...
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const listener = CapApp.addListener('appUrlOpen', async ({ url }) => {
+      if (!url.startsWith('com.coparenting.app://checkout')) return;
+
+      await Browser.close().catch(() => {});
+
+      // Parseer params uit de deep link URL
+      const params = new URLSearchParams(url.split('?')[1] ?? '');
+      const successParam = params.get('success');
+      const canceledParam = params.get('canceled');
+      const sessionIdParam = params.get('session_id');
+
+      if (canceledParam) {
+        setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
+        setTimeout(() => setError(null), 4000);
+        return;
+      }
+
+      if (successParam === 'true') {
+        // Gebruik dezelfde search params flow als web, zodat het success-effect afhandelt
+        setSearchParams(sessionIdParam ? { success: 'true', session_id: sessionIdParam } : { success: 'true' });
+      }
+    });
+
+    return () => { listener.then((h) => h.remove()); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleUpgrade = async (priceId: string) => {
     setError(null);
@@ -139,11 +186,25 @@ export function Abonnement() {
     setLoading(priceId);
 
     try {
-      const checkoutUrl = await createCheckoutSession(priceId, currentFamily.id);
-      window.location.href = checkoutUrl;
+      const isNative = Capacitor.isNativePlatform();
+      const { url, updated } = await createCheckoutSession(priceId, currentFamily.id, isNative ? 'mobile' : 'web');
+
+      if (updated) {
+        // Directe upgrade/downgrade: trigger success-flow via search params
+        setSearchParams({ success: 'true' });
+        return;
+      }
+
+      if (isNative) {
+        // Mobiel: open Stripe in in-app browser (SFSafariViewController / Chrome Custom Tabs)
+        await Browser.open({ url });
+      } else {
+        window.location.href = url;
+      }
     } catch (e) {
       console.error('[Abonnement] createCheckoutSession failed:', e);
       setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het starten van de betaling');
+    } finally {
       setLoading(null);
     }
   };
@@ -283,11 +344,11 @@ export function Abonnement() {
       )}
 
       {hasPaidSubscription && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-4">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Beheer je abonnement</h3>
-              <p className="text-sm text-slate-700 mb-4">
+              <p className="text-sm text-slate-700">
                 Bekijk je facturen, wijzig je betaalmethode of annuleer via Stripe.
               </p>
             </div>
@@ -310,6 +371,43 @@ export function Abonnement() {
               )}
             </button>
           </div>
+
+          {/* Abonnementsdatums */}
+          {subscription && (
+            <div className="border-t border-slate-200 pt-4 space-y-2">
+              {subscription.status === 'TRIALING' && subscription.trial_end && (
+                <div className="flex items-center gap-2 text-sm text-blue-700">
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    <span className="font-medium">Trial loopt af op:</span>{' '}
+                    {formatDate(subscription.trial_end)} — daarna start je betaalde abonnement automatisch.
+                  </span>
+                </div>
+              )}
+
+              {subscription.status !== 'TRIALING' && subscription.current_period_start && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    <span className="font-medium">Huidige periode:</span>{' '}
+                    {formatDate(subscription.current_period_start)} t/m{' '}
+                    {formatDate(subscription.current_period_end)}
+                  </span>
+                </div>
+              )}
+
+              {subscription.cancel_at_period_end && (
+                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    <span className="font-medium">Opgezegd</span> — je abonnement blijft actief t/m{' '}
+                    <span className="font-medium">{formatDate(subscription.current_period_end)}</span>.
+                    Daarna ga je automatisch terug naar Gratis.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

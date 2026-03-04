@@ -27,7 +27,7 @@ interface FamilyMemberWithUser {
 }
 
 export function Koppelen() {
-  const { currentFamily, children, refreshFamily } = useFamily();
+  const { currentFamily, children, refreshFamily, subscription } = useFamily();
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [familyMembers, setFamilyMembers] = useState<FamilyMemberWithUser[]>([]);
@@ -335,6 +335,10 @@ export function Koppelen() {
 
   const partneredMembers = familyMembers.filter((m) => m.user_id !== user?.id);
 
+  const hasActivePaidSubscription =
+    (subscription?.plan === 'PLUS' || subscription?.plan === 'PRO') &&
+    (subscription?.status === 'ACTIVE' || subscription?.status === 'TRIALING');
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4 sm:px-0">
       <div>
@@ -567,14 +571,20 @@ export function Koppelen() {
                       Gekoppeld op {new Date(member.joined_at).toLocaleDateString('nl-NL')}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleUncouple(member.user_id, member.user.name)}
-                    disabled={loading}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
-                  >
-                    <Unlink className="w-4 h-4" />
-                    <span className="text-sm font-medium">Ontkoppelen</span>
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      onClick={() => handleUncouple(member.user_id, member.user.name)}
+                      disabled={loading || hasActivePaidSubscription}
+                      title={hasActivePaidSubscription ? 'Zeg eerst je abonnement op voordat je kunt ontkoppelen' : undefined}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      <Unlink className="w-4 h-4" />
+                      <span className="text-sm font-medium">Ontkoppelen</span>
+                    </button>
+                    {hasActivePaidSubscription && (
+                      <p className="text-xs text-amber-700">Zeg eerst je abonnement op</p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

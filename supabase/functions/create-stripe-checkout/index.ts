@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-02-27-create-checkout-safe-3";
+const VERSION = "v2026-03-04-upgrade-fix";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,6 +43,26 @@ async function requireUser(req: Request) {
 interface CheckoutRequest {
   priceId: string;
   familyId: string;
+  platform?: 'web' | 'mobile';
+}
+
+async function stripeGet(url: string, secretKey: string) {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+  });
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Stripe API error (${res.status}): ${typeof data === "string" ? data : JSON.stringify(data)}`
+    );
+  }
+  return data;
 }
 
 async function stripePostForm(url: string, secretKey: string, params: URLSearchParams) {
@@ -81,6 +101,7 @@ Deno.serve(async (req) => {
     const body = (await req.json()) as CheckoutRequest;
     const priceId = (body?.priceId ?? "").trim();
     const familyId = (body?.familyId ?? "").trim();
+    const isMobile = body?.platform === "mobile";
 
     if (!familyId) return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
     if (!priceId) return json(400, { error: "Missing priceId", version: VERSION });
@@ -114,16 +135,18 @@ Deno.serve(async (req) => {
     if (!familyMember) return json(403, { error: "Not a family member", message: "Je bent geen actief gezinslid van dit gezin.", version: VERSION });
     if (familyMember.role !== "PARENT") return json(403, { error: "Only parents can manage subscriptions", message: "Alleen ouders kunnen upgraden.", version: VERSION });
 
-    // Read existing subscription row (admin is fine)
+    // Read existing subscription row — include subscription_id and status for upgrade check
     const { data: subscriptionRow, error: subErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("stripe_customer_id")
+      .select("stripe_customer_id, stripe_subscription_id, status")
       .eq("family_id", familyId)
       .maybeSingle();
 
     if (subErr) return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
 
     let customerId = (subscriptionRow?.stripe_customer_id ?? "").trim();
+    const existingSubId = (subscriptionRow?.stripe_subscription_id ?? "").trim();
+    const existingStatus = (subscriptionRow?.status ?? "").toUpperCase();
 
     if (!customerId) {
       // Create Stripe customer
@@ -136,7 +159,7 @@ Deno.serve(async (req) => {
       customerId = (customer?.id ?? "").trim();
       if (!customerId) return json(500, { error: "Stripe customer creation failed", version: VERSION });
 
-      // ✅ Persist with admin client (bypass RLS)
+      // Persist with admin client (bypass RLS)
       const { error: upsertErr } = await supabaseAdmin
         .from("subscriptions")
         .upsert({ family_id: familyId, stripe_customer_id: customerId }, { onConflict: "family_id" });
@@ -150,9 +173,59 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ✅ FIX: correcte paden naar /instellingen/abonnement
-    const successUrl = `${APP_URL}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = `${APP_URL}/instellingen/abonnement?canceled=true`;
+    // Op mobiel gebruiken we een deep link zodat Capacitor de redirect ontvangt
+    const APP_SCHEME = "com.coparenting.app";
+    const directSuccessUrl = isMobile
+      ? `${APP_SCHEME}://checkout?success=true`
+      : `${APP_URL}/instellingen/abonnement?success=true`;
+
+    // ✅ UPGRADE / DOWNGRADE: als er al een actief abonnement is, update het direct — geen nieuwe checkout
+    if (existingSubId && (existingStatus === "ACTIVE" || existingStatus === "TRIALING")) {
+      // Haal huidige subscription op via Stripe om het item-ID te bepalen
+      const stripeSub = await stripeGet(
+        `https://api.stripe.com/v1/subscriptions/${existingSubId}`,
+        STRIPE_SECRET_KEY
+      );
+
+      const currentItemId = (stripeSub?.items?.data?.[0]?.id ?? "").trim();
+      const currentPriceId = (stripeSub?.items?.data?.[0]?.price?.id ?? "").trim();
+
+      if (!currentItemId) return json(500, { error: "Could not read current subscription item", version: VERSION });
+      if (currentPriceId === priceId) return json(409, { error: "Already on this plan", version: VERSION });
+
+      // Wissel van prijs op de bestaande subscription (pro-rata)
+      const updateParams = new URLSearchParams();
+      updateParams.set("items[0][id]", currentItemId);
+      updateParams.set("items[0][price]", priceId);
+      updateParams.set("proration_behavior", "create_prorations");
+
+      await stripePostForm(
+        `https://api.stripe.com/v1/subscriptions/${existingSubId}`,
+        STRIPE_SECRET_KEY,
+        updateParams
+      );
+
+      return json(200, { url: directSuccessUrl, updated: true, version: VERSION });
+    }
+
+    // ✅ NIEUW ABONNEMENT: controleer trial-eligibility (eenmalig per gezin)
+    let trialEligible = !existingSubId; // geen eerdere subscription → sowieso eligible
+    if (customerId && !trialEligible) {
+      // Dubbele check via Stripe: ooit een trial gehad?
+      const allSubs = await stripeGet(
+        `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=all&limit=5`,
+        STRIPE_SECRET_KEY
+      );
+      const hadTrial = (allSubs?.data ?? []).some((sub: any) => sub.trial_start !== null);
+      trialEligible = !hadTrial;
+    }
+
+    const successUrl = isMobile
+      ? `${APP_SCHEME}://checkout?success=true&session_id={CHECKOUT_SESSION_ID}`
+      : `${APP_URL}/instellingen/abonnement?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = isMobile
+      ? `${APP_SCHEME}://checkout?canceled=true`
+      : `${APP_URL}/instellingen/abonnement?canceled=true`;
 
     const sessionParams = new URLSearchParams();
     sessionParams.set("customer", customerId);
@@ -162,6 +235,14 @@ Deno.serve(async (req) => {
     sessionParams.set("success_url", successUrl);
     sessionParams.set("cancel_url", cancelUrl);
     sessionParams.set("allow_promotion_codes", "true");
+
+    if (trialEligible) {
+      sessionParams.set("subscription_data[trial_period_days]", "7");
+      sessionParams.set(
+        "subscription_data[trial_settings][end_behavior][missing_payment_method]",
+        "cancel"
+      );
+    }
 
     sessionParams.set("metadata[family_id]", familyId);
     sessionParams.set("metadata[user_id]", user.id);

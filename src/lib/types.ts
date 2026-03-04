@@ -92,10 +92,15 @@ export interface Database {
           id: string
           family_id: string
           plan: 'FREE' | 'PLUS' | 'PRO'
-          status: 'ACTIVE' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED'
+          status: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           valid_until: string | null
+          current_period_start: string | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          trial_start: string | null
+          trial_end: string | null
           created_at: string
           updated_at: string
         }
@@ -103,10 +108,15 @@ export interface Database {
           id?: string
           family_id: string
           plan?: 'FREE' | 'PLUS' | 'PRO'
-          status?: 'ACTIVE' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED'
+          status?: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           valid_until?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          trial_start?: string | null
+          trial_end?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -114,10 +124,15 @@ export interface Database {
           id?: string
           family_id?: string
           plan?: 'FREE' | 'PLUS' | 'PRO'
-          status?: 'ACTIVE' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED'
+          status?: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           valid_until?: string | null
+          current_period_start?: string | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          trial_start?: string | null
+          trial_end?: string | null
           created_at?: string
           updated_at?: string
         }
