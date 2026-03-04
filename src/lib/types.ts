@@ -147,6 +147,16 @@ export interface Database {
           created_by: string
           created_at: string
           updated_at: string
+          clothing_size: string | null
+          shoe_size: string | null
+          insurance: string | null
+          meds_allergy: string | null
+          vaccinations: string | null
+          social_security_num: string | null
+          passport_num: string | null
+          passport_location: string | null
+          other_info: string | null
+          accounts_notes: string | null
         }
         Insert: {
           id?: string
@@ -157,6 +167,16 @@ export interface Database {
           created_by: string
           created_at?: string
           updated_at?: string
+          clothing_size?: string | null
+          shoe_size?: string | null
+          insurance?: string | null
+          meds_allergy?: string | null
+          vaccinations?: string | null
+          social_security_num?: string | null
+          passport_num?: string | null
+          passport_location?: string | null
+          other_info?: string | null
+          accounts_notes?: string | null
         }
         Update: {
           id?: string
@@ -167,6 +187,16 @@ export interface Database {
           created_by?: string
           created_at?: string
           updated_at?: string
+          clothing_size?: string | null
+          shoe_size?: string | null
+          insurance?: string | null
+          meds_allergy?: string | null
+          vaccinations?: string | null
+          social_security_num?: string | null
+          passport_num?: string | null
+          passport_location?: string | null
+          other_info?: string | null
+          accounts_notes?: string | null
         }
       }
       events: {
