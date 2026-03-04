@@ -23,6 +23,7 @@ import {
   createCheckoutSession,
   createPortalSession,
   completeCheckout,
+  syncSubscription,
 } from '../../lib/stripeService';
 
 type ParentMember = {
@@ -57,6 +58,7 @@ export function Abonnement() {
   const success = searchParams.get('success');
   const canceled = searchParams.get('canceled');
   const sessionId = searchParams.get('session_id');
+  const portal = searchParams.get('portal');
 
   const hasFamilySelected = !!currentFamily?.id;
   const otherParents = parentMembers.filter((m) => m.user_id !== user?.id);
@@ -134,36 +136,64 @@ export function Abonnement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success, canceled, sessionId]); // ✅ geen refreshFamily in deps
 
-  // Deep link handler voor mobiel: Stripe redirect via com.coparenting.app://checkout?...
+  // Portal return op web: sync subscription na terugkeer uit Stripe portal
+  useEffect(() => {
+    if (portal !== 'true' || !currentFamily?.id) return;
+
+    setCompleting(true);
+    syncSubscription(currentFamily.id)
+      .then(() => refreshFamily?.())
+      .catch((e) => console.error('[Abonnement] portal sync failed:', e))
+      .finally(() => {
+        setCompleting(false);
+        setTimeout(() => setSearchParams({}), 500);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portal]);
+
+  // Deep link handler voor mobiel: checkout én portal terugkeer
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     const listener = CapApp.addListener('appUrlOpen', async ({ url }) => {
-      if (!url.startsWith('com.coparenting.app://checkout')) return;
+      if (!url.startsWith('com.coparenting.app://')) return;
 
       await Browser.close().catch(() => {});
 
-      // Parseer params uit de deep link URL
-      const params = new URLSearchParams(url.split('?')[1] ?? '');
-      const successParam = params.get('success');
-      const canceledParam = params.get('canceled');
-      const sessionIdParam = params.get('session_id');
+      const [path, query] = (url.split('://')[1] ?? '').split('?');
+      const params = new URLSearchParams(query ?? '');
 
-      if (canceledParam) {
-        setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
-        setTimeout(() => setError(null), 4000);
+      // Portal return
+      if (path === 'portal' && currentFamily?.id) {
+        setCompleting(true);
+        syncSubscription(currentFamily.id)
+          .then(() => refreshFamily?.())
+          .catch((e) => console.error('[Abonnement] portal sync failed:', e))
+          .finally(() => setCompleting(false));
         return;
       }
 
-      if (successParam === 'true') {
-        // Gebruik dezelfde search params flow als web, zodat het success-effect afhandelt
-        setSearchParams(sessionIdParam ? { success: 'true', session_id: sessionIdParam } : { success: 'true' });
+      // Checkout return
+      if (path === 'checkout') {
+        const successParam = params.get('success');
+        const canceledParam = params.get('canceled');
+        const sessionIdParam = params.get('session_id');
+
+        if (canceledParam) {
+          setError('Betaling geannuleerd. Je kunt het altijd later opnieuw proberen.');
+          setTimeout(() => setError(null), 4000);
+          return;
+        }
+
+        if (successParam === 'true') {
+          setSearchParams(sessionIdParam ? { success: 'true', session_id: sessionIdParam } : { success: 'true' });
+        }
       }
     });
 
     return () => { listener.then((h) => h.remove()); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentFamily?.id]);
 
   const handleUpgrade = async (priceId: string) => {
     setError(null);
@@ -225,11 +255,18 @@ export function Abonnement() {
     setLoading('portal');
 
     try {
-      const portalUrl = await createPortalSession(currentFamily.id);
-      window.location.href = portalUrl;
+      const isNative = Capacitor.isNativePlatform();
+      const portalUrl = await createPortalSession(currentFamily.id, isNative ? 'mobile' : 'web');
+
+      if (isNative) {
+        await Browser.open({ url: portalUrl });
+      } else {
+        window.location.href = portalUrl;
+      }
     } catch (e) {
       console.error('[Abonnement] createPortalSession failed:', e);
       setError(e instanceof Error ? e.message : 'Er is een fout opgetreden bij het openen van het klantenportaal');
+    } finally {
       setLoading(null);
     }
   };

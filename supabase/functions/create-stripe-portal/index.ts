@@ -42,6 +42,7 @@ async function requireUser(req: Request) {
 
 interface PortalRequest {
   familyId: string;
+  platform?: 'web' | 'mobile';
 }
 
 async function stripePostForm(url: string, secretKey: string, params: URLSearchParams) {
@@ -78,7 +79,8 @@ Deno.serve(async (req) => {
     const { user, error: authErr, authHeader } = await requireUser(req);
     if (authErr || !user) return json(401, { error: "Invalid JWT", message: authErr, version: VERSION });
 
-    const { familyId } = (await req.json()) as PortalRequest;
+    const { familyId, platform } = (await req.json()) as PortalRequest;
+    const isMobile = platform === "mobile";
     const famId = (familyId ?? "").trim();
     if (!famId) return json(400, { error: "Missing familyId", message: "Selecteer eerst een gezin.", version: VERSION });
 
@@ -114,10 +116,13 @@ Deno.serve(async (req) => {
     if (subErr) return json(500, { error: "Failed to read subscription", message: subErr.message, version: VERSION });
     if (!subscription?.stripe_customer_id) return json(404, { error: "No Stripe customer found", version: VERSION });
 
+    const returnUrl = isMobile
+      ? "com.coparenting.app://portal?returned=true"
+      : `${APP_URL}/instellingen/abonnement?portal=true`;
+
     const params = new URLSearchParams();
     params.set("customer", subscription.stripe_customer_id);
-    // ✅ FIX: correcte return_url naar /instellingen/abonnement
-    params.set("return_url", `${APP_URL}/instellingen/abonnement`);
+    params.set("return_url", returnUrl);
 
     const session = await stripePostForm("https://api.stripe.com/v1/billing_portal/sessions", STRIPE_SECRET_KEY, params);
     return json(200, { url: session.url, version: VERSION });

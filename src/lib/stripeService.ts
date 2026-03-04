@@ -127,13 +127,16 @@ export async function createCheckoutSession(
   return { url: data.url as string, updated: data.updated === true };
 }
 
-export async function createPortalSession(familyId: string): Promise<string> {
+export async function createPortalSession(
+  familyId: string,
+  platform?: 'web' | 'mobile'
+): Promise<string> {
   if (!familyId) throw new Error('Missing familyId');
 
   const headers = await getAuthHeaders();
 
   const { data, error } = await supabase.functions.invoke('create-stripe-portal', {
-    body: { familyId },
+    body: { familyId, platform: platform ?? 'web' },
     headers,
   });
 
