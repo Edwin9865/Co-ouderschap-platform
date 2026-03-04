@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-03-04-sync-diag";
+const VERSION = "v2026-03-04-sync-cancel-at";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +104,7 @@ Deno.serve(async (req: Request) => {
       id: stripeSubscription.id,
       status: stripeSubscription.status,
       cancel_at_period_end: stripeSubscription.cancel_at_period_end,
+      cancel_at: stripeSubscription.cancel_at,
       current_period_start: stripeSubscription.current_period_start,
       current_period_end: stripeSubscription.current_period_end,
       trial_start: stripeSubscription.trial_start,
@@ -130,7 +131,9 @@ Deno.serve(async (req: Request) => {
     const cpe = stripeSubscription.current_period_end ? new Date(stripeSubscription.current_period_end * 1000).toISOString() : null;
     const ts = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null;
     const te = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null;
-    const cape = !!stripeSubscription.cancel_at_period_end;
+    // Stripe gebruikt cancel_at_period_end voor normale opzeggingen,
+    // maar cancel_at (specifieke datum) voor trial-opzeggingen via de portal
+    const cape = !!stripeSubscription.cancel_at_period_end || !!stripeSubscription.cancel_at;
 
     const payload = {
       plan,

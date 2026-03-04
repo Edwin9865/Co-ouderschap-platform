@@ -25,6 +25,7 @@ import {
   createPortalSession,
   completeCheckout,
   syncSubscription,
+  type PlanDetails,
 } from '../../lib/stripeService';
 
 type ParentMember = {
@@ -53,6 +54,7 @@ export function Abonnement() {
 
   const [parentMembers, setParentMembers] = useState<ParentMember[]>([]);
   const [linkCheckLoading, setLinkCheckLoading] = useState(false);
+  const [confirmUpgrade, setConfirmUpgrade] = useState<{ priceId: string; plan: PlanDetails } | null>(null);
 
   // Separate state to prevent double-execution (replaces useRef)
   const [checkoutDone, setCheckoutDone] = useState(false);
@@ -227,6 +229,19 @@ export function Abonnement() {
     } finally {
       setLoading(null);
     }
+  };
+
+  const handleUpgradeClick = (priceId: string) => {
+    // Als er een actief/trial abonnement is → bevestiging tonen vóór directe upgrade
+    const isActiveOrTrialing = subscription?.status === 'ACTIVE' || subscription?.status === 'TRIALING';
+    if (hasPaidSubscription && isActiveOrTrialing) {
+      const plan = PLANS.find((p) => p.priceId === priceId);
+      if (plan) {
+        setConfirmUpgrade({ priceId, plan });
+        return;
+      }
+    }
+    handleUpgrade(priceId);
   };
 
   const handleUpgrade = async (priceId: string) => {
@@ -584,7 +599,7 @@ export function Abonnement() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleUpgrade(plan.priceId!)}
+                    onClick={() => handleUpgradeClick(plan.priceId!)}
                     disabled={
                       isLoading ||
                       loading !== null ||
@@ -620,6 +635,45 @@ export function Abonnement() {
           );
         })}
       </div>
+
+      {/* Bevestigingsdialoog bij upgrade/downgrade van bestaand abonnement */}
+      {confirmUpgrade && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Wijzigen naar {confirmUpgrade.plan.name}?
+            </h3>
+            <p className="text-sm text-gray-600">
+              Je wisselt naar het <strong>{confirmUpgrade.plan.name}</strong> plan voor{' '}
+              <strong>€{confirmUpgrade.plan.price.toFixed(2)}/maand</strong>.{' '}
+              {subscription?.status === 'TRIALING'
+                ? 'Je trial gaat direct over naar het nieuwe plan. Je wordt pas na je trial gefactureerd.'
+                : 'Je betaalt alleen het prijsverschil voor de resterende dagen van deze maand.'}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setConfirmUpgrade(null)}
+                disabled={loading !== null}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Annuleren
+              </button>
+              <button
+                onClick={() => {
+                  const { priceId } = confirmUpgrade;
+                  setConfirmUpgrade(null);
+                  handleUpgrade(priceId);
+                }}
+                disabled={loading !== null}
+                className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Bevestigen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

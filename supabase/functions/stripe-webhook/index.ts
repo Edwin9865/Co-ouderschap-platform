@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         stripe_subscription_id: sub.id,
         current_period_start: toIsoFromStripeSeconds(sub.current_period_start),
         current_period_end: toIsoFromStripeSeconds(sub.current_period_end),
-        cancel_at_period_end: !!sub.cancel_at_period_end,
+        cancel_at_period_end: !!sub.cancel_at_period_end || !!sub.cancel_at,
         trial_start: toIsoFromStripeSeconds(sub.trial_start),
         trial_end: toIsoFromStripeSeconds(sub.trial_end),
         updated_at: new Date().toISOString(),
