@@ -48,6 +48,7 @@ export function Abonnement() {
   const [loading, setLoading] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoSyncing, setAutoSyncing] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [parentMembers, setParentMembers] = useState<ParentMember[]>([]);
@@ -143,9 +144,11 @@ export function Abonnement() {
   useEffect(() => {
     if (!currentFamily?.id || !subscription?.stripe_subscription_id || autoSyncDone.current) return;
     autoSyncDone.current = true;
+    setAutoSyncing(true);
     syncSubscription(currentFamily.id)
       .then(() => refreshFamily?.())
-      .catch(() => {}); // Stille achtergrond-refresh
+      .catch(() => {})
+      .finally(() => setAutoSyncing(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFamily?.id, subscription?.stripe_subscription_id]);
 
@@ -459,6 +462,22 @@ export function Abonnement() {
           {/* Abonnementsdatums */}
           {subscription && (
             <div className="border-t border-slate-200 pt-4 space-y-2">
+              {autoSyncing && (
+                <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                  <span>Abonnementsstatus ophalen uit Stripe...</span>
+                </div>
+              )}
+
+              {!autoSyncing && subscription.status === 'CANCELLED' && (
+                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-gray-500" />
+                  <span>
+                    <span className="font-medium">Abonnement beëindigd</span> — je gebruikt nu het gratis plan.
+                  </span>
+                </div>
+              )}
+
               {subscription.status === 'TRIALING' && subscription.trial_end && !subscription.cancel_at_period_end && (
                 <div className="flex items-center gap-2 text-sm text-blue-700">
                   <Calendar className="w-4 h-4 flex-shrink-0" />
