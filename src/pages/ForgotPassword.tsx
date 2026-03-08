@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../lib/supabase';
 import { Logo } from '../components/Logo';
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -16,8 +17,12 @@ export function ForgotPassword() {
     setLoading(true);
 
     try {
+      const redirectTo = Capacitor.isNativePlatform()
+        ? 'com.coparenting.app://reset-password'
+        : `${window.location.origin}/reset-password`;
+
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo,
       });
 
       if (resetError) throw resetError;

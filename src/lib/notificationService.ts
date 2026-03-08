@@ -291,7 +291,9 @@ export class NotificationService {
         if (
           'requests_enabled' in updates ||
           'events_enabled' in updates ||
-          'logs_enabled' in updates
+          'logs_enabled' in updates ||
+          'subscription_notifications_enabled' in updates ||
+          'helper_notifications_enabled' in updates
         ) {
           if (data.browser_notifications_enabled) {
             this.setupRealtimeSubscriptions();
@@ -483,6 +485,92 @@ export class NotificationService {
         .subscribe();
 
       this.subscriptions.push(() => logsChannel.unsubscribe());
+    }
+
+    if (this.settings.subscription_notifications_enabled) {
+      const subscriptionChannel = supabase
+        .channel('subscription-notifications')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'subscriptions',
+          filter: `family_id=eq.${this.familyId}`,
+        }, (payload) => {
+          const newSub = payload.new as any;
+          const oldSub = payload.old as any;
+          if (newSub.plan !== oldSub.plan && (newSub.plan === 'PLUS' || newSub.plan === 'PRO')) {
+            this.showNotification(
+              'Abonnement geactiveerd',
+              `Het ${newSub.plan} abonnement is nu actief`,
+              '/instellingen/abonnement'
+            );
+          }
+        })
+        .subscribe();
+      this.subscriptions.push(() => subscriptionChannel.unsubscribe());
+    }
+
+    if (this.settings.helper_notifications_enabled) {
+      const helperRequestsChannel = supabase
+        .channel('helper-requests-notifications')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'helper_requests',
+          filter: `family_id=eq.${this.familyId}`,
+        }, () => {
+          this.showNotification(
+            'Nieuw hulpverlener verzoek',
+            'Een hulpverlener wil toegang tot jullie gezin',
+            '/hulpverleners'
+          );
+        })
+        .subscribe();
+
+      const helperMessagesChannel = supabase
+        .channel('helper-messages-notifications')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'helper_messages',
+          filter: `family_id=eq.${this.familyId}`,
+        }, (payload) => {
+          const msg = payload.new as any;
+          if (msg.sender_id !== this.userId) {
+            const isReply = !!msg.parent_message_id;
+            this.showNotification(
+              isReply ? 'Nieuw antwoord van hulpverlener' : 'Nieuw bericht van hulpverlener',
+              msg.subject || 'Nieuw bericht',
+              '/hulpverleners'
+            );
+          }
+        })
+        .subscribe();
+
+      const familyMembersChannel = supabase
+        .channel('family-helper-notifications')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'family_members',
+          filter: `family_id=eq.${this.familyId}`,
+        }, (payload) => {
+          const member = payload.new as any;
+          if (member.role === 'HELPER' && member.user_id !== this.userId) {
+            this.showNotification(
+              'Hulpverlener gekoppeld',
+              'Een nieuwe hulpverlener heeft toegang gekregen',
+              '/hulpverleners'
+            );
+          }
+        })
+        .subscribe();
+
+      this.subscriptions.push(
+        () => helperRequestsChannel.unsubscribe(),
+        () => helperMessagesChannel.unsubscribe(),
+        () => familyMembersChannel.unsubscribe(),
+      );
     }
   }
 

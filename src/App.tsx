@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { FamilyProvider } from "./contexts/FamilyContext";
@@ -45,10 +45,45 @@ import Contact from "./pages/Contact";
 import { AboutUs } from "./pages/AboutUs";
 
 import { StatusBar, Style } from "@capacitor/status-bar";
+import { App as CapApp } from "@capacitor/app";
 import { isAndroid, isNative } from "./lib/capacitor";
+import { supabase } from "./lib/supabase";
 
 // ✅ NEW: back button hook
 import { useBackButton } from "./lib/useBackButton";
+/**
+ * Handles auth deep links on native (password reset via email).
+ * Must be inside <BrowserRouter> to use useNavigate.
+ */
+function NativeAuthDeepLinkHandler() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isNative()) return;
+
+    const listenerPromise = CapApp.addListener("appUrlOpen", async ({ url }) => {
+      if (!url.startsWith("com.coparenting.app://reset-password")) return;
+
+      // Extract tokens from URL fragment: com.coparenting.app://reset-password#access_token=...
+      const fragment = url.split("#")[1] ?? "";
+      const params = new URLSearchParams(fragment);
+      const accessToken = params.get("access_token");
+      const refreshToken = params.get("refresh_token") ?? "";
+      const type = params.get("type");
+
+      if (accessToken && type === "recovery") {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        navigate("/reset-password");
+      }
+    });
+
+    return () => {
+      listenerPromise.then((h) => h.remove());
+    };
+  }, [navigate]);
+
+  return null;
+}
 
 /**
  * Root behavior:
@@ -88,6 +123,7 @@ function AppRoutes() {
   return (
     <AuthProvider>
       <FamilyProvider>
+        <NativeAuthDeepLinkHandler />
         <ScrollToTop />
         <ScrollToTopButton />
         <Routes>

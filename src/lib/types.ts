@@ -217,6 +217,9 @@ export interface Database {
           created_by: string
           created_at: string
           updated_at: string
+          reminder_enabled: boolean
+          reminder_minutes: number | null
+          reminder_sent_at: string | null
         }
         Insert: {
           id?: string
@@ -235,6 +238,9 @@ export interface Database {
           created_by: string
           created_at?: string
           updated_at?: string
+          reminder_enabled?: boolean
+          reminder_minutes?: number | null
+          reminder_sent_at?: string | null
         }
         Update: {
           id?: string
@@ -253,6 +259,9 @@ export interface Database {
           created_by?: string
           created_at?: string
           updated_at?: string
+          reminder_enabled?: boolean
+          reminder_minutes?: number | null
+          reminder_sent_at?: string | null
         }
       }
       log_entries: {
@@ -605,6 +614,8 @@ export interface Database {
           fcm_token: string | null
           created_at: string
           updated_at: string
+          subscription_notifications_enabled: boolean
+          helper_notifications_enabled: boolean
         }
         Insert: {
           id?: string
@@ -617,6 +628,8 @@ export interface Database {
           fcm_token?: string | null
           created_at?: string
           updated_at?: string
+          subscription_notifications_enabled?: boolean
+          helper_notifications_enabled?: boolean
         }
         Update: {
           id?: string
@@ -629,6 +642,8 @@ export interface Database {
           fcm_token?: string | null
           created_at?: string
           updated_at?: string
+          subscription_notifications_enabled?: boolean
+          helper_notifications_enabled?: boolean
         }
       }
     }

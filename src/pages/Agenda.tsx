@@ -45,6 +45,8 @@ export function Agenda() {
     child_id: '' as string,
     recurrence_rule: '' as string,
     recurrence_end_date: '',
+    reminder_enabled: false,
+    reminder_minutes: 15,
   });
 
   useEffect(() => {
@@ -148,7 +150,7 @@ export function Agenda() {
 
     setLoading(true);
     try {
-      await supabase.from('events').insert({
+      await (supabase.from('events') as any).insert({
         family_id: currentFamily.id,
         child_id: formData.child_id || null,
         type: formData.type,
@@ -160,6 +162,8 @@ export function Agenda() {
         recurrence_rule: formData.recurrence_rule || null,
         recurrence_end_date: formData.recurrence_end_date || null,
         created_by: user.id,
+        reminder_enabled: formData.reminder_enabled,
+        reminder_minutes: formData.reminder_enabled ? formData.reminder_minutes : null,
       });
 
       let childName = 'Familie';
@@ -213,6 +217,8 @@ export function Agenda() {
         child_id: '',
         recurrence_rule: '',
         recurrence_end_date: '',
+        reminder_enabled: false,
+        reminder_minutes: 15,
       });
     } finally {
       setLoading(false);
@@ -225,8 +231,7 @@ export function Agenda() {
 
     setLoading(true);
     try {
-      await supabase
-        .from('events')
+      await (supabase.from('events') as any)
         .update({
           child_id: formData.child_id || null,
           type: formData.type,
@@ -237,6 +242,8 @@ export function Agenda() {
           location: formData.location || null,
           recurrence_rule: formData.recurrence_rule || null,
           recurrence_end_date: formData.recurrence_end_date || null,
+          reminder_enabled: formData.reminder_enabled,
+          reminder_minutes: formData.reminder_enabled ? formData.reminder_minutes : null,
         })
         .eq('id', editingEvent.id);
 
@@ -252,6 +259,8 @@ export function Agenda() {
         child_id: '',
         recurrence_rule: '',
         recurrence_end_date: '',
+        reminder_enabled: false,
+        reminder_minutes: 15,
       });
     } finally {
       setLoading(false);
@@ -276,6 +285,8 @@ export function Agenda() {
         child_id: '',
         recurrence_rule: '',
         recurrence_end_date: '',
+        reminder_enabled: false,
+        reminder_minutes: 15,
       });
     } finally {
       setLoading(false);
@@ -319,6 +330,8 @@ export function Agenda() {
       child_id: event.child_id || '',
       recurrence_rule: event.recurrence_rule || '',
       recurrence_end_date: formatDateForInput(event.recurrence_end_date),
+      reminder_enabled: event.reminder_enabled || false,
+      reminder_minutes: event.reminder_minutes || 15,
     });
   };
 
@@ -753,6 +766,40 @@ export function Agenda() {
               />
             </div>
 
+            <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">Herinnering</p>
+                <p className="text-sm text-gray-600">Stuur een melding voor deze afspraak</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.reminder_enabled}
+                  onChange={(e) => setFormData({ ...formData, reminder_enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+              </label>
+            </div>
+            {formData.reminder_enabled && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Herinnering sturen</label>
+                <select
+                  value={formData.reminder_minutes}
+                  onChange={(e) => setFormData({ ...formData, reminder_minutes: Number(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                >
+                  <option value={5}>5 minuten van te voren</option>
+                  <option value={10}>10 minuten van te voren</option>
+                  <option value={15}>15 minuten van te voren</option>
+                  <option value={30}>30 minuten van te voren</option>
+                  <option value={60}>1 uur van te voren</option>
+                  <option value={120}>2 uur van te voren</option>
+                  <option value={1440}>1 dag van te voren</option>
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -912,6 +959,40 @@ export function Agenda() {
                     maxLength={200}
                   />
                 </div>
+
+                <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">Herinnering</p>
+                    <p className="text-sm text-gray-600">Stuur een melding voor deze afspraak</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.reminder_enabled}
+                      onChange={(e) => setFormData({ ...formData, reminder_enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-blue-600 transition-colors after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                  </label>
+                </div>
+                {formData.reminder_enabled && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Herinnering sturen</label>
+                    <select
+                      value={formData.reminder_minutes}
+                      onChange={(e) => setFormData({ ...formData, reminder_minutes: Number(e.target.value) })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                    >
+                      <option value={5}>5 minuten van te voren</option>
+                      <option value={10}>10 minuten van te voren</option>
+                      <option value={15}>15 minuten van te voren</option>
+                      <option value={30}>30 minuten van te voren</option>
+                      <option value={60}>1 uur van te voren</option>
+                      <option value={120}>2 uur van te voren</option>
+                      <option value={1440}>1 dag van te voren</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>

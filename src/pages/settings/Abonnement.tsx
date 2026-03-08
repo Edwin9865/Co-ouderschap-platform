@@ -127,6 +127,22 @@ export function Abonnement() {
         // Upgrade (geen sessionId) of na completeCheckout: refresh gezinsdata
         if (refreshFamily) await refreshFamily();
         await fetchLinkStatus();
+
+        // Notify co-parent about subscription activation
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && currentFamily?.id) {
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              familyId: currentFamily.id,
+              title: 'Abonnement geactiveerd',
+              body: 'Het abonnement is succesvol geactiveerd',
+              url: '/instellingen/abonnement',
+              excludeUserId: user?.id,
+            }),
+          }).catch(console.error);
+        }
       };
 
       finish()

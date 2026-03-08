@@ -11,23 +11,34 @@ import {
   Download,
   Settings,
   LogOut,
-  Menu,
   X,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Request } from '../lib/types';
 import { useBackButton } from '../lib/useBackButton';
 import { isAndroid } from '../lib/capacitor';
+
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  badge?: number;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut, familyMemberships } = useAuth();
   const { currentFamily, isParent, isHelper, isHelperMode, subscription, clearHelperFamily } = useFamily();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [menuSheetOpen, setMenuSheetOpen] = useState(false);
   const [openRequestsCount, setOpenRequestsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+
+  // Swipe-up detection — alleen op de drag-handle balk
+  const swipeStartY = useRef<number | null>(null);
+  const swipeStartX = useRef<number | null>(null);
 
   useBackButton();
 
@@ -49,25 +60,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     fetchOpenRequests();
 
-    const subscription = supabase
+    const sub = supabase
       .channel('requests_changes')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'requests',
-          filter: `family_id=eq.${currentFamily.id}`,
-        },
-        () => {
-          fetchOpenRequests();
-        }
+        { event: '*', schema: 'public', table: 'requests', filter: `family_id=eq.${currentFamily.id}` },
+        () => fetchOpenRequests()
       )
       .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { sub.unsubscribe(); };
   }, [currentFamily, user]);
 
   const fetchUnreadMessages = useCallback(async () => {
@@ -79,10 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       .eq('family_id', currentFamily.id)
       .is('parent_message_id', null);
 
-    if (!data) {
-      setUnreadMessagesCount(0);
-      return;
-    }
+    if (!data) { setUnreadMessagesCount(0); return; }
 
     const messagesWithReplies = await Promise.all(
       data.map(async (msg: any) => {
@@ -91,19 +90,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
           .select('id, sender_id, recipient_id, status, created_at, has_responded_users')
           .eq('parent_message_id', msg.id)
           .order('created_at', { ascending: true });
-
-        return {
-          ...msg,
-          replies: replies || [],
-        };
+        return { ...msg, replies: replies || [] };
       })
     );
 
     const actionableCount = messagesWithReplies.filter(message => {
       if (message.closed) return false;
-
       const isParentGroupMessage = message.recipient_id === null;
-
       let needsMyResponse = false;
       if (message.status === 'MOET_BEANTWOORDEN') {
         if (message.recipient_id === user.id) {
@@ -118,55 +111,35 @@ export function Layout({ children }: { children: React.ReactNode }) {
           needsMyResponse = !iHaveReplied;
         }
       }
-
       const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) => {
         if (r.status !== 'MOET_BEANTWOORDEN') return false;
-
-        if (isHelperMode && isParentGroupMessage) {
-          return false;
-        }
-
-        if (r.recipient_id === user.id) {
-          return true;
-        } else if (r.recipient_id === null && r.sender_id !== user.id && !isHelperMode) {
+        if (isHelperMode && isParentGroupMessage) return false;
+        if (r.recipient_id === user.id) return true;
+        else if (r.recipient_id === null && r.sender_id !== user.id && !isHelperMode) {
           const iHaveReplied = message.replies?.some((reply: any) => reply.sender_id === user.id);
           needsMyResponse = !iHaveReplied;
         }
         return false;
       });
-
       return needsMyResponse || hasRepliesThatNeedMyResponse;
     }).length;
 
     setUnreadMessagesCount(actionableCount);
   }, [currentFamily, user, isHelperMode]);
 
-  useEffect(() => {
-    fetchUnreadMessages();
-  }, [fetchUnreadMessages]);
+  useEffect(() => { fetchUnreadMessages(); }, [fetchUnreadMessages]);
 
   useEffect(() => {
     if (!currentFamily) return;
-
-    const subscription = supabase
+    const sub = supabase
       .channel('helper_messages_changes')
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'helper_messages',
-          filter: `family_id=eq.${currentFamily.id}`,
-        },
-        () => {
-          fetchUnreadMessages();
-        }
+        { event: '*', schema: 'public', table: 'helper_messages', filter: `family_id=eq.${currentFamily.id}` },
+        () => fetchUnreadMessages()
       )
       .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { sub.unsubscribe(); };
   }, [currentFamily, fetchUnreadMessages]);
 
   const handleSignOut = async () => {
@@ -183,28 +156,56 @@ export function Layout({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const navigation = isHelperMode
+  const isActive = (href: string) => location.pathname === href;
+
+  // Bottom nav - 5 main items
+  const bottomNavItems: NavItem[] = [
+    { name: 'Dashboard', href: '/dashboard', icon: Home, color: 'text-blue-500' },
+    { name: 'Kinderen', href: '/kinderen', icon: Users, color: 'text-purple-500' },
+    { name: 'Agenda', href: '/agenda', icon: Calendar, color: 'text-emerald-500' },
+    { name: 'Logboek', href: '/logboek', icon: BookOpen, color: 'text-amber-500' },
+    { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, color: 'text-rose-500', badge: openRequestsCount },
+  ];
+
+  // Full nav for sidebar (desktop) and bottom sheet (mobile)
+  const fullNavItems: NavItem[] = isHelperMode
     ? [
-        { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'Kinderen', href: '/kinderen', icon: Users },
-        { name: 'Agenda', href: '/agenda', icon: Calendar },
-        { name: 'Logboek', href: '/logboek', icon: BookOpen },
-        { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare },
-        { name: 'Vragen', href: '/vragen', icon: HelpCircle, badge: unreadMessagesCount },
-        { name: 'Instellingen', href: '/instellingen', icon: Settings },
+        { name: 'Dashboard', href: '/dashboard', icon: Home, color: 'text-blue-500' },
+        { name: 'Kinderen', href: '/kinderen', icon: Users, color: 'text-purple-500' },
+        { name: 'Agenda', href: '/agenda', icon: Calendar, color: 'text-emerald-500' },
+        { name: 'Logboek', href: '/logboek', icon: BookOpen, color: 'text-amber-500' },
+        { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, color: 'text-rose-500' },
+        { name: 'Vragen', href: '/vragen', icon: HelpCircle, color: 'text-teal-500', badge: unreadMessagesCount },
+        { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ]
     : [
-        { name: 'Dashboard', href: '/dashboard', icon: Home },
-        { name: 'Kinderen', href: '/kinderen', icon: Users },
-        { name: 'Agenda', href: '/agenda', icon: Calendar },
-        { name: 'Logboek', href: '/logboek', icon: BookOpen },
-        { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, badge: openRequestsCount },
-        { name: 'Hulpverleners', href: '/hulpverleners', icon: HelpCircle, badge: unreadMessagesCount },
-        { name: 'Export', href: '/export', icon: Download },
-        { name: 'Instellingen', href: '/instellingen', icon: Settings },
+        { name: 'Dashboard', href: '/dashboard', icon: Home, color: 'text-blue-500' },
+        { name: 'Kinderen', href: '/kinderen', icon: Users, color: 'text-purple-500' },
+        { name: 'Agenda', href: '/agenda', icon: Calendar, color: 'text-emerald-500' },
+        { name: 'Logboek', href: '/logboek', icon: BookOpen, color: 'text-amber-500' },
+        { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, color: 'text-rose-500', badge: openRequestsCount },
+        { name: 'Hulpverleners', href: '/hulpverleners', icon: HelpCircle, color: 'text-teal-500', badge: unreadMessagesCount },
+        { name: 'Export', href: '/export', icon: Download, color: 'text-indigo-500' },
+        { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ];
 
-  const isActive = (href: string) => location.pathname === href;
+  // Swipe-up op de drag-handle balk boven de bottom nav
+  const handleHandleTouchStart = (e: React.TouchEvent) => {
+    swipeStartY.current = e.touches[0].clientY;
+    swipeStartX.current = e.touches[0].clientX;
+  };
+
+  const handleHandleTouchEnd = (e: React.TouchEvent) => {
+    if (swipeStartY.current === null || swipeStartX.current === null) return;
+    const deltaY = swipeStartY.current - e.changedTouches[0].clientY;
+    const deltaX = Math.abs(e.changedTouches[0].clientX - (swipeStartX.current ?? 0));
+    // Omhoog veeg van minimaal 20px, overwegend verticaal → menu openen
+    if (deltaY > 20 && deltaX < 60) {
+      setMenuSheetOpen(true);
+    }
+    swipeStartY.current = null;
+    swipeStartX.current = null;
+  };
 
   if (!currentFamily && location.pathname !== '/families' && location.pathname !== '/helper-families') {
     return (
@@ -224,16 +225,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200" style={isAndroid() ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}>
+      {/* Top nav */}
+      <nav
+        className="bg-white border-b border-gray-200"
+        style={isAndroid() ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
+            {/* Logo */}
             <div className="flex items-center">
               <Link to="/dashboard" className="flex items-center space-x-3">
-                <img
-                  src="/logo.png"
-                  alt="CoParenting Logo"
-                  className="w-10 h-10 object-contain"
-                />
+                <img src="/logo.png" alt="CoParenting Logo" className="w-10 h-10 object-contain" />
                 <div className="flex flex-col items-center">
                   <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
                   <div className="text-[10px] text-gray-600 font-medium -mt-0.5">-samen opvoeden-</div>
@@ -241,14 +243,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
 
+            {/* Desktop: user info + logout */}
             <div className="hidden md:flex items-center space-x-1">
               {isHelperMode && currentFamily && (
                 <div className="mr-4 flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
                   <span className="font-semibold">{currentFamily.name}</span>
-                  <button
-                    onClick={handleBackToFamilies}
-                    className="underline hover:text-blue-900"
-                  >
+                  <button onClick={handleBackToFamilies} className="underline hover:text-blue-900">
                     Wijzigen
                   </button>
                 </div>
@@ -258,10 +258,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   {subscription.plan}
                 </div>
               )}
-              <Link
-                to="/account"
-                className="text-sm text-gray-600 hover:text-gray-900 mr-4"
-              >
+              <Link to="/account" className="text-sm text-gray-600 hover:text-gray-900 mr-4">
                 {user?.name}
               </Link>
               <button
@@ -272,52 +269,47 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2"
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+            {/* Mobile: plan badge only (no hamburger) */}
+            <div className="md:hidden flex items-center gap-2">
+              {subscription && !isHelperMode && (
+                <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">
+                  {subscription.plan}
+                </span>
+              )}
+              {isHelperMode && currentFamily && (
+                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
+                  {currentFamily.name}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </nav>
 
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
       <div className="flex">
-        <aside
-          className={`${
-            mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          } md:translate-x-0 fixed md:relative z-50 md:z-auto w-64 bg-white border-r border-gray-200 md:min-h-[calc(100vh-4rem)] transition-transform duration-300 ease-in-out`}
-        >
+        {/* Desktop sidebar with colored icons */}
+        <aside className="hidden md:block w-64 bg-white border-r border-gray-200 md:min-h-[calc(100vh-4rem)]">
           <nav className="p-3 space-y-0.5">
             {familyMemberships.length > 1 && !isHelperMode && (
               <Link
                 to="/families"
-                onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg"
               >
-                <Users className="w-5 h-5" />
+                <Users className="w-5 h-5 text-blue-400" />
                 <span>Gezinnen</span>
               </Link>
             )}
-            {navigation.map((item) => (
+            {fullNavItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
-                onClick={() => setMobileMenuOpen(false)}
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg relative ${
                   isActive(item.href)
                     ? 'bg-slate-100 text-slate-900 font-medium'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className={`w-5 h-5 ${item.color}`} />
                 <span>{item.name}</span>
                 {item.badge !== undefined && item.badge > 0 && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-amber-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
@@ -328,61 +320,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="md:hidden px-3 py-2 border-t border-gray-200">
+          <div className="px-3 py-2 border-t border-gray-200">
             <div className="space-y-1.5">
-              {isHelperMode && currentFamily && (
-                <div className="px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
-                  <div className="font-semibold mb-0.5">{currentFamily.name}</div>
-                  <button
-                    onClick={() => {
-                      handleBackToFamilies();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="underline hover:text-blue-900"
-                  >
-                    Wijzigen
-                  </button>
-                </div>
-              )}
-              {subscription && !isHelperMode && (
-                <div className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-medium rounded-lg">
-                  {subscription.plan}
-                </div>
-              )}
               <div className="px-3 py-1.5 text-sm text-gray-600">
                 Ingelogd als <span className="font-medium">{user?.name}</span>
               </div>
               <button
-                onClick={() => {
-                  handleSignOut();
-                  setMobileMenuOpen(false);
-                }}
+                onClick={handleSignOut}
                 className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg"
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-5 h-5 text-gray-400" />
                 <span>Uitloggen</span>
               </button>
             </div>
           </div>
         </aside>
 
-        <main className="flex-1 p-6 overflow-auto">
+        {/* Main content — extra bottom padding on mobile for bottom nav */}
+        <main className="flex-1 p-4 sm:p-6 pb-28 md:pb-6 overflow-auto">
           <div className="max-w-7xl mx-auto">{children}</div>
 
           <footer className="mt-12 pt-8 border-t border-gray-200">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
-                <Link to="/algemene-voorwaarden" className="hover:text-gray-900">
-                  Algemene Voorwaarden
-                </Link>
+                <Link to="/algemene-voorwaarden" className="hover:text-gray-900">Algemene Voorwaarden</Link>
                 <span className="text-gray-300">|</span>
-                <Link to="/privacybeleid" className="hover:text-gray-900">
-                  Privacybeleid
-                </Link>
+                <Link to="/privacybeleid" className="hover:text-gray-900">Privacybeleid</Link>
                 <span className="text-gray-300">|</span>
-                <Link to="/contact" className="hover:text-gray-900">
-                  Contact & Support
-                </Link>
+                <Link to="/contact" className="hover:text-gray-900">Contact & Support</Link>
               </div>
               <p className="text-center text-xs text-gray-500 mt-4">
                 © 2026 CoParenting. Alle rechten voorbehouden.
@@ -391,6 +356,130 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </footer>
         </main>
       </div>
+
+      {/* ── Mobile bottom nav ── */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {/* Drag handle — tik of veeg omhoog om het volledige menu te openen */}
+        <button
+          onClick={() => setMenuSheetOpen(true)}
+          onTouchStart={handleHandleTouchStart}
+          onTouchEnd={handleHandleTouchEnd}
+          className="w-full flex justify-center pt-2 pb-1 touch-none"
+          aria-label="Open menu"
+        >
+          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+        </button>
+
+        <div className="flex">
+          {bottomNavItems.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                to={item.href}
+                className="flex-1 flex flex-col items-center py-2 relative"
+              >
+                <div className="relative">
+                  <item.icon
+                    className={`w-6 h-6 transition-transform ${active ? 'scale-110' : 'scale-100'} ${active ? item.color : 'text-gray-400'}`}
+                  />
+                  {item.badge !== undefined && item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-rose-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={`text-[10px] mt-0.5 font-medium ${active ? item.color : 'text-gray-400'}`}
+                >
+                  {item.name}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* ── Mobile menu sheet (swipe up) ── */}
+      {menuSheetOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-50"
+            onClick={() => setMenuSheetOpen(false)}
+          />
+
+          {/* Sheet */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 shadow-2xl">
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+            </div>
+
+            {/* Close button */}
+            <div className="flex justify-end px-4 pb-1">
+              <button onClick={() => setMenuSheetOpen(false)} className="p-2 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="px-4 pb-8 space-y-1" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+              {familyMemberships.length > 1 && !isHelperMode && (
+                <Link
+                  to="/families"
+                  onClick={() => setMenuSheetOpen(false)}
+                  className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-xl"
+                >
+                  <Users className="w-5 h-5 text-blue-400" />
+                  <span className="font-medium">Gezinnen</span>
+                </Link>
+              )}
+
+              {fullNavItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setMenuSheetOpen(false)}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl relative ${
+                      active ? 'bg-slate-100' : 'hover:bg-gray-50'
+                    }`}
+                  >
+                    <item.icon className={`w-5 h-5 ${item.color}`} />
+                    <span className={`font-medium ${active ? 'text-slate-900' : 'text-gray-700'}`}>
+                      {item.name}
+                    </span>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="ml-auto bg-amber-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+
+              <div className="border-t border-gray-100 pt-2 mt-2">
+                {/* User info */}
+                <div className="px-4 py-2 text-sm text-gray-500">
+                  Ingelogd als <span className="font-medium text-gray-700">{user?.name}</span>
+                </div>
+
+                <button
+                  onClick={() => { handleSignOut(); setMenuSheetOpen(false); }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl"
+                >
+                  <LogOut className="w-5 h-5 text-gray-400" />
+                  <span className="font-medium">Uitloggen</span>
+                </button>
+              </div>
+            </nav>
+          </div>
+        </>
+      )}
     </div>
   );
 }

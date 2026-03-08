@@ -233,11 +233,28 @@ export function Hulpverleners() {
     if (!canUseHelpersFeature) return;
     if (!confirm('Weet je zeker dat je deze hulpverlener wilt goedkeuren?')) return;
 
+    const req = helperRequests.find(r => r.id === requestId);
+
     setLoading(true);
     try {
       await supabase.from('helper_requests').update({ status: 'APPROVED' }).eq('id', requestId);
       await fetchHelperRequests();
       await refreshFamily();
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && req) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            familyId: currentFamily!.id,
+            title: 'Hulpverlener verzoek goedgekeurd',
+            body: `${req.helper.name} heeft nu toegang`,
+            url: '/hulpverleners',
+            excludeUserId: user!.id,
+          }),
+        }).catch(console.error);
+      }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Fout bij goedkeuren verzoek');
     } finally {
@@ -320,6 +337,22 @@ export function Hulpverleners() {
       }
 
       await refreshFamily();
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            familyId: currentFamily.id,
+            title: 'Hulpverlener gekoppeld',
+            body: `Een hulpverlener is toegevoegd aan jullie gezin`,
+            url: '/hulpverleners',
+            excludeUserId: user.id,
+          }),
+        }).catch(console.error);
+      }
+
       setHelperCode('');
       setError('');
       alert('Hulpverlener succesvol toegevoegd!');
@@ -344,6 +377,21 @@ export function Hulpverleners() {
         message: newMessageData.message,
         recipient_id: newMessageData.recipient_id || null,
       });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && currentFamily) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            familyId: currentFamily.id,
+            title: 'Nieuw bericht',
+            body: newMessageData.subject,
+            url: '/hulpverleners',
+            excludeUserId: user.id,
+          }),
+        }).catch(console.error);
+      }
 
       await fetchMessages();
       setShowNewMessage(false);
@@ -418,6 +466,21 @@ export function Hulpverleners() {
             })
             .eq('id', parentMessageId);
         }
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && currentFamily) {
+        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            familyId: currentFamily.id,
+            title: 'Nieuw antwoord',
+            body: parentMessage.subject,
+            url: '/hulpverleners',
+            excludeUserId: user.id,
+          }),
+        }).catch(console.error);
       }
 
       await fetchMessages();

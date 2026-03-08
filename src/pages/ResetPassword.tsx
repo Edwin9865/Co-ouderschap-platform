@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Logo } from '../components/Logo';
-import { Lock, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { Lock, CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
 
 interface ValidationErrors {
   length?: string;
@@ -18,19 +18,43 @@ export function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [isReady, setIsReady] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState({ password: false, confirm: false });
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a valid recovery token
+    // 1. Legacy implicit flow: access_token in URL hash
     const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const type = hashParams.get('type');
-
-    if (!accessToken || type !== 'recovery') {
-      setError('Ongeldige of verlopen reset link. Vraag een nieuwe aan.');
+    if (hashParams.get('type') === 'recovery' && hashParams.get('access_token')) {
+      setIsReady(true);
+      return;
     }
+
+    // 2. Session already set (mobile: deep link handler called setSession before navigating here)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setIsReady(true);
+    });
+
+    // 3. PKCE flow: Supabase processes ?code= automatically and fires PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setIsReady(true);
+      }
+    });
+
+    // 4. Fallback: after 3s if still no session → invalid link
+    const timeout = setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        setError('Ongeldige of verlopen reset link. Vraag een nieuwe aan.');
+      }
+    }, 3000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const validatePassword = (password: string): ValidationErrors => {
@@ -115,6 +139,18 @@ export function ResetPassword() {
 
   const isPasswordValid = Object.keys(validatePassword(newPassword)).length === 0;
   const isFormValid = isPasswordValid && newPassword === confirmPassword && newPassword.length > 0;
+
+  // Wacht op sessie / auth event — toon laadindicator
+  if (!isReady && !error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-gray-500">
+          <Loader2 className="w-8 h-8 animate-spin" />
+          <p className="text-sm">Link verifiëren...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (
