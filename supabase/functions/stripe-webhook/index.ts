@@ -112,6 +112,22 @@ Deno.serve(async (req) => {
       }
     };
 
+    const notifyAdmin = async (type: string, data: Record<string, unknown>) => {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/send-admin-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SERVICE_ROLE}`,
+          },
+          body: JSON.stringify({ type, data }),
+        });
+      } catch (err) {
+        // Niet-kritiek: log fout maar stop webhook niet
+        console.warn("[WEBHOOK] Admin e-mail kon niet verstuurd worden:", err);
+      }
+    };
+
     switch (event.type) {
       // Best signals to keep DB correct:
       case "customer.subscription.created":
@@ -119,6 +135,33 @@ Deno.serve(async (req) => {
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
         await upsertFromSubscription(sub);
+
+        // Stuur admin-mail bij nieuw actief abonnement
+        if (event.type === "customer.subscription.created" && sub.status === "active") {
+          // Haal e-mail op van de Stripe klant
+          let customerEmail: string | null = null;
+          try {
+            const customer = await stripe.customers.retrieve(
+              typeof sub.customer === "string" ? sub.customer : sub.customer.id
+            );
+            if (!customer.deleted) customerEmail = customer.email ?? null;
+          } catch { /* negeer */ }
+
+          const familyId =
+            (sub.metadata?.family_id ?? "").trim() ||
+            (sub.items.data[0]?.price?.metadata?.family_id ?? "").trim();
+          const priceId = sub.items.data[0]?.price?.id ?? "";
+          let plan = "FREE";
+          if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
+          if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
+
+          await notifyAdmin("subscription", {
+            plan,
+            family_id: familyId,
+            customer_email: customerEmail,
+            status: sub.status,
+          });
+        }
         break;
       }
 

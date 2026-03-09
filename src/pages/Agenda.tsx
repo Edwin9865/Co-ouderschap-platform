@@ -54,6 +54,15 @@ export function Agenda() {
     fetchEvents();
   }, [currentFamily, selectedChild]);
 
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`agenda_events_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${currentFamily.id}` }, () => fetchEvents())
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
   const generateRecurringEvents = (baseEvent: Event, maxDate: Date): Event[] => {
     if (!baseEvent.recurrence_rule) return [baseEvent];
 

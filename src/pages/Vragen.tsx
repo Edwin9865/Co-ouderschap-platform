@@ -58,6 +58,15 @@ export function Vragen() {
     fetchMessages();
   }, [currentFamily, user]);
 
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`vragen_messages_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'helper_messages', filter: `family_id=eq.${currentFamily.id}` }, () => fetchMessages())
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
   const fetchMessages = async () => {
     if (!currentFamily || !user) return;
 

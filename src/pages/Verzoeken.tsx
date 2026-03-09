@@ -36,6 +36,16 @@ export function Verzoeken() {
     fetchParentCount();
   }, [currentFamily]);
 
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`verzoeken_requests_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequests())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'request_proposals', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequests())
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
   const fetchParentCount = async () => {
     if (!currentFamily) return;
 

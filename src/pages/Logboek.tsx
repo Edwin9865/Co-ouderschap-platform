@@ -109,6 +109,15 @@ export function Logboek() {
     fetchUploadQuota();
   }, [currentFamily, selectedChild]);
 
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`logboek_entries_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'log_entries', filter: `family_id=eq.${currentFamily.id}` }, () => fetchEntries())
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
   const fetchUploadQuota = async () => {
     if (!currentFamily) return;
     try {

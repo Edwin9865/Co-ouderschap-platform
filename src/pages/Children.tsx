@@ -80,6 +80,15 @@ export function Children() {
     fetchCreatorNames();
   }, [children]);
 
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`children_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'children', filter: `family_id=eq.${currentFamily.id}` }, () => refreshFamily())
+      .subscribe();
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
   // Sync accounts textarea when switching child or tab
   useEffect(() => {
     if (selectedChild) {

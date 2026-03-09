@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { UserCircle, Stethoscope } from 'lucide-react';
+import { UserCircle, Stethoscope, Mail } from 'lucide-react';
 import { Logo } from '../components/Logo';
 
 export function Register() {
@@ -11,6 +11,7 @@ export function Register() {
   const [accountType, setAccountType] = useState<'PARENT' | 'HELPER'>('PARENT');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const { signUp, session, loading: authLoading, user } = useAuth();
   const navigate = useNavigate();
 
@@ -33,8 +34,12 @@ export function Register() {
     setLoading(true);
 
     try {
-      await signUp(email, password, name, accountType);
-      navigate('/dashboard');
+      const { needsConfirmation } = await signUp(email, password, name, accountType);
+      if (needsConfirmation) {
+        setRegisteredEmail(email);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Registratie mislukt');
     } finally {
@@ -47,6 +52,36 @@ export function Register() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-lg text-gray-600">Laden...</div>
+      </div>
+    );
+  }
+
+  if (registeredEmail) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center">
+                <Mail className="w-8 h-8 text-slate-600" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-3">Bevestig je e-mail</h2>
+            <p className="text-gray-600 mb-2">
+              We hebben een verificatielink gestuurd naar:
+            </p>
+            <p className="font-medium text-slate-800 mb-6">{registeredEmail}</p>
+            <p className="text-sm text-gray-500 mb-6">
+              Klik op de link in de e-mail om je account te activeren. Controleer ook je spam-map.
+            </p>
+            <Link
+              to="/login"
+              className="block w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 font-medium text-center"
+            >
+              Naar inloggen
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

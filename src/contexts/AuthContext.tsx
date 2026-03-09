@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   rememberMe: boolean;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  signUp: (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => Promise<void>;
+  signUp: (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setRememberMe: (enabled: boolean) => Promise<void>;
@@ -146,6 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authError) throw authError;
     if (!authData.user) throw new Error('Registratie mislukt');
 
+    // Als email verificatie is ingeschakeld heeft Supabase geen actieve sessie na signup
+    const needsConfirmation = !authData.session;
+    if (needsConfirmation) {
+      return { needsConfirmation: true };
+    }
+
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     const { error: updateError } = await supabase
@@ -158,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await fetchUserData(authData.user.id);
+    return { needsConfirmation: false };
   };
 
   const signOut = async () => {
