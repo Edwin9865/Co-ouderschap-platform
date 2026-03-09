@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
     // Find events with reminders due (not yet sent, happening in the future, within the reminder window)
     const { data: events, error } = await supabase
       .from("events")
-      .select("id, family_id, title, start_at, reminder_minutes")
+      .select("id, family_id, title, start_at, reminder_minutes, child_id, description")
       .eq("reminder_enabled", true)
       .is("reminder_sent_at", null)
       .gt("start_at", new Date().toISOString());
@@ -102,6 +102,19 @@ Deno.serve(async (req: Request) => {
     });
 
     console.log(`Found ${eventsToNotify.length} events to remind`);
+
+    // Fetch child names for all events that have a child_id
+    const childIds = [...new Set(eventsToNotify.filter((e: any) => e.child_id).map((e: any) => e.child_id))];
+    let childNames: Record<string, string> = {};
+    if (childIds.length > 0) {
+      const { data: children } = await supabase
+        .from("children")
+        .select("id, first_name")
+        .in("id", childIds);
+      if (children) {
+        childNames = Object.fromEntries(children.map((c: any) => [c.id, c.first_name]));
+      }
+    }
 
     let successCount = 0;
 
@@ -132,10 +145,18 @@ Deno.serve(async (req: Request) => {
 
       const eventTime = new Date(event.start_at);
       const timeStr = eventTime.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
-      const dateStr = eventTime.toLocaleDateString("nl-NL", { day: "numeric", month: "short" });
+      const dateStr = eventTime.toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
       const minutesLabel = event.reminder_minutes >= 60
         ? `${event.reminder_minutes / 60} uur`
         : `${event.reminder_minutes} minuten`;
+
+      const childName: string | null = event.child_id ? (childNames[event.child_id] || null) : null;
+      const notificationTitle = childName
+        ? `Herinnering: ${event.title} — ${childName}`
+        : `Herinnering: ${event.title}`;
+      const bodyParts = [`${dateStr} om ${timeStr} (over ${minutesLabel})`];
+      if (event.description) bodyParts.push(event.description);
+      const notificationBody = bodyParts.join("\n");
 
       const accessToken = await getAccessToken();
 
@@ -145,19 +166,19 @@ Deno.serve(async (req: Request) => {
             message: {
               token: setting.fcm_token,
               notification: {
-                title: `Herinnering: ${event.title}`,
-                body: `Over ${minutesLabel} - ${dateStr} om ${timeStr}`,
+                title: notificationTitle,
+                body: notificationBody,
               },
               android: {
                 priority: "high",
                 notification: { channel_id: "fcm_default_channel", sound: "default" },
-                data: { url: "/agenda" },
+                data: { url: "/agenda", event_id: event.id, is_reminder: "true", child_name: childName || "", description: event.description || "" },
               },
               webpush: {
                 fcm_options: { link: "/agenda" },
                 notification: { icon: "/favicon.ico" },
               },
-              data: { url: "/agenda" },
+              data: { url: "/agenda", event_id: event.id, is_reminder: "true", child_name: childName || "", description: event.description || "" },
             },
           };
 

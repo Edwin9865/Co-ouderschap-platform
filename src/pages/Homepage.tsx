@@ -15,8 +15,6 @@ import {
   Star,
   Lock,
   Users,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
@@ -62,17 +60,27 @@ const globalStyles = `
 
   .cp-carousel-strip {
     display: flex;
-    transition: transform 0.55s cubic-bezier(0.45, 0, 0.15, 1);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .cp-dot {
-    width: 8px; height: 8px; border-radius: 99px;
-    background: #c8b89a;
-    border: none; cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 0;
+  .cp-carousel-fade {
+    transition: opacity 0.35s ease;
   }
-  .cp-dot.active { width: 28px; background: #4a6741; }
+
+  .cp-tab-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 14px; border-radius: 99px;
+    font-size: 13px; font-weight: 500;
+    border: none; cursor: pointer;
+    transition: all 0.22s ease;
+    background: transparent;
+    color: #6b7080;
+  }
+  .cp-tab-btn:hover { color: #2d3142; background: rgba(45,49,66,0.05); }
+  .cp-tab-btn.active {
+    background: #2d3142;
+    color: #ffffff;
+  }
 
   .cp-rule { border: none; border-top: 1px solid #e5dfd4; margin: 0; }
 
@@ -224,117 +232,173 @@ const screenshots = [
   { id: 4, title: "Hulpverleners Portaal", description: "Veilige toegang voor professionals met juiste rechten",  imageUrl: "/carousel/Hulpverleners.png" },
 ];
 
-/* ─── Carousel component ─── */
+/* ─── Phone carousel ─── */
+const PHONE_W  = 284;
+const FRAME_PX = 10;
+const SCREEN_W = PHONE_W - FRAME_PX * 2;
+const SCREEN_H = Math.round(SCREEN_W * (19.5 / 9));
+
 function ScreenshotCarousel() {
-  const [idx, setIdx]   = useState(0);
-  const [auto, setAuto] = useState(true);
+  const [idx, setIdx]         = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [auto, setAuto]       = useState(true);
 
   useEffect(() => {
     if (!auto) return;
-    const timer = setInterval(() => setIdx(p => (p + 1) % screenshots.length), 4200);
-    return () => clearInterval(timer);
+    const t = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => { setIdx(p => (p + 1) % screenshots.length); setVisible(true); }, 220);
+    }, 4600);
+    return () => clearInterval(t);
   }, [auto]);
 
-  const go   = (i: number) => { setIdx(i); setAuto(false); };
-  const prev = () => { setIdx(p => (p - 1 + screenshots.length) % screenshots.length); setAuto(false); };
-  const next = () => { setIdx(p => (p + 1) % screenshots.length); setAuto(false); };
-
-  const frameStyle: React.CSSProperties = {
-    background: tk.slate,
-    borderRadius: 24,
-    padding: "10px 10px 0",
-    boxShadow: "0 32px 80px rgba(45,49,66,0.25)",
+  const go = (i: number) => {
+    if (i === idx) return;
+    setAuto(false);
+    setVisible(false);
+    setTimeout(() => { setIdx(i); setVisible(true); }, 220);
   };
 
-  const slideAreaStyle: React.CSSProperties = {
-    borderRadius: "14px 14px 0 0",
-    overflow: "hidden",
-    background: "#f0ece4",
-    aspectRatio: "4/3",
-    position: "relative",
-  };
-
-  const arrowStyle = (side: "left" | "right"): React.CSSProperties => ({
-    position: "absolute",
-    [side]: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    width: 36,
-    height: 36,
-    borderRadius: "50%",
-    background: "rgba(255,255,255,0.92)",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-  });
+  const s        = screenshots[idx];
+  const hasImage = !!s.imageUrl && !s.imageUrl.startsWith("/api/");
 
   return (
-    <div>
-      <div style={frameStyle}>
-        {/* Traffic lights */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px 12px" }}>
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff6058", display: "block" }} />
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ffbd2e", display: "block" }} />
-          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#29c941", display: "block" }} />
-          <div style={{ flex: 1, background: "rgba(255,255,255,0.08)", borderRadius: 6, height: 22, marginLeft: 8 }} />
-        </div>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
 
-        {/* Slides */}
-        <div style={slideAreaStyle}>
-          <div className="cp-carousel-strip" style={{ transform: `translateX(-${idx * 100}%)` }}>
-            {screenshots.map(s => {
-              const hasImage = !!s.imageUrl && !s.imageUrl.startsWith("/api/");
-              return (
-                <div key={s.id} style={{ width: "100%", flexShrink: 0, aspectRatio: "4/3", background: "#e8e1d6" }}>
-                  {hasImage ? (
-                    <img
-                      src={s.imageUrl}
-                      alt={s.title}
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={e => {
-                        const el = e.currentTarget as HTMLImageElement;
-                        el.style.display = "none";
-                        const parent = el.parentElement;
-                        if (parent) {
-                          parent.innerHTML = `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#9a9080"><div style="font-size:40px">📸</div><span style="font-size:14px;font-weight:500">${s.title}</span></div>`;
-                        }
-                      }}
-                    />
-                  ) : (
-                    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, color: "#9a9080" }}>
-                      <Calendar size={36} />
-                      <span style={{ fontSize: 14, fontWeight: 500 }}>{s.title}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+      {/* ── Phone body ── */}
+      <div style={{
+        width: PHONE_W,
+        background: "linear-gradient(160deg, #2e3347 0%, #1c2030 100%)",
+        borderRadius: 52,
+        padding: FRAME_PX,
+        paddingTop: FRAME_PX + 2,
+        paddingBottom: FRAME_PX + 2,
+        boxShadow: [
+          "0 60px 100px rgba(28,32,48,0.38)",
+          "0 16px 36px rgba(28,32,48,0.22)",
+          "inset 0 1px 0 rgba(255,255,255,0.13)",
+          "inset 0 -1px 0 rgba(0,0,0,0.35)",
+        ].join(", "),
+        position: "relative" as const,
+      }}>
+        {/* Side buttons */}
+        {([
+          { side: "left",  top: 96,  h: 28 },
+          { side: "left",  top: 136, h: 56 },
+          { side: "right", top: 110, h: 64 },
+        ] as const).map((b, i) => (
+          <div key={i} style={{
+            position: "absolute",
+            [b.side]: -3,
+            top: b.top,
+            width: 3,
+            height: b.h,
+            background: "#3c4258",
+            borderRadius: b.side === "left" ? "2px 0 0 2px" : "0 2px 2px 0",
+          }} />
+        ))}
+
+        {/* ── Screen ── */}
+        <div style={{
+          width: SCREEN_W,
+          height: SCREEN_H,
+          borderRadius: 42,
+          overflow: "hidden",
+          background: "#f5f3ef",
+          position: "relative" as const,
+        }}>
+
+          {/* Status bar */}
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 46,
+            background: "rgba(250,248,244,0.96)",
+            backdropFilter: "blur(12px)",
+            zIndex: 2,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "0 20px",
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#1c2030", letterSpacing: "-0.2px" }}>9:41</span>
+            {/* Camera punch hole */}
+            <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#1c2030" }} />
+            {/* Signal + battery */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 1.5 }}>
+                {[4, 7, 10].map((h, i) => (
+                  <div key={i} style={{ width: 3, height: h, background: "#1c2030", borderRadius: 1 }} />
+                ))}
+              </div>
+              <div style={{
+                width: 22, height: 11,
+                border: "1.5px solid #1c2030", borderRadius: 3,
+                position: "relative", display: "flex", alignItems: "center", padding: "1.5px 2px",
+              }}>
+                <div style={{ width: "72%", height: "100%", background: "#1c2030", borderRadius: 1 }} />
+                <div style={{
+                  position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)",
+                  width: 3, height: 6, background: "#1c2030", borderRadius: 1,
+                }} />
+              </div>
+            </div>
           </div>
 
-          <button onClick={prev} aria-label="Vorige" style={arrowStyle("left")}>
-            <ChevronLeft size={18} color={tk.slate} />
-          </button>
-          <button onClick={next} aria-label="Volgende" style={arrowStyle("right")}>
-            <ChevronRight size={18} color={tk.slate} />
-          </button>
+          {/* Screenshot */}
+          <div
+            className="cp-carousel-fade"
+            style={{ width: "100%", height: "100%", opacity: visible ? 1 : 0 }}
+          >
+            {hasImage ? (
+              <img
+                src={s.imageUrl}
+                alt={s.title}
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
+                onError={e => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.style.display = "none";
+                  if (el.parentElement) {
+                    el.parentElement.innerHTML = `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#9a9080;padding-top:46px"><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' fill='none' stroke='currentColor' stroke-width='1.5' viewBox='0 0 24 24'><rect x='5' y='2' width='14' height='20' rx='2'/><circle cx='12' cy='17' r='1'/></svg><span style='font-size:11px;font-weight:500'>${s.title}</span></div>`;
+                  }
+                }}
+              />
+            ) : (
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "#9a9080", paddingTop: 46 }}>
+                <Calendar size={28} />
+                <span style={{ fontSize: 11, fontWeight: 500 }}>{s.title}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Home indicator */}
+          <div style={{
+            position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)",
+            width: 100, height: 4,
+            background: "rgba(28,32,48,0.2)", borderRadius: 2, zIndex: 2,
+          }} />
         </div>
       </div>
 
-      {/* Caption + dots */}
-      <div style={{ marginTop: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <div style={{ fontWeight: 500, color: tk.text, fontSize: 15 }}>{screenshots[idx].title}</div>
-          <div style={{ color: tk.muted, fontSize: 13, marginTop: 2 }}>{screenshots[idx].description}</div>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          {screenshots.map((_, i) => (
-            <button key={i} className={`cp-dot${i === idx ? " active" : ""}`} onClick={() => go(i)} aria-label={`Slide ${i + 1}`} />
-          ))}
-        </div>
+      {/* ── Tab navigation ── */}
+      <div style={{
+        marginTop: 28,
+        display: "flex", gap: 5, flexWrap: "wrap" as const,
+        background: "#f0ece4", borderRadius: 12, padding: 5,
+        maxWidth: PHONE_W + 60,
+        justifyContent: "center",
+      }}>
+        {screenshots.map((scr, i) => (
+          <button
+            key={scr.id}
+            className={`cp-tab-btn${i === idx ? " active" : ""}`}
+            onClick={() => go(i)}
+          >
+            {scr.title}
+          </button>
+        ))}
       </div>
+
+      {/* Description */}
+      <p style={{ margin: "10px 0 0", fontSize: 13, color: tk.muted, lineHeight: 1.55, maxWidth: PHONE_W + 60, textAlign: "center" as const }}>
+        {s.description}
+      </p>
     </div>
   );
 }
@@ -349,7 +413,7 @@ export function Homepage() {
       {/* ── HERO ── */}
       <section style={{ padding: "80px 0 96px", background: tk.cream }}>
         <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 32px" }}>
-          <div className="cp-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+          <div className="cp-hero-grid" style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 72, alignItems: "center" }}>
             <div>
               <p className="cp-fade-up" style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: tk.moss, margin: "0 0 20px" }}>
                 Co-ouderschap · Structuur · Rust

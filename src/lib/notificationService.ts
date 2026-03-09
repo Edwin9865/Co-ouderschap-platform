@@ -217,8 +217,9 @@ export class NotificationService {
         const title = payload.notification?.title || 'CoParenting App';
         const body = payload.notification?.body || '';
         const url = payload.data?.url || '/';
+        const isReminder = payload.data?.is_reminder === 'true';
 
-        this.showNotification(title, body, url);
+        this.showNotification(title, body, url, isReminder);
       });
     } catch (error) {
       console.error('Web push initialization error:', error);
@@ -574,7 +575,7 @@ export class NotificationService {
     }
   }
 
-  private showNotification(title: string, body: string, path: string) {
+  private showNotification(title: string, body: string, path: string, isReminder = false) {
     // On native, don't show browser notifications (handled by OS)
     if (isNative()) {
       return;
@@ -585,6 +586,28 @@ export class NotificationService {
     }
 
     try {
+      // Use ServiceWorker showNotification for reminders so we can add action buttons (snooze)
+      if (isReminder && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then((reg) => {
+          reg.showNotification(title, {
+            body,
+            icon: '/logo.png',
+            badge: '/logo.png',
+            tag: `reminder-${Date.now()}`,
+            requireInteraction: true,
+            // @ts-expect-error actions is supported in SW notifications but not in the TS types for NotificationOptions
+            actions: [
+              { action: 'snooze', title: 'Snooze 10 min' },
+              { action: 'open', title: 'Openen' },
+            ],
+            data: { url: path, is_reminder: 'true' },
+          });
+        }).catch((error) => {
+          console.error('Error showing SW notification:', error);
+        });
+        return;
+      }
+
       const notification = new Notification(title, {
         body,
         icon: '/logo.png',

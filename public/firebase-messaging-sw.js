@@ -15,14 +15,23 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('Received background message:', payload);
 
+  const isReminder = payload.data?.is_reminder === 'true';
   const notificationTitle = payload.notification?.title || 'Co-oudering App';
   const notificationOptions = {
     body: payload.notification?.body || '',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     data: payload.data || {},
-    tag: `coparenting-${Date.now()}`,
-    requireInteraction: false,
+    tag: isReminder
+      ? `reminder-${payload.data?.event_id || Date.now()}`
+      : `coparenting-${Date.now()}`,
+    requireInteraction: isReminder,
+    actions: isReminder
+      ? [
+          { action: 'snooze', title: 'Snooze 10 min' },
+          { action: 'open', title: 'Openen' },
+        ]
+      : [],
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
@@ -31,6 +40,34 @@ messaging.onBackgroundMessage((payload) => {
 self.addEventListener('notificationclick', (event) => {
   console.log('Notification clicked:', event);
   event.notification.close();
+
+  if (event.action === 'snooze') {
+    const title = event.notification.title;
+    const body = event.notification.body;
+    const data = event.notification.data || {};
+
+    // Reschedule the notification after 10 minutes
+    // Note: service workers may be suspended by the browser; works reliably when browser is open
+    event.waitUntil(
+      new Promise((resolve) => {
+        setTimeout(() => {
+          self.registration.showNotification(title, {
+            body,
+            icon: '/favicon.ico',
+            badge: '/favicon.ico',
+            data,
+            tag: `reminder-snooze-${Date.now()}`,
+            requireInteraction: true,
+            actions: [
+              { action: 'snooze', title: 'Snooze 10 min' },
+              { action: 'open', title: 'Openen' },
+            ],
+          }).then(resolve).catch(resolve);
+        }, 10 * 60 * 1000);
+      })
+    );
+    return;
+  }
 
   const urlToOpen = event.notification.data?.url || '/';
 
