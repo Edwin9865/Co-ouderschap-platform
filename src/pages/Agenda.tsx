@@ -137,9 +137,9 @@ export function Agenda() {
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
 
-    const allEvents = filteredData.flatMap(event =>
-      generateRecurringEvents(event, oneYearFromNow)
-    );
+    const allEvents = filteredData
+      .flatMap(event => generateRecurringEvents(event, oneYearFromNow))
+      .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
 
     setEvents(allEvents);
   };

@@ -282,7 +282,7 @@ export function Dashboard() {
     const allEvents = (eventsResult.data || [])
       .flatMap((event: Event) => generateRecurringEvents(event, twoMonthsFromNow, 10))
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
-      .slice(0, 5);
+      .slice(0, 3);
 
     setRecentEvents(allEvents);
     setRecentLogs((logsResult.data || []) as LogEntry[]);
