@@ -536,28 +536,31 @@ export function Dashboard() {
 
       <div className="space-y-4">
         {pendingCouplingRequests.length > 0 && (
-          <div className="bg-white/80 backdrop-blur-sm border border-blue-200 rounded-2xl p-5 shadow-sm">
-            <div className="flex items-start">
-              <Users className="w-5 h-5 text-blue-600 mt-0.5 mr-3 shrink-0" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 mb-1">Koppelverzoek van co-ouder</h3>
-                <p className="text-sm text-blue-800 mb-3">
-                  {pendingCouplingRequests[0].from_user?.name} wil met je koppelen. Ga naar instellingen om het verzoek te accepteren of af te wijzen.
-                </p>
-                <Link
-                  to="/instellingen/koppelen"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
-                >
-                  <Users className="w-4 h-4" />
-                  Bekijk koppelverzoek
-                </Link>
+          <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+            <div className="p-5" style={{ background: 'linear-gradient(135deg, rgba(219, 234, 254, 0.50) 0%, rgba(191, 219, 254, 0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+              <div className="flex items-start">
+                <Users className="w-5 h-5 text-blue-600 mt-0.5 mr-3 shrink-0" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-900 mb-1">Koppelverzoek van co-ouder</h3>
+                  <p className="text-sm text-blue-800 mb-3">
+                    {pendingCouplingRequests[0].from_user?.name} wil met je koppelen. Ga naar instellingen om het verzoek te accepteren of af te wijzen.
+                  </p>
+                  <Link
+                    to="/instellingen/koppelen"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm"
+                  >
+                    <Users className="w-4 h-4" />
+                    Bekijk koppelverzoek
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {(openRequests.length > 0 || unansweredMessages.length > 0) && (
-          <div className="bg-white/80 backdrop-blur-sm border border-amber-200 rounded-2xl p-5 shadow-sm">
+          <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5" style={{ background: 'linear-gradient(135deg, rgba(253, 230, 138, 0.50) 0%, rgba(252, 211, 77, 0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
             <div className="flex items-start">
               <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3 shrink-0" />
               <div className="flex-1">
@@ -585,10 +588,12 @@ export function Dashboard() {
               </div>
             </div>
           </div>
+          </div>
         )}
 
         {!hasCoupling && (
-          <div className="bg-white/80 backdrop-blur-sm border border-white/60 rounded-2xl p-5 shadow-sm">
+          <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.40) 0%, rgba(255,255,255,0.15) 60%, rgba(255,255,255,0.05) 100%)' }}>
             <div className="flex items-center gap-2 mb-2">
               <UserPlus className="w-5 h-5 text-slate-700" />
               <h3 className="text-base font-semibold text-gray-900">Co-ouder uitnodigen</h3>
@@ -608,6 +613,7 @@ export function Dashboard() {
                 {codeCopied ? 'Gekopieerd!' : 'Kopieer'}
               </button>
             </div>
+          </div>
           </div>
         )}
 

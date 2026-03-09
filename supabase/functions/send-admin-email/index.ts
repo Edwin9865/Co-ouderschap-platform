@@ -58,8 +58,13 @@ Deno.serve(async (req) => {
     let type: string;
     let data: Record<string, unknown>;
 
-    if (body.type === "INSERT" && body.record) {
-      // Supabase Database Webhook formaat (van auth.users INSERT)
+    if (
+      body.type === "UPDATE" &&
+      body.record &&
+      body.record.email_confirmed_at &&
+      !body.old_record?.email_confirmed_at
+    ) {
+      // Supabase Database Webhook: email is zojuist bevestigd
       const record = body.record;
       type = "registration";
       data = {
@@ -67,6 +72,12 @@ Deno.serve(async (req) => {
         name: record.raw_user_meta_data?.full_name ?? record.email,
         account_type: record.raw_user_meta_data?.account_type ?? "PARENT",
       };
+    } else if (body.type === "UPDATE" && body.record) {
+      // Andere UPDATE op auth.users — negeren
+      return new Response(JSON.stringify({ skipped: true }), { status: 200 });
+    } else if (body.type === "INSERT" && body.record) {
+      // INSERT wordt genegeerd — mail wordt pas na verificatie verstuurd
+      return new Response(JSON.stringify({ skipped: true }), { status: 200 });
     } else {
       // Eigen aanroep formaat (vanuit stripe-webhook)
       type = body.type;
