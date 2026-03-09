@@ -618,7 +618,7 @@ export function Dashboard() {
         )}
 
         {/* Agenda card */}
-        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+        <div className="relative z-10 rounded-2xl shadow-sm border-2 border-white/70">
           <div
             className="p-5"
             style={{ background: 'linear-gradient(135deg, rgba(255, 200, 130, 0.35) 0%, rgba(255, 225, 170, 0.15) 60%, rgba(255,255,255,0.05) 100%)' }}
@@ -663,7 +663,7 @@ export function Dashboard() {
                           <div className="text-xs text-gray-500 shrink-0 ml-2">{new Date(event.start_at).toLocaleDateString('nl-NL')}</div>
                         </div>
                       </div>
-                      <div className="hidden group-hover:block absolute left-0 right-0 top-full mt-2 p-4 bg-white rounded-xl shadow-xl border border-gray-200 z-10">
+                      <div className="hidden group-hover:block absolute left-0 right-0 top-full mt-2 p-4 bg-white rounded-xl shadow-xl border border-gray-200 z-50">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-medium">
                             {eventTypeLabels[event.type]}
@@ -720,7 +720,7 @@ export function Dashboard() {
         </div>
 
         {/* Logboek card */}
-        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+        <div className="relative z-10 rounded-2xl shadow-sm border-2 border-white/70">
           <div
             className="p-5"
             style={{ background: 'linear-gradient(135deg, rgba(140, 210, 175, 0.35) 0%, rgba(180, 230, 200, 0.15) 60%, rgba(255,255,255,0.05) 100%)' }}
@@ -767,7 +767,7 @@ export function Dashboard() {
                           </div>
                         </div>
                       </div>
-                      <div className="hidden group-hover:block absolute left-0 right-0 top-full mt-2 p-4 bg-white rounded-xl shadow-xl border border-gray-200 z-10">
+                      <div className="hidden group-hover:block absolute left-0 right-0 top-full mt-2 p-4 bg-white rounded-xl shadow-xl border border-gray-200 z-50">
                         <div className="flex items-center gap-2 mb-3">
                           <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-medium">
                             {categoryLabels[log.category]}
