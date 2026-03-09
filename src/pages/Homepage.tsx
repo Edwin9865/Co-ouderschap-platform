@@ -226,10 +226,16 @@ const globalStyles = `
 
 /* ─── Screenshot data ─── */
 const screenshots = [
-  { id: 1, title: "Gedeelde Agenda",       description: "Overzicht van alle afspraken, wissels en activiteiten", imageUrl: "/carousel/Agenda.png" },
-  { id: 2, title: "Verzoeken",             description: "Duidelijke communicatie zonder eindeloze discussies",    imageUrl: "/carousel/Verzoeken.png" },
-  { id: 3, title: "Digitaal Logboek",      description: "Bewaar gezondheids- en schoolinformatie op één plek",   imageUrl: "/carousel/Logboek.png" },
-  { id: 4, title: "Hulpverleners Portaal", description: "Veilige toegang voor professionals met juiste rechten",  imageUrl: "/carousel/Hulpverleners.png" },
+  { id:  1, title: "Dashboard",       description: "Alles in één oogopslag: agenda, logboek en openstaande verzoeken.",       imageUrl: "/carousel/dashboard.webp" },
+  { id:  2, title: "Agenda",          description: "Plan wissels, sport en afspraken. Met herinneringen en herhalingen.",      imageUrl: "/carousel/agenda.webp" },
+  { id:  3, title: "Logboek",         description: "Leg ontwikkelingen, gezondheid en bijzonderheden chronologisch vast.",     imageUrl: "/carousel/logboek.webp" },
+  { id:  4, title: "Verzoeken",       description: "Bespreek wijzigingen gestructureerd — zonder eindeloze appgesprekken.",   imageUrl: "/carousel/verzoeken.webp" },
+  { id:  5, title: "Kinderen",        description: "Beheer alle kinderen in het gezin met eigen kleur en profiel.",            imageUrl: "/carousel/kinderen.webp" },
+  { id:  6, title: "Kind­info",       description: "Verzekering, medicijnen, paspoort en maten op één veilige plek.",         imageUrl: "/carousel/kindinfo.webp" },
+  { id:  7, title: "Hulpverleners",   description: "Geef mediators of jeugdzorg veilig toegang om mee te kijken.",            imageUrl: "/carousel/hulpverlener.webp" },
+  { id:  8, title: "Artikelen",       description: "Praktische informatie en tips over co-ouderschap, direct in de app.",     imageUrl: "/carousel/artikelen.webp" },
+  { id:  9, title: "Export",          description: "Exporteer het volledige dossier als PDF voor rechtbank of school.",        imageUrl: "/carousel/export.webp" },
+  { id: 10, title: "Menu",            description: "Overzichtelijke navigatie naar alle onderdelen van de app.",               imageUrl: "/carousel/menu.webp" },
 ];
 
 /* ─── Phone carousel ─── */
@@ -308,39 +314,6 @@ function ScreenshotCarousel() {
           position: "relative" as const,
         }}>
 
-          {/* Status bar */}
-          <div style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 46,
-            background: "rgba(250,248,244,0.96)",
-            backdropFilter: "blur(12px)",
-            zIndex: 2,
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "0 20px",
-          }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#1c2030", letterSpacing: "-0.2px" }}>9:41</span>
-            {/* Camera punch hole */}
-            <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#1c2030" }} />
-            {/* Signal + battery */}
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 1.5 }}>
-                {[4, 7, 10].map((h, i) => (
-                  <div key={i} style={{ width: 3, height: h, background: "#1c2030", borderRadius: 1 }} />
-                ))}
-              </div>
-              <div style={{
-                width: 22, height: 11,
-                border: "1.5px solid #1c2030", borderRadius: 3,
-                position: "relative", display: "flex", alignItems: "center", padding: "1.5px 2px",
-              }}>
-                <div style={{ width: "72%", height: "100%", background: "#1c2030", borderRadius: 1 }} />
-                <div style={{
-                  position: "absolute", right: -4, top: "50%", transform: "translateY(-50%)",
-                  width: 3, height: 6, background: "#1c2030", borderRadius: 1,
-                }} />
-              </div>
-            </div>
-          </div>
-
           {/* Screenshot */}
           <div
             className="cp-carousel-fade"
@@ -350,17 +323,17 @@ function ScreenshotCarousel() {
               <img
                 src={s.imageUrl}
                 alt={s.title}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                 onError={e => {
                   const el = e.currentTarget as HTMLImageElement;
                   el.style.display = "none";
                   if (el.parentElement) {
-                    el.parentElement.innerHTML = `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#9a9080;padding-top:46px"><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' fill='none' stroke='currentColor' stroke-width='1.5' viewBox='0 0 24 24'><rect x='5' y='2' width='14' height='20' rx='2'/><circle cx='12' cy='17' r='1'/></svg><span style='font-size:11px;font-weight:500'>${s.title}</span></div>`;
+                    el.parentElement.innerHTML = `<div style="height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#9a9080"><svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' fill='none' stroke='currentColor' stroke-width='1.5' viewBox='0 0 24 24'><rect x='5' y='2' width='14' height='20' rx='2'/><circle cx='12' cy='17' r='1'/></svg><span style='font-size:11px;font-weight:500'>${s.title}</span></div>`;
                   }
                 }}
               />
             ) : (
-              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "#9a9080", paddingTop: 46 }}>
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, color: "#9a9080" }}>
                 <Calendar size={28} />
                 <span style={{ fontSize: 11, fontWeight: 500 }}>{s.title}</span>
               </div>
@@ -378,27 +351,35 @@ function ScreenshotCarousel() {
 
       {/* ── Tab navigation ── */}
       <div style={{
-        marginTop: 28,
-        display: "flex", gap: 5, flexWrap: "wrap" as const,
-        background: "#f0ece4", borderRadius: 12, padding: 5,
+        marginTop: 24,
+        display: "flex", gap: 4, flexWrap: "wrap" as const,
+        background: "#f0ece4", borderRadius: 12, padding: 4,
         maxWidth: PHONE_W + 60,
         justifyContent: "center",
       }}>
         {screenshots.map((scr, i) => (
           <button
             key={scr.id}
-            className={`cp-tab-btn${i === idx ? " active" : ""}`}
             onClick={() => go(i)}
+            title={scr.title}
+            style={{
+              width: 28, height: 28, borderRadius: 8, border: "none",
+              cursor: "pointer", fontSize: 11, fontWeight: 600,
+              transition: "all 0.22s ease",
+              background: i === idx ? "#2d3142" : "transparent",
+              color: i === idx ? "#ffffff" : "#9a9080",
+            }}
           >
-            {scr.title}
+            {i + 1}
           </button>
         ))}
       </div>
 
-      {/* Description */}
-      <p style={{ margin: "10px 0 0", fontSize: 13, color: tk.muted, lineHeight: 1.55, maxWidth: PHONE_W + 60, textAlign: "center" as const }}>
-        {s.description}
-      </p>
+      {/* Title + Description */}
+      <div style={{ marginTop: 10, maxWidth: PHONE_W + 60, textAlign: "center" as const }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: tk.slate, marginBottom: 3 }}>{s.title}</div>
+        <p style={{ margin: 0, fontSize: 13, color: tk.muted, lineHeight: 1.55 }}>{s.description}</p>
+      </div>
     </div>
   );
 }

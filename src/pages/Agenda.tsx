@@ -414,7 +414,7 @@ export function Agenda() {
     const days = [];
 
     for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 bg-gray-50" />);
+      days.push(<div key={`empty-${i}`} className="min-h-24 bg-white/10" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -424,8 +424,8 @@ export function Agenda() {
       days.push(
         <div
           key={day}
-          className={`h-24 border border-gray-200 p-2 overflow-y-auto ${
-            isToday ? 'bg-blue-50' : 'bg-white'
+          className={`min-h-24 p-1.5 overflow-y-auto ${
+            isToday ? 'bg-blue-50/60' : 'bg-white/20'
           }`}
         >
           <div className={`text-sm font-semibold mb-1 ${isToday ? 'text-blue-600' : 'text-gray-700'}`}>
@@ -439,14 +439,14 @@ export function Agenda() {
                 <div
                   key={event.id}
                   onClick={isParent ? () => handleEditClick(event) : undefined}
-                  className={`text-xs p-1 rounded truncate transition-opacity ${isParent ? 'cursor-pointer hover:opacity-80' : ''}`}
+                  className={`text-xs p-1 rounded w-full transition-opacity ${isParent ? 'cursor-pointer hover:opacity-80' : ''}`}
                   style={colors ? {
                     backgroundColor: colors.backgroundColor,
-                  } : { backgroundColor: '#f1f5f9' }}
+                  } : { backgroundColor: 'rgba(241,245,249,0.8)' }}
                   title={`${event.title} - ${new Date(event.start_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}`}
                 >
-                  <div className="font-medium truncate">{event.title}</div>
-                  {child && <div style={colors ? { color: colors.color } : undefined}>{child.first_name}</div>}
+                  <div className="font-medium break-words leading-tight">{event.title}</div>
+                  {child && <div className="break-words" style={colors ? { color: colors.color } : undefined}>{child.first_name}</div>}
                 </div>
               );
             })}
@@ -456,11 +456,11 @@ export function Agenda() {
     }
 
     return (
-      <div className="-mx-4 sm:mx-0 bg-white sm:rounded-lg border-y sm:border border-gray-200 p-4">
+      <div className="-mx-4 sm:mx-0 sm:rounded-2xl border-y sm:border border-white/50 bg-white/25 backdrop-blur-sm p-4">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={previousMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/40 rounded-lg transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -469,15 +469,15 @@ export function Agenda() {
           </h2>
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/40 rounded-lg transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-px bg-gray-200">
+        <div className="grid grid-cols-7 gap-px bg-white/30 rounded-xl overflow-hidden">
           {dayNames.map(day => (
-            <div key={day} className="bg-gray-100 p-2 text-center text-sm font-semibold text-gray-700">
+            <div key={day} className="bg-white/40 p-2 text-center text-sm font-semibold text-gray-700">
               {day}
             </div>
           ))}
