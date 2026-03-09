@@ -9,3 +9,47 @@ html {
 body {
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
+
+.dashboard-bg {
+  background-image: url('/background/background-mobiel.png');
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+@media (min-width: 768px) {
+  .dashboard-bg {
+    background-image: url('/background/background-web.png');
+  }
+}
+
+/* ── Global glass card effect ── */
+/* Targets standard content cards (border-gray-100/200 + rounded, or shadow + rounded) */
+/* Inputs typically use border-gray-300 so they are not affected */
+.bg-white.border.border-gray-200.rounded-lg,
+.bg-white.border.border-gray-200.rounded-xl,
+.bg-white.border.border-gray-200.rounded-2xl,
+.bg-white.border.border-gray-100.rounded-lg,
+.bg-white.border.border-gray-100.rounded-xl,
+.bg-white.border.border-gray-100.rounded-2xl,
+div.bg-white.shadow-sm.rounded-lg,
+div.bg-white.shadow-sm.rounded-xl,
+div.bg-white.shadow-sm.rounded-2xl,
+div.bg-white.shadow.rounded-lg,
+div.bg-white.shadow.rounded-xl,
+div.bg-white.shadow.rounded-2xl {
+  background: rgba(255, 255, 255, 0.50) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(255, 255, 255, 0.65) !important;
+}
+
+/* Inner sections / list items */
+div.bg-gray-50.rounded-lg,
+div.bg-gray-50.rounded-xl,
+div.bg-gray-50.rounded-2xl {
+  background: rgba(255, 255, 255, 0.30) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}

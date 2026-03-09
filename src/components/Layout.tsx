@@ -209,7 +209,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   if (!currentFamily && location.pathname !== '/families' && location.pathname !== '/helper-families') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="dashboard-bg min-h-screen bg-cover bg-top bg-fixed flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">Geen gezin geselecteerd</h2>
           <button
@@ -224,27 +224,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="dashboard-bg min-h-screen bg-cover bg-top bg-fixed">
       {/* Top nav */}
       <nav
-        className="bg-white border-b border-gray-200"
+        className="bg-transparent border-b border-white/10"
         style={isAndroid() ? { paddingTop: 'env(safe-area-inset-top)' } : undefined}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center">
-              <Link to="/dashboard" className="flex items-center space-x-3">
-                <img src="/logo.png" alt="CoParenting Logo" className="w-10 h-10 object-contain" />
-                <div className="flex flex-col items-center">
-                  <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
-                  <div className="text-[10px] text-gray-600 font-medium -mt-0.5">-samen opvoeden-</div>
-                </div>
-              </Link>
-            </div>
+          <div className="relative flex items-center justify-center h-16 md:justify-start">
+            {/* Logo — centered on mobile, left on desktop */}
+            <Link to="/dashboard" className="flex items-center space-x-3">
+              <img src="/logo.png" alt="CoParenting Logo" className="w-10 h-10 object-contain" />
+              <div className="flex flex-col items-center">
+                <div className="text-lg font-semibold text-gray-900 leading-tight">CoParenting</div>
+                <div className="text-[10px] text-gray-600 font-medium -mt-0.5">-samen opvoeden-</div>
+              </div>
+            </Link>
 
             {/* Desktop: user info + logout */}
-            <div className="hidden md:flex items-center space-x-1">
+            <div className="hidden md:flex items-center space-x-1 ml-auto">
               {isHelperMode && currentFamily && (
                 <div className="mr-4 flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
                   <span className="font-semibold">{currentFamily.name}</span>
@@ -254,30 +252,30 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               )}
               {subscription && !isHelperMode && (
-                <div className="mr-4 px-3 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">
+                <div className="mr-4 px-3 py-1 bg-white/40 text-slate-700 text-xs font-medium rounded-full border border-white/50">
                   {subscription.plan}
                 </div>
               )}
-              <Link to="/account" className="text-sm text-gray-600 hover:text-gray-900 mr-4">
+              <Link to="/account" className="text-sm text-gray-700 hover:text-gray-900 mr-4">
                 {user?.name}
               </Link>
               <button
                 onClick={handleSignOut}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+                className="p-2 text-gray-700 hover:text-gray-900 hover:bg-white/20 rounded-lg"
               >
                 <LogOut className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Mobile: plan badge only (no hamburger) */}
-            <div className="md:hidden flex items-center gap-2">
+            {/* Mobile: plan badge — absolute right */}
+            <div className="md:hidden absolute right-0 flex items-center gap-2">
               {subscription && !isHelperMode && (
-                <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-full">
+                <span className="px-2 py-1 bg-white/40 text-slate-700 text-xs font-medium rounded-full border border-white/50">
                   {subscription.plan}
                 </span>
               )}
               {isHelperMode && currentFamily && (
-                <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-lg border border-blue-200">
+                <span className="px-2 py-1 bg-blue-50/70 text-blue-700 text-xs font-medium rounded-lg border border-blue-200/50">
                   {currentFamily.name}
                 </span>
               )}
@@ -288,12 +286,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex">
         {/* Desktop sidebar with colored icons */}
-        <aside className="hidden md:block w-64 bg-white border-r border-gray-200 md:min-h-[calc(100vh-4rem)]">
+        <aside className="hidden md:block w-64 bg-white/10 backdrop-blur-md border-r border-white/20 md:min-h-[calc(100vh-4rem)]">
           <nav className="p-3 space-y-0.5">
             {familyMemberships.length > 1 && !isHelperMode && (
               <Link
                 to="/families"
-                className="flex items-center space-x-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg"
+                className="flex items-center space-x-3 px-4 py-2.5 text-gray-800 hover:bg-white/25 rounded-lg"
               >
                 <Users className="w-5 h-5 text-blue-400" />
                 <span>Gezinnen</span>
@@ -305,8 +303,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 to={item.href}
                 className={`flex items-center space-x-3 px-4 py-2.5 rounded-lg relative ${
                   isActive(item.href)
-                    ? 'bg-slate-100 text-slate-900 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-white/40 text-slate-900 font-medium'
+                    : 'text-gray-800 hover:bg-white/25'
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${item.color}`} />
@@ -320,7 +318,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          <div className="px-3 py-2 border-t border-gray-200">
+          <div className="px-3 py-2 border-t border-white/20">
             <div className="space-y-1.5">
               <div className="px-3 py-1.5 text-sm text-gray-600">
                 Ingelogd als <span className="font-medium">{user?.name}</span>
@@ -340,7 +338,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-4 sm:p-6 pb-28 md:pb-6 overflow-auto">
           <div className="max-w-7xl mx-auto">{children}</div>
 
-          <footer className="mt-12 pt-8 border-t border-gray-200">
+          <footer className="mt-12 pt-8 border-t border-white/20">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-600">
                 <Link to="/algemene-voorwaarden" className="hover:text-gray-900">Algemene Voorwaarden</Link>
@@ -359,7 +357,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       {/* ── Mobile bottom nav ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
+        className="md:hidden fixed bottom-0 left-0 right-0 bg-white/10 backdrop-blur-md border-t border-white/20 z-40"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {/* Drag handle — tik of veeg omhoog om het volledige menu te openen */}
@@ -370,7 +368,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           className="w-full flex justify-center pt-2 pb-1 touch-none"
           aria-label="Open menu"
         >
-          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          <div className="w-10 h-1.5 bg-white rounded-full shadow-sm" />
         </button>
 
         <div className="flex">
@@ -413,10 +411,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           />
 
           {/* Sheet */}
-          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl z-50 shadow-2xl">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl rounded-t-2xl z-50 shadow-2xl border-t border-white/30">
             {/* Drag handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+              <div className="w-12 h-1.5 bg-white/70 rounded-full" />
             </div>
 
             {/* Close button */}
@@ -431,7 +429,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <Link
                   to="/families"
                   onClick={() => setMenuSheetOpen(false)}
-                  className="flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-xl"
+                  className="flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-white/30 rounded-xl"
                 >
                   <Users className="w-5 h-5 text-blue-400" />
                   <span className="font-medium">Gezinnen</span>
@@ -446,7 +444,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     to={item.href}
                     onClick={() => setMenuSheetOpen(false)}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-xl relative ${
-                      active ? 'bg-slate-100' : 'hover:bg-gray-50'
+                      active ? 'bg-white/40' : 'hover:bg-white/25'
                     }`}
                   >
                     <item.icon className={`w-5 h-5 ${item.color}`} />
@@ -462,7 +460,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 );
               })}
 
-              <div className="border-t border-gray-100 pt-2 mt-2">
+              <div className="border-t border-white/30 pt-2 mt-2">
                 {/* User info */}
                 <div className="px-4 py-2 text-sm text-gray-500">
                   Ingelogd als <span className="font-medium text-gray-700">{user?.name}</span>
@@ -470,7 +468,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
                 <button
                   onClick={() => { handleSignOut(); setMenuSheetOpen(false); }}
-                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-xl"
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-800 hover:bg-white/25 rounded-xl"
                 >
                   <LogOut className="w-5 h-5 text-gray-400" />
                   <span className="font-medium">Uitloggen</span>
