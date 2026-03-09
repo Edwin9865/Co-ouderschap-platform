@@ -95,6 +95,7 @@ export interface Database {
           status: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
+          subscriber_user_id: string | null
           valid_until: string | null
           current_period_start: string | null
           current_period_end: string | null
@@ -111,6 +112,7 @@ export interface Database {
           status?: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscriber_user_id?: string | null
           valid_until?: string | null
           current_period_start?: string | null
           current_period_end?: string | null
@@ -127,6 +129,7 @@ export interface Database {
           status?: 'ACTIVE' | 'TRIALING' | 'CANCELLED' | 'PAST_DUE' | 'EXPIRED' | 'INCOMPLETE'
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
+          subscriber_user_id?: string | null
           valid_until?: string | null
           current_period_start?: string | null
           current_period_end?: string | null

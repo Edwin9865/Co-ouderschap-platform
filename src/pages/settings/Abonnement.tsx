@@ -17,7 +17,6 @@ import {
   Link2Off,
   Calendar,
   AlertTriangle,
-  RefreshCw,
 } from 'lucide-react';
 import {
   PLANS,
@@ -71,6 +70,13 @@ export function Abonnement() {
   const isLinked = hasFamilySelected && otherParents.length > 0;
   const canManageBilling = hasFamilySelected && isLinked;
 
+  // Subscription ownership: only the user who started the subscription may manage/change it
+  const isSubscriptionOwner =
+    !subscription?.subscriber_user_id || subscription.subscriber_user_id === user?.id;
+  const subscriberName = isSubscriptionOwner
+    ? null
+    : (parentMembers.find((m) => m.user_id === subscription?.subscriber_user_id) ? 'je co-ouder' : 'je co-ouder');
+
   const fetchLinkStatus = async () => {
     if (!currentFamily?.id || !user?.id) {
       setParentMembers([]);
@@ -123,8 +129,12 @@ export function Abonnement() {
         if (sessionId) {
           // Nieuwe checkout: synchroniseer via complete-checkout
           await completeCheckout(sessionId);
+        } else if (currentFamily?.id) {
+          // Directe upgrade/downgrade: Stripe is al bijgewerkt, sync naar Supabase
+          const synced = await syncSubscription(currentFamily.id);
+          if (synced) patchSubscription(synced);
         }
-        // Upgrade (geen sessionId) of na completeCheckout: refresh gezinsdata
+        // Refresh gezinsdata (inclusief subscription)
         if (refreshFamily) await refreshFamily();
         await fetchLinkStatus();
 
@@ -342,72 +352,76 @@ export function Abonnement() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Abonnement</h1>
-        <p className="text-gray-600">Kies het plan dat bij jullie past</p>
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">Abonnement</h1>
+        <p className="text-slate-700">Kies het plan dat bij jullie past</p>
       </div>
 
       {!hasFamilySelected && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-          <Users className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-amber-900 font-semibold">Selecteer eerst een gezin</h3>
-            <p className="text-amber-800 text-sm mt-1">
-              Abonnementen zijn gekoppeld aan een gezin. Maak een gezin aan of selecteer een bestaand gezin voordat je
-              kunt upgraden.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => navigate('/families')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800"
-              >
-                <Users className="w-4 h-4" />
-                Naar gezinnen
-              </button>
-              <Link
-                to="/dashboard"
-                className="px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100"
-              >
-                Terug naar dashboard
-              </Link>
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(253,230,138,0.50) 0%, rgba(252,211,77,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <Users className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-amber-900 font-semibold">Selecteer eerst een gezin</h3>
+              <p className="text-amber-800 text-sm mt-1">
+                Abonnementen zijn gekoppeld aan een gezin. Maak een gezin aan of selecteer een bestaand gezin voordat je
+                kunt upgraden.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => navigate('/families')}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-700 text-white hover:bg-amber-800"
+                >
+                  <Users className="w-4 h-4" />
+                  Naar gezinnen
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="px-3 py-2 rounded-xl border border-amber-300 text-amber-900 hover:bg-amber-100/50"
+                >
+                  Terug naar dashboard
+                </Link>
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {hasFamilySelected && !isLinked && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-          <Link2Off className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-amber-900 font-semibold">Gezin nog niet gekoppeld</h3>
-            <p className="text-amber-800 text-sm mt-1">
-              Je kunt pas upgraden als er een co-ouder is gekoppeld. Er moeten 2 ouders in{' '}
-              <code>family_members</code> staan met status <b>ACTIVE</b>.
-            </p>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => navigate('/instellingen/koppelen')}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800"
-              >
-                <Users className="w-4 h-4" />
-                Naar koppelen
-              </button>
-              <button
-                onClick={fetchLinkStatus}
-                disabled={linkCheckLoading}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-300 text-amber-900 hover:bg-amber-100 disabled:opacity-50"
-              >
-                {linkCheckLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Controleren...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Opnieuw controleren
-                  </>
-                )}
-              </button>
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(253,230,138,0.50) 0%, rgba(252,211,77,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <Link2Off className="w-5 h-5 text-amber-700 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-amber-900 font-semibold">Gezin nog niet gekoppeld</h3>
+              <p className="text-amber-800 text-sm mt-1">
+                Je kunt pas upgraden als er een co-ouder is gekoppeld. Er moeten 2 ouders in{' '}
+                <code>family_members</code> staan met status <b>ACTIVE</b>.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => navigate('/instellingen/koppelen')}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-700 text-white hover:bg-amber-800"
+                >
+                  <Users className="w-4 h-4" />
+                  Naar koppelen
+                </button>
+                <button
+                  onClick={fetchLinkStatus}
+                  disabled={linkCheckLoading}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-300 text-amber-900 hover:bg-amber-100/50 disabled:opacity-50"
+                >
+                  {linkCheckLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Controleren...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Opnieuw controleren
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -415,65 +429,75 @@ export function Abonnement() {
 
       {/* ✅ Spinner banner: alleen tijdens verwerking */}
       {success && completing && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <Loader2 className="w-5 h-5 text-green-600 animate-spin flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-green-900 font-semibold">Betaling verwerkt!</h3>
-            <p className="text-green-800 text-sm mt-1">We ronden je abonnement nu af...</p>
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(187,247,208,0.50) 0%, rgba(134,239,172,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <Loader2 className="w-5 h-5 text-green-600 animate-spin flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-green-900 font-semibold">Betaling verwerkt!</h3>
+              <p className="text-green-800 text-sm mt-1">We ronden je abonnement nu af...</p>
+            </div>
           </div>
         </div>
       )}
 
       {/* ✅ Bevestiging banner: alleen na succesvolle afronding */}
       {success && !completing && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
-            <p className="text-green-800 text-sm mt-1">Je abonnement is succesvol geactiveerd.</p>
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(187,247,208,0.50) 0%, rgba(134,239,172,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-green-900 font-semibold">Bedankt voor je abonnement!</h3>
+              <p className="text-green-800 text-sm mt-1">Je abonnement is succesvol geactiveerd.</p>
+            </div>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-red-900 font-semibold">Fout</h3>
-            <p className="text-red-800 text-sm mt-1">{error}</p>
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(254,202,202,0.50) 0%, rgba(252,165,165,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-red-900 font-semibold">Fout</h3>
+              <p className="text-red-800 text-sm mt-1">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hasPaidSubscription && !isSubscriptionOwner && (
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+          <div className="p-5 flex items-start gap-3" style={{ background: 'linear-gradient(135deg, rgba(219,234,254,0.55) 0%, rgba(191,219,254,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
+            <Crown className="w-5 h-5 text-blue-700 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-blue-900 font-semibold">Abonnement beheerd door {subscriberName}</h3>
+              <p className="text-blue-800 text-sm mt-1">
+                Het abonnement is afgesloten door {subscriberName}. Alleen {subscriberName} kan het abonnement wijzigen, upgraden of annuleren.
+              </p>
+            </div>
           </div>
         </div>
       )}
 
       {hasPaidSubscription && (
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 space-y-4">
+        <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
+        <div className="p-6 space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Beheer je abonnement</h3>
               <p className="text-sm text-slate-700">
-                Bekijk je facturen, wijzig je betaalmethode of annuleer via Stripe.
+                {isSubscriptionOwner
+                  ? 'Bekijk je facturen, wijzig je betaalmethode of annuleer via Stripe.'
+                  : `Dit abonnement wordt beheerd door ${subscriberName}.`}
               </p>
             </div>
 
+            {isSubscriptionOwner && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleManualSync}
-                disabled={loading !== null || completing}
-                title="Haal actuele abonnementsstatus op uit Stripe"
-                className="flex items-center gap-2 px-3 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                {loading === 'sync' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                Vernieuwen
-              </button>
-
               <button
                 onClick={handleManageBilling}
                 disabled={loading === 'portal' || completing || !canManageBilling}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap font-medium"
               >
                 {loading === 'portal' ? (
                   <>
@@ -483,11 +507,12 @@ export function Abonnement() {
                 ) : (
                   <>
                     <ExternalLink className="w-4 h-4" />
-                    Klantenportaal
+                    Beheerportaal
                   </>
                 )}
               </button>
             </div>
+            )}
           </div>
 
           {/* Abonnementsdatums */}
@@ -501,7 +526,7 @@ export function Abonnement() {
               )}
 
               {!autoSyncing && subscription.status === 'CANCELLED' && (
-                <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600 rounded-xl px-3 py-2 border border-white/50" style={{ background: 'rgba(255,255,255,0.35)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
                   <AlertCircle className="w-4 h-4 flex-shrink-0 text-gray-500" />
                   <span>
                     <span className="font-medium">Abonnement beëindigd</span> — je gebruikt nu het gratis plan.
@@ -531,7 +556,7 @@ export function Abonnement() {
               )}
 
               {subscription.cancel_at_period_end && (
-                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2 text-sm text-amber-800 rounded-xl px-3 py-2 border border-amber-300/60" style={{ background: 'rgba(253,230,138,0.40)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}>
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                   <span>
                     <span className="font-medium">Opgezegd</span> —{' '}
@@ -546,6 +571,7 @@ export function Abonnement() {
             </div>
           )}
         </div>
+        </div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -553,16 +579,23 @@ export function Abonnement() {
           const isActive = currentPlan === plan.id;
           const isLoading = loading === plan.priceId;
 
+          const cardBorderClass = plan.popular
+            ? 'border-blue-500/80'
+            : isActive
+            ? 'border-green-500/80'
+            : 'border-white/70 hover:border-blue-400/70';
+
+          const cardGradient = plan.popular
+            ? 'linear-gradient(135deg, rgba(219,234,254,0.55) 0%, rgba(191,219,254,0.25) 60%, rgba(255,255,255,0.05) 100%)'
+            : isActive
+            ? 'linear-gradient(135deg, rgba(187,247,208,0.55) 0%, rgba(134,239,172,0.25) 60%, rgba(255,255,255,0.05) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.50) 0%, rgba(255,255,255,0.25) 60%, rgba(255,255,255,0.05) 100%)';
+
           return (
             <div
               key={plan.id}
-              className={`relative rounded-lg border-2 transition-all ${
-                plan.popular
-                  ? 'border-blue-600 shadow-lg'
-                  : isActive
-                  ? 'border-green-600 bg-green-50'
-                  : 'border-gray-200 bg-white hover:border-blue-400 hover:shadow-md'
-              }`}
+              className={`relative rounded-2xl border-2 shadow-sm transition-all ${cardBorderClass}`}
+              style={{ background: cardGradient, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
@@ -610,8 +643,12 @@ export function Abonnement() {
                 </ul>
 
                 {plan.id === 'FREE' ? (
-                  <button disabled className="w-full py-3 rounded-lg font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
+                  <button disabled className="w-full py-3 rounded-xl font-semibold bg-white/30 text-gray-500 cursor-not-allowed">
                     {isActive ? 'Huidig plan' : 'Gratis plan'}
+                  </button>
+                ) : !isSubscriptionOwner && hasPaidSubscription ? (
+                  <button disabled className="w-full py-3 rounded-xl font-semibold bg-white/30 text-gray-500 cursor-not-allowed">
+                    Beheerd door {subscriberName}
                   </button>
                 ) : (
                   <button
@@ -624,9 +661,9 @@ export function Abonnement() {
                       !canManageBilling ||
                       linkCheckLoading
                     }
-                    className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                    className={`w-full py-3 rounded-xl font-semibold transition-colors ${
                       isActive
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        ? 'bg-white/30 text-gray-500 cursor-not-allowed'
                         : plan.popular
                         ? 'bg-blue-600 text-white hover:bg-blue-700'
                         : 'bg-slate-800 text-white hover:bg-slate-700'
@@ -655,7 +692,10 @@ export function Abonnement() {
       {/* Bevestigingsdialoog bij upgrade/downgrade van bestaand abonnement */}
       {confirmUpgrade && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl space-y-4">
+          <div
+            className="overflow-hidden rounded-2xl border-2 border-white/70 p-6 max-w-md w-full shadow-xl space-y-4"
+            style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.35) 60%, rgba(255,255,255,0.10) 100%)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
+          >
             <h3 className="text-lg font-semibold text-gray-900">
               Wijzigen naar {confirmUpgrade.plan.name}?
             </h3>

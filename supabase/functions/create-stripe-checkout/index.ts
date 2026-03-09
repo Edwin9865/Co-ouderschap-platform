@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       // Persist with admin client (bypass RLS)
       const { error: upsertErr } = await supabaseAdmin
         .from("subscriptions")
-        .upsert({ family_id: familyId, stripe_customer_id: customerId }, { onConflict: "family_id" });
+        .upsert({ family_id: familyId, stripe_customer_id: customerId, subscriber_user_id: user.id }, { onConflict: "family_id" });
 
       if (upsertErr) {
         return json(500, {
