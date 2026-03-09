@@ -32,6 +32,8 @@ import { Meldingen } from "./pages/settings/Meldingen";
 import { AccountSettings } from "./pages/settings/AccountSettings";
 import { About } from "./pages/settings/About";
 
+import { AppBlog } from "./pages/AppBlog";
+
 import { AlgemeneVoorwaarden } from "./pages/AlgemeneVoorwaarden";
 import { Privacybeleid } from "./pages/Privacybeleid";
 import { ContactSupport } from "./pages/ContactSupport";
@@ -365,6 +367,28 @@ function AppRoutes() {
               <ProtectedRoute>
                 <Layout>
                   <Account />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/artikelen"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AppBlog />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/artikelen/:slug"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AppBlog />
                 </Layout>
               </ProtectedRoute>
             }

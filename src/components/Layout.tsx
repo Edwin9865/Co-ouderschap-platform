@@ -12,6 +12,8 @@ import {
   Settings,
   LogOut,
   X,
+  Newspaper,
+  ExternalLink,
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
@@ -176,6 +178,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: 'Logboek', href: '/logboek', icon: BookOpen, color: 'text-amber-500' },
         { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, color: 'text-rose-500' },
         { name: 'Vragen', href: '/vragen', icon: HelpCircle, color: 'text-teal-500', badge: unreadMessagesCount },
+        { name: 'Artikelen', href: '/artikelen', icon: Newspaper, color: 'text-emerald-600' },
         { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ]
     : [
@@ -185,6 +188,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: 'Logboek', href: '/logboek', icon: BookOpen, color: 'text-amber-500' },
         { name: 'Verzoeken', href: '/verzoeken', icon: MessageSquare, color: 'text-rose-500', badge: openRequestsCount },
         { name: 'Hulpverleners', href: '/hulpverleners', icon: HelpCircle, color: 'text-teal-500', badge: unreadMessagesCount },
+        { name: 'Artikelen', href: '/artikelen', icon: Newspaper, color: 'text-emerald-600' },
         { name: 'Export', href: '/export', icon: Download, color: 'text-indigo-500' },
         { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ];
@@ -330,6 +334,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <LogOut className="w-5 h-5 text-gray-400" />
                 <span>Uitloggen</span>
               </button>
+              <Link
+                to="/"
+                className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-lg text-sm"
+              >
+                <ExternalLink className="w-4 h-4 text-gray-400" />
+                <span>Ga naar website</span>
+              </Link>
             </div>
           </div>
         </aside>
@@ -473,6 +484,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <LogOut className="w-5 h-5 text-gray-400" />
                   <span className="font-medium">Uitloggen</span>
                 </button>
+                <Link
+                  to="/"
+                  onClick={() => setMenuSheetOpen(false)}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-500 hover:bg-white/25 rounded-xl text-sm"
+                >
+                  <ExternalLink className="w-4 h-4 text-gray-400" />
+                  <span>Ga naar website</span>
+                </Link>
               </div>
             </nav>
           </div>

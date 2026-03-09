@@ -160,6 +160,9 @@ export interface Database {
           passport_location: string | null
           other_info: string | null
           accounts_notes: string | null
+          avatar_style: string | null
+          avatar_seed: string | null
+          avatar_url: string | null
         }
         Insert: {
           id?: string
@@ -180,6 +183,9 @@ export interface Database {
           passport_location?: string | null
           other_info?: string | null
           accounts_notes?: string | null
+          avatar_style?: string | null
+          avatar_seed?: string | null
+          avatar_url?: string | null
         }
         Update: {
           id?: string
@@ -200,6 +206,9 @@ export interface Database {
           passport_location?: string | null
           other_info?: string | null
           accounts_notes?: string | null
+          avatar_style?: string | null
+          avatar_seed?: string | null
+          avatar_url?: string | null
         }
       }
       events: {

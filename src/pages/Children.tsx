@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
   Plus, Edit2, Trash2, Lock, Eye, EyeOff,
   ArrowLeft, Info, Check, X, ChevronRight,
+  Shield, Pill, Syringe, Hash, MapPin, FileText, Tag, Ruler, CreditCard, RefreshCw, Smile,
+  Upload, Camera, Trash,
 } from 'lucide-react';
 import type { Child, User } from '../lib/types';
 
@@ -23,25 +25,74 @@ interface InfoField {
   key: InfoFieldKey;
   label: string;
   info?: string;
+  Icon: React.ElementType;
 }
 
 const INFO_GROUPS: InfoField[][] = [
   [
-    { key: 'clothing_size', label: 'Kledingmaat' },
-    { key: 'shoe_size', label: 'Schoenmaat' },
+    { key: 'clothing_size', label: 'Kledingmaat', Icon: Tag },
+    { key: 'shoe_size', label: 'Schoenmaat', Icon: Ruler },
   ],
   [
-    { key: 'insurance', label: 'Verzekering' },
-    { key: 'meds_allergy', label: 'Medicijnen / allergie' },
-    { key: 'vaccinations', label: 'Vaccinaties', info: 'Noteer vaccinatiedata en herinneringen' },
+    { key: 'insurance', label: 'Verzekering', Icon: Shield },
+    { key: 'meds_allergy', label: 'Medicijnen / allergie', Icon: Pill },
+    { key: 'vaccinations', label: 'Vaccinaties', info: 'Noteer vaccinatiedata en herinneringen', Icon: Syringe },
   ],
   [
-    { key: 'social_security_num', label: 'BSN' },
-    { key: 'passport_num', label: 'Paspoortnummer' },
-    { key: 'passport_location', label: 'Waar is het paspoort?', info: 'Bijv. lade bureau ouder 1' },
-    { key: 'other_info', label: 'Overige' },
+    { key: 'social_security_num', label: 'BSN', Icon: Hash },
+    { key: 'passport_num', label: 'Paspoortnummer', Icon: CreditCard },
+    { key: 'passport_location', label: 'Waar is het paspoort?', info: 'Bijv. lade bureau ouder 1', Icon: MapPin },
+    { key: 'other_info', label: 'Overige', Icon: FileText },
   ],
 ];
+
+const AVATAR_STYLES = [
+  { id: 'adventurer', label: '🧒 Avonturier' },
+  { id: 'bottts', label: '🤖 Robot' },
+  { id: 'croodles', label: '🎨 Doodle' },
+  { id: 'fun-emoji', label: '😄 Emoji' },
+  { id: 'big-smile', label: '😊 Smiley' },
+  { id: 'micah', label: '👦 Portret' },
+  { id: 'pixel-art', label: '🕹️ Pixel' },
+  { id: 'lorelei', label: '🧸 Schattig' },
+];
+
+function randomSeed() {
+  return Math.random().toString(36).substring(2, 10);
+}
+
+function getAvatarUrl(style: string, seed: string) {
+  return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}`;
+}
+
+async function compressImage(file: File, maxDim = 1200, quality = 0.82): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { reject(new Error('canvas')); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('blob')),
+        'image/webp',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('load')); };
+    img.src = objectUrl;
+  });
+}
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -71,6 +122,15 @@ export function Children() {
   const [accountsValue, setAccountsValue] = useState('');
   const [accountsSaving, setAccountsSaving] = useState(false);
 
+  // Avatar picker state
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarMode, setAvatarMode] = useState<'avatar' | 'photo'>('avatar');
+  const [avatarStyle, setAvatarStyle] = useState(AVATAR_STYLES[0].id);
+  const [previewSeeds, setPreviewSeeds] = useState<string[]>(() => Array.from({ length: 9 }, randomSeed));
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
   const coParents = members.filter((m) => m.user_id !== user?.id && m.role === 'PARENT');
   const helpers = members.filter((m) => m.role === 'HELPER');
   const selectedChild = children.find((c) => c.id === selectedChildId) ?? null;
@@ -94,6 +154,10 @@ export function Children() {
     if (selectedChild) {
       setAccountsValue(selectedChild.accounts_notes ?? '');
       setEditingField(null);
+      setIsEditingAvatar(false);
+      setFirstName(selectedChild.first_name);
+      setBirthYear(selectedChild.birth_year?.toString() ?? '');
+      setColor(selectedChild.color ?? COLORS[0]);
     }
   }, [selectedChildId]);
 
@@ -155,7 +219,6 @@ export function Children() {
         .eq('id', childId);
       if (error) { alert('Fout bij opslaan: Alleen de aanmaker kan dit kind bewerken.'); return; }
       await refreshFamily();
-      setEditingChild(null); setFirstName(''); setBirthYear(''); setColor(COLORS[0]);
     } finally { setLoading(false); }
   };
 
@@ -217,6 +280,83 @@ export function Children() {
     finally { setAccountsSaving(false); }
   };
 
+  const handleSaveAvatar = async (seed: string) => {
+    if (!selectedChildId) return;
+    setAvatarSaving(true);
+    try {
+      const { error } = await supabase.from('children')
+        .update({ avatar_style: seed ? avatarStyle : null, avatar_seed: seed || null })
+        .eq('id', selectedChildId);
+      if (error) throw error;
+      await refreshFamily();
+    } catch (e) { console.error('Error saving avatar:', e); }
+    finally { setAvatarSaving(false); }
+  };
+
+  const regenerateSeeds = useCallback(() => {
+    setPreviewSeeds(Array.from({ length: 9 }, randomSeed));
+  }, []);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedChildId || !currentFamily) return;
+
+    setPhotoError(null);
+    setPhotoUploading(true);
+
+    try {
+      const child = children.find((c) => c.id === selectedChildId);
+
+      // Delete old photo if exists (strip cache-busting query string from URL)
+      if (child?.avatar_url) {
+        const oldPath = child.avatar_url.split('/child-avatars/')[1]?.split('?')[0];
+        if (oldPath) await supabase.storage.from('child-avatars').remove([oldPath]);
+      }
+
+      // Compress and convert to WebP before uploading
+      const compressed = await compressImage(file);
+      const path = `${currentFamily.id}/${selectedChildId}.webp`;
+
+      const { error: upErr } = await supabase.storage
+        .from('child-avatars')
+        .upload(path, compressed, { upsert: true, contentType: 'image/webp' });
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = supabase.storage.from('child-avatars').getPublicUrl(path);
+      // Append timestamp to bust browser cache when replacing a photo
+      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
+
+      // Save URL + clear DiceBear avatar
+      const { error: dbErr } = await supabase.from('children')
+        .update({ avatar_url: cacheBustedUrl, avatar_style: null, avatar_seed: null })
+        .eq('id', selectedChildId);
+      if (dbErr) throw dbErr;
+
+      await refreshFamily();
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+      setPhotoError('Uploaden mislukt. Probeer een kleinere afbeelding.');
+    } finally {
+      setPhotoUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    if (!selectedChildId) return;
+    const child = children.find((c) => c.id === selectedChildId);
+    if (!child?.avatar_url) return;
+
+    setPhotoUploading(true);
+    try {
+      const oldPath = child.avatar_url.split('/child-avatars/')[1]?.split('?')[0];
+      if (oldPath) await supabase.storage.from('child-avatars').remove([oldPath]);
+      await supabase.from('children').update({ avatar_url: null }).eq('id', selectedChildId);
+      await refreshFamily();
+    } catch (err) { console.error('Remove photo failed:', err); }
+    finally { setPhotoUploading(false); }
+  };
+
   const getVisibleNames = (childId: string) => {
     if (coParents.length === 0 && helpers.length === 0) return 'Alleen jij';
     const child = children.find((c) => c.id === childId);
@@ -238,11 +378,13 @@ export function Children() {
     const canEdit = isChildCreator(selectedChild) && isParent && !isHelper;
     // Kind info velden + accounts: alle ouders (niet alleen aanmaker)
     const canEditInfo = isParent && !isHelper;
+    // Live color preview: use the color picker state when the edit form is open
+    const previewColor = activeTab === 'images' ? color : (selectedChild.color ?? COLORS[0]);
 
     return (
       <div className="space-y-4 max-w-lg mx-auto">
         <button
-          onClick={() => { setSelectedChildId(null); setEditingChild(null); }}
+          onClick={() => setSelectedChildId(null)}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-800 text-sm"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -254,7 +396,7 @@ export function Children() {
           {/* Tab bar */}
           <div className="flex border-b border-gray-200">
             {([
-              { id: 'images', label: 'Afbeeldingen' },
+              { id: 'images', label: 'Avatar' },
               { id: 'info', label: 'Kind info' },
               { id: 'accounts', label: 'Accounts' },
             ] as const).map((tab) => (
@@ -278,10 +420,18 @@ export function Children() {
               {/* Child header */}
               <div className="flex items-center gap-3 mb-5">
                 <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0"
-                  style={{ backgroundColor: selectedChild.color ?? COLORS[0] }}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 overflow-hidden transition-all${canEdit ? ' cursor-pointer hover:ring-2 hover:ring-offset-2 hover:ring-slate-400' : ''}`}
+                  onClick={() => { if (canEdit) { setActiveTab('images'); setIsEditingAvatar(true); } }}
+                  title={canEdit ? 'Avatar of foto wijzigen' : undefined}
+                  style={{ backgroundColor: previewColor }}
                 >
-                  {selectedChild.first_name[0].toUpperCase()}
+                  {selectedChild.avatar_url ? (
+                    <img src={selectedChild.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  ) : selectedChild.avatar_style && selectedChild.avatar_seed ? (
+                    <img src={getAvatarUrl(selectedChild.avatar_style, selectedChild.avatar_seed)} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    selectedChild.first_name[0].toUpperCase()
+                  )}
                 </div>
                 <div className="flex-1">
                   <h2 className="text-xl font-bold text-gray-900">{selectedChild.first_name}</h2>
@@ -291,9 +441,9 @@ export function Children() {
                 </div>
                 {canEdit && (
                   <button
-                    onClick={() => startEdit(selectedChild)}
+                    onClick={() => { setActiveTab('images'); setIsEditingAvatar(true); }}
                     className="p-2 text-gray-400 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                    title="Naam / geboortejaar bewerken"
+                    title="Avatar en basisgegevens bewerken"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
@@ -312,7 +462,10 @@ export function Children() {
 
                     return (
                       <div key={field.key} className="flex items-center py-3 min-h-[48px]">
-                        <span className="text-gray-500 flex-1 text-sm">{field.label}</span>
+                        <div className="flex items-center gap-2 flex-1">
+                          <field.Icon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          <span className="text-gray-500 text-sm">{field.label}</span>
+                        </div>
 
                         {isEditing ? (
                           <div className="flex items-center gap-1.5">
@@ -367,10 +520,259 @@ export function Children() {
             </div>
           )}
 
-          {/* ── AFBEELDINGEN TAB ────────────────────────────────── */}
+          {/* ── AVATAR TAB ──────────────────────────────────────── */}
           {activeTab === 'images' && (
-            <div className="p-10 text-center">
-              <p className="text-gray-400 text-sm">Afbeeldingen uploaden komt binnenkort beschikbaar.</p>
+            <div className="p-5 space-y-5">
+              {/* ── VIEW MODE ── */}
+              {!isEditingAvatar && (
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div
+                    className="w-28 h-28 rounded-2xl flex items-center justify-center text-white text-4xl font-bold overflow-hidden shadow-sm"
+                    style={{ backgroundColor: selectedChild.color ?? COLORS[0] }}
+                  >
+                    {selectedChild.avatar_url ? (
+                      <img src={selectedChild.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                    ) : selectedChild.avatar_style && selectedChild.avatar_seed ? (
+                      <img src={getAvatarUrl(selectedChild.avatar_style, selectedChild.avatar_seed)} alt="avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <Smile className="w-12 h-12 opacity-70" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    {selectedChild.avatar_url ? 'Profielfoto' : selectedChild.avatar_seed ? 'Avatar' : 'Nog geen afbeelding'}
+                  </p>
+                  {canEditInfo && (
+                    <button
+                      onClick={() => setIsEditingAvatar(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Wijzigen
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* ── EDIT MODE ── */}
+              {isEditingAvatar && canEditInfo && (
+                <>
+                  {/* Current preview */}
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold flex-shrink-0 overflow-hidden shadow-sm"
+                      style={{ backgroundColor: previewColor }}
+                    >
+                      {selectedChild.avatar_url ? (
+                        <img src={selectedChild.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                      ) : selectedChild.avatar_style && selectedChild.avatar_seed ? (
+                        <img src={getAvatarUrl(selectedChild.avatar_style, selectedChild.avatar_seed)} alt="avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <Smile className="w-10 h-10 opacity-70" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">
+                        {selectedChild.avatar_url ? 'Profielfoto' : selectedChild.avatar_seed ? 'Avatar' : 'Nog geen afbeelding'}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">Kies een avatar of upload een foto</p>
+                    </div>
+                  </div>
+
+                  {/* Mode toggle */}
+                  <div className="flex rounded-xl overflow-hidden border border-gray-200">
+                    <button
+                      onClick={() => setAvatarMode('avatar')}
+                      className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                        avatarMode === 'avatar' ? 'bg-slate-800 text-white' : 'bg-white/60 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Smile className="w-4 h-4" />
+                      Avatar kiezen
+                    </button>
+                    <button
+                      onClick={() => setAvatarMode('photo')}
+                      className={`flex-1 py-2 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                        avatarMode === 'photo' ? 'bg-slate-800 text-white' : 'bg-white/60 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Camera className="w-4 h-4" />
+                      Foto uploaden
+                    </button>
+                  </div>
+
+                  {/* Photo upload mode */}
+                  {avatarMode === 'photo' && (
+                    <div className="space-y-3">
+                      <label className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 p-8 cursor-pointer transition-colors hover:border-blue-400 hover:bg-blue-50/30 ${photoUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/heic"
+                          className="hidden"
+                          onChange={handlePhotoUpload}
+                          disabled={photoUploading}
+                        />
+                        {photoUploading ? (
+                          <>
+                            <RefreshCw className="w-8 h-8 text-blue-400 animate-spin" />
+                            <span className="text-sm text-gray-500">Uploaden...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-8 h-8 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-600">Tik om een foto te kiezen</span>
+                            <span className="text-xs text-gray-400">JPG, PNG, WEBP of HEIC · max 5 MB</span>
+                          </>
+                        )}
+                      </label>
+                      {photoError && <p className="text-xs text-red-600">{photoError}</p>}
+                      {selectedChild.avatar_url && (
+                        <button
+                          onClick={handleRemovePhoto}
+                          disabled={photoUploading}
+                          className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          <Trash className="w-3.5 h-3.5" />
+                          Foto verwijderen
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Avatar picker mode */}
+                  {avatarMode === 'avatar' && (
+                  <>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Stijl</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {AVATAR_STYLES.map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => setAvatarStyle(s.id)}
+                          className={`px-2 py-2 rounded-xl text-xs font-medium transition-all border text-center ${
+                            avatarStyle === s.id
+                              ? 'bg-slate-800 text-white border-slate-800'
+                              : 'bg-white/60 text-gray-600 border-gray-200 hover:border-slate-400'
+                          }`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Kies een avatar</p>
+                      <button
+                        onClick={regenerateSeeds}
+                        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 px-2 py-1 rounded-lg hover:bg-gray-100"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Nieuwe opties
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      {previewSeeds.map((seed) => {
+                        const isSelected = selectedChild.avatar_seed === seed && selectedChild.avatar_style === avatarStyle;
+                        return (
+                          <button
+                            key={seed}
+                            onClick={() => handleSaveAvatar(seed)}
+                            disabled={avatarSaving}
+                            className={`relative rounded-2xl overflow-hidden border-2 transition-all aspect-square flex items-center justify-center ${
+                              isSelected
+                                ? 'border-green-500 ring-2 ring-green-200'
+                                : 'border-gray-200 hover:border-blue-400 hover:shadow-md'
+                            }`}
+                            style={{ backgroundColor: previewColor }}
+                          >
+                            <img
+                              src={getAvatarUrl(avatarStyle, seed)}
+                              alt="avatar optie"
+                              className="w-full h-full object-cover"
+                            />
+                            {isSelected && (
+                              <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                <Check className="w-3 h-3 text-white" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {selectedChild.avatar_seed && (
+                    <button
+                      onClick={() => handleSaveAvatar('')}
+                      disabled={avatarSaving}
+                      className="text-xs text-gray-400 hover:text-red-500 underline"
+                    >
+                      Avatar verwijderen
+                    </button>
+                  )}
+                  </>
+                  )}
+
+                  {/* Basisgegevens */}
+                  {canEdit && (
+                    <>
+                      <div className="h-px bg-gray-100" />
+                      <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-gray-700">Basisgegevens</h4>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Voornaam</label>
+                          <input
+                            type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                            required maxLength={100}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-500 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Geboortejaar (optioneel)</label>
+                          <input
+                            type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)}
+                            min="1990" max={new Date().getFullYear()}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-500 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Kleur</label>
+                          <p className="text-xs text-gray-500 mb-2">Deze kleur wordt voor dit kind gebruikt in de agenda, het logboek en andere onderdelen van de app. Elke kleur kan maar één keer worden gebruikt.</p>
+                          <div className="flex gap-2">
+                            {COLORS.map((c) => {
+                              const isTaken = children.some(ch => ch.id !== selectedChild.id && ch.color === c);
+                              return (
+                                <button key={c} type="button"
+                                  onClick={() => !isTaken && setColor(c)}
+                                  disabled={isTaken}
+                                  title={isTaken ? 'Deze kleur is al in gebruik door een ander kind' : undefined}
+                                  className={`w-9 h-9 rounded-lg transition-all ${color === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : ''} ${isTaken ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                                  style={{ backgroundColor: c }}
+                                />
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdate(selectedChild.id)}
+                          disabled={loading}
+                          className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700 disabled:opacity-50"
+                        >
+                          {loading ? 'Opslaan...' : 'Basisgegevens opslaan'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Klaar knop */}
+                  <button
+                    onClick={() => setIsEditingAvatar(false)}
+                    className="w-full py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                  >
+                    Klaar
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -400,52 +802,6 @@ export function Children() {
             </div>
           )}
         </div>
-
-        {/* Edit form for name / birth year / color */}
-        {editingChild === selectedChild.id && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
-            <h3 className="font-semibold text-gray-900">Basisgegevens bewerken</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleUpdate(selectedChild.id); }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Voornaam</label>
-                <input
-                  type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                  required maxLength={100}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Geboortejaar (optioneel)</label>
-                <input
-                  type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)}
-                  min="1990" max={new Date().getFullYear()}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-500 text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Kleur</label>
-                <div className="flex gap-2">
-                  {COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setColor(c)}
-                      className={`w-9 h-9 rounded-lg transition-all ${color === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : ''}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={loading}
-                  className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700 disabled:opacity-50">
-                  {loading ? 'Opslaan...' : 'Opslaan'}
-                </button>
-                <button type="button" onClick={() => setEditingChild(null)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-                  Annuleren
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
 
         {/* Visibility + delete */}
         {isParent && !isHelper && (
@@ -572,7 +928,12 @@ export function Children() {
           <p className="mt-1 text-sm text-gray-600">{isHelper ? 'Bekijk de kinderen in dit gezin' : 'Beheer de kinderen in dit gezin'}</p>
         </div>
         {!showCreate && isParent && !isHelper && (
-          <button onClick={() => setShowCreate(true)}
+          <button onClick={() => {
+            const usedColors = children.map(c => c.color).filter(Boolean) as string[];
+            const freeColor = COLORS.find(c => !usedColors.includes(c)) ?? COLORS[0];
+            setColor(freeColor);
+            setShowCreate(true);
+          }}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 whitespace-nowrap">
             <Plus className="w-5 h-5" />
             Kind toevoegen
@@ -612,13 +973,20 @@ export function Children() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Kleur</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kleur</label>
+              <p className="text-xs text-gray-500 mb-2">Deze kleur wordt voor dit kind gebruikt in de agenda, het logboek en andere onderdelen van de app. Elke kleur kan maar één keer worden gebruikt.</p>
               <div className="flex gap-3">
-                {COLORS.map((c) => (
-                  <button key={c} type="button" onClick={() => setColor(c)}
-                    className={`w-10 h-10 rounded-lg transition-all ${color === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : ''}`}
-                    style={{ backgroundColor: c }} />
-                ))}
+                {COLORS.map((c) => {
+                  const isTaken = children.some(ch => ch.color === c);
+                  return (
+                    <button key={c} type="button"
+                      onClick={() => !isTaken && setColor(c)}
+                      disabled={isTaken}
+                      title={isTaken ? 'Deze kleur is al in gebruik door een ander kind' : undefined}
+                      className={`w-10 h-10 rounded-lg transition-all ${color === c ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : ''} ${isTaken ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                      style={{ backgroundColor: c }} />
+                  );
+                })}
               </div>
             </div>
             {coParents.length > 0 && (
@@ -657,10 +1025,16 @@ export function Children() {
           >
             <div className="flex items-center gap-3">
               <div
-                className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
+                className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 overflow-hidden"
                 style={{ backgroundColor: child.color ?? COLORS[0] }}
               >
-                {child.first_name[0].toUpperCase()}
+                {child.avatar_url ? (
+                  <img src={child.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : child.avatar_style && child.avatar_seed ? (
+                  <img src={getAvatarUrl(child.avatar_style, child.avatar_seed)} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  child.first_name[0].toUpperCase()
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-gray-900">{child.first_name}</h3>

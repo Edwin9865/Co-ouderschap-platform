@@ -34,6 +34,7 @@ export function Agenda() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [listFilter, setListFilter] = useState<'upcoming' | 'month'>('upcoming');
 
   const [formData, setFormData] = useState({
     type: 'other' as Event['type'],
@@ -455,7 +456,7 @@ export function Agenda() {
     }
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <div className="-mx-4 sm:mx-0 bg-white sm:rounded-lg border-y sm:border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={previousMonth}
@@ -487,27 +488,47 @@ export function Agenda() {
   };
 
   const renderListView = () => {
-    const monthlyEvents = viewMode === 'list' ? getEventsForMonth() : events;
+    const now = new Date();
+    const baseEvents = getEventsForMonth();
+    const monthlyEvents = listFilter === 'upcoming'
+      ? baseEvents.filter(e => new Date(e.start_at) >= now)
+      : baseEvents;
 
     return (
       <>
         {viewMode === 'list' && (
-          <div className="flex items-center justify-between mb-4 bg-white rounded-lg border border-gray-200 p-4">
-            <button
-              onClick={previousMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </h2>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+          <div className="space-y-3 mb-4">
+            <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-4">
+              <button
+                onClick={previousMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-lg font-semibold text-gray-900">
+                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              </h2>
+              <button
+                onClick={nextMonth}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="inline-flex bg-gray-200 rounded-lg p-1">
+              <button
+                onClick={() => setListFilter('upcoming')}
+                className={`px-4 py-1.5 rounded-md text-sm transition-colors ${listFilter === 'upcoming' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Komende
+              </button>
+              <button
+                onClick={() => setListFilter('month')}
+                className={`px-4 py-1.5 rounded-md text-sm transition-colors ${listFilter === 'month' ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+              >
+                Hele maand
+              </button>
+            </div>
           </div>
         )}
 
