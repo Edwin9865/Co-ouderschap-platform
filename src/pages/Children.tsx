@@ -234,7 +234,10 @@ export function Children() {
 
   // ─── DETAIL VIEW ─────────────────────────────────────────────────────────────
   if (selectedChild) {
+    // Basisgegevens (naam, geboortejaar, kleur) + verwijderen: alleen aanmaker
     const canEdit = isChildCreator(selectedChild) && isParent && !isHelper;
+    // Kind info velden + accounts: alle ouders (niet alleen aanmaker)
+    const canEditInfo = isParent && !isHelper;
 
     return (
       <div className="space-y-4 max-w-lg mx-auto">
@@ -341,11 +344,11 @@ export function Children() {
                         ) : (
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={() => canEdit ? (setEditingField(field.key), setFieldValue(value ?? '')) : undefined}
-                              disabled={!canEdit}
+                              onClick={() => canEditInfo ? (setEditingField(field.key), setFieldValue(value ?? '')) : undefined}
+                              disabled={!canEditInfo}
                               className={`text-sm font-medium ${
                                 value ? 'text-gray-800' : 'text-gray-400'
-                              } ${canEdit ? 'hover:text-blue-600 cursor-pointer' : 'cursor-default'}`}
+                              } ${canEditInfo ? 'hover:text-blue-600 cursor-pointer' : 'cursor-default'}`}
                             >
                               {value || 'Toevoegen'}
                             </button>
@@ -380,12 +383,12 @@ export function Children() {
               <textarea
                 value={accountsValue}
                 onChange={(e) => setAccountsValue(e.target.value)}
-                disabled={!canEdit}
+                disabled={!canEditInfo}
                 rows={8}
                 placeholder={'Bijv.\nSchoolportaal: gebruiker@school.nl\nZorgverzekering: polisnummer 12345678\nKinderopvang app: 06-12345678'}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:bg-gray-50 disabled:text-gray-500"
               />
-              {canEdit && (
+              {canEditInfo && (
                 <button
                   onClick={handleSaveAccounts}
                   disabled={accountsSaving}
