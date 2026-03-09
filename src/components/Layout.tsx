@@ -19,7 +19,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Request } from '../lib/types';
 import { useBackButton } from '../lib/useBackButton';
-import { isAndroid } from '../lib/capacitor';
+import { isAndroid, isNative } from '../lib/capacitor';
+import { Browser } from '@capacitor/browser';
 
 interface NavItem {
   name: string;
@@ -147,6 +148,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
+  };
+
+  const handleOpenWebsite = async () => {
+    const url = 'https://coparenting.nl';
+    if (isNative()) {
+      await Browser.open({ url });
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleBackToFamilies = () => {
@@ -334,13 +344,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <LogOut className="w-5 h-5 text-gray-400" />
                 <span>Uitloggen</span>
               </button>
-              <Link
-                to="/"
+              <button
+                onClick={handleOpenWebsite}
                 className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-500 hover:bg-gray-100 rounded-lg text-sm"
               >
                 <ExternalLink className="w-4 h-4 text-gray-400" />
                 <span>Ga naar website</span>
-              </Link>
+              </button>
             </div>
           </div>
         </aside>
@@ -484,14 +494,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <LogOut className="w-5 h-5 text-gray-400" />
                   <span className="font-medium">Uitloggen</span>
                 </button>
-                <Link
-                  to="/"
-                  onClick={() => setMenuSheetOpen(false)}
+                <button
+                  onClick={() => { setMenuSheetOpen(false); handleOpenWebsite(); }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-500 hover:bg-white/25 rounded-xl text-sm"
                 >
                   <ExternalLink className="w-4 h-4 text-gray-400" />
                   <span>Ga naar website</span>
-                </Link>
+                </button>
               </div>
             </nav>
           </div>
