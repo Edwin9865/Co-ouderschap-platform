@@ -1,12 +1,12 @@
 // src/pages/Pricing.tsx
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Check,
   Sparkles,
   ArrowRight,
   Shield,
-  Lock,
   MessageCircle,
   Users,
   FileText,
@@ -213,6 +213,37 @@ const globalStyles = `
     pointer-events: none;
   }
 
+  .pr-trial-banner {
+    background: linear-gradient(135deg, #e8f5e2 0%, #f0fae8 100%);
+    border: 1.5px solid #b8dca8;
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 40px;
+  }
+
+  .pr-trial-feature {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 14px; line-height: 1.6;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(74,103,65,0.08);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
+  .pr-trial-feature-light {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 14px; line-height: 1.6;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.12);
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
   .pr-faq-item {
     border-top: 1px solid #e5dfd4;
     padding: 28px 0;
@@ -253,6 +284,9 @@ interface PricingTier {
 }
 
 export default function Pricing() {
+  const { user } = useAuth();
+  const ctaPath = user ? "/instellingen/abonnement" : "/register";
+
   const tiers: PricingTier[] = useMemo(() => [
     {
       name: "FREE",
@@ -277,17 +311,17 @@ export default function Pricing() {
       period: "per maand",
       description: "Voor gezinnen die alles goed willen organiseren.",
       features: [
+        "🎁 7 dagen gratis proberen",
         "Meerdere kinderen",
         "Volledige geschiedenis",
-        "Hulpverleners uitnodigen",
         "Bijlagen & foto's",
         "Dossier exporteren (PDF)",
         "Verzoeken & voorstellen",
         "Prioriteitsondersteuning",
       ],
       highlighted: true,
-      cta: "Start met PLUS",
-      subtext: "Maandelijks opzegbaar.",
+      cta: "Start 7 dagen gratis",
+      subtext: "Daarna €6,95/maand · Maandelijks opzegbaar.",
     },
     {
       name: "PRO",
@@ -295,16 +329,17 @@ export default function Pricing() {
       period: "per maand",
       description: "Voor gezinnen met hulpverleners of extra ondersteuning.",
       features: [
+        "🎁 7 dagen gratis proberen",
         "Alles van PLUS",
+        "Hulpverleners uitnodigen",
+        "Hulpverlenerscommunicatie",
         "Prioriteit support",
         "Geavanceerde exports",
-        "Deelbare links",
-        "Hulpverlenerscommunicatie",
         "Persoonlijke onboarding",
       ],
       highlighted: false,
-      cta: "Kies PRO",
-      subtext: "Maandelijks opzegbaar.",
+      cta: "Start 7 dagen gratis",
+      subtext: "Daarna €11,95/maand · Maandelijks opzegbaar.",
     },
   ], []);
 
@@ -330,12 +365,16 @@ export default function Pricing() {
             Transparante prijzen,{" "}
             <em style={{ color: tk.moss, fontStyle: "italic" }}>geen verrassingen</em>
           </h1>
-          <p className="pr-fade-up pr-delay-2" style={{ fontSize: 18, lineHeight: 1.75, color: tk.muted, maxWidth: 520, margin: "0 0 40px" }}>
+          <p className="pr-fade-up pr-delay-2" style={{ fontSize: 18, lineHeight: 1.75, color: tk.muted, maxWidth: 520, margin: "0 0 24px" }}>
             Begin gratis en upgrade wanneer je meer functionaliteit nodig hebt.
             Alle betaalde abonnementen zijn maandelijks opzegbaar.
           </p>
+          <div className="pr-fade-up pr-delay-2" style={{ display: "inline-flex", alignItems: "center", gap: 10, background: "#e8f5e2", border: "1.5px solid #b8dca8", borderRadius: 99, padding: "10px 20px", marginBottom: 24 }}>
+            <span style={{ fontSize: 18 }}>🎁</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: tk.moss }}>ACTIE: PLUS &amp; PRO — 7 dagen gratis proberen</span>
+          </div>
           <div className="pr-fade-up pr-delay-2" style={{ display: "flex", gap: 14, flexWrap: "wrap" as const, alignItems: "center" }}>
-            <Link to="/register" className="pr-btn-primary-inline">
+            <Link to={ctaPath} className="pr-btn-primary-inline">
               Start vandaag gratis <ArrowRight size={18} />
             </Link>
             <Link to="/faq" className="pr-btn-ghost-inline">
@@ -344,7 +383,6 @@ export default function Pricing() {
           </div>
           <div style={{ marginTop: 24, display: "flex", flexWrap: "wrap" as const, gap: 20 }}>
             {[
-              { icon: <Lock size={14} color={tk.moss} />, text: "Geen creditcard nodig" },
               { icon: <Shield size={14} color={tk.moss} />, text: "Privacy-first" },
               { icon: <MessageCircle size={14} color={tk.moss} />, text: "Altijd opzegbaar" },
             ].map(({ icon, text }) => (
@@ -361,6 +399,19 @@ export default function Pricing() {
       {/* ── PRICING TIERS ── */}
       <section style={{ background: tk.white, padding: "96px 32px" }}>
         <div style={{ maxWidth: 1160, margin: "0 auto" }}>
+
+          {/* Trial banner */}
+          <div className="pr-trial-banner">
+            <span style={{ fontSize: 32 }}>🎁</span>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: tk.moss, marginBottom: 4 }}>
+                ACTIE — 7 dagen gratis proberen
+              </div>
+              <div style={{ fontSize: 14, color: tk.muted, lineHeight: 1.6 }}>
+                Probeer PLUS of PRO volledig gratis — opzegbaar wanneer je wilt.
+              </div>
+            </div>
+          </div>
 
           {/* Grid */}
           <div className="pr-tiers-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
@@ -417,10 +468,10 @@ export default function Pricing() {
 
                   {/* CTA */}
                   {isFeatured
-                    ? <Link to="/register" className="pr-btn-white" style={{ marginBottom: 28 }}>{tier.cta} <ArrowRight size={16} /></Link>
+                    ? <Link to={ctaPath} className="pr-btn-white" style={{ marginBottom: 28 }}>{tier.cta} <ArrowRight size={16} /></Link>
                     : tier.price === "0"
-                      ? <Link to="/register" className="pr-btn-ghost" style={{ marginBottom: 28 }}>{tier.cta}</Link>
-                      : <Link to="/register" className="pr-btn-primary" style={{ marginBottom: 28 }}>{tier.cta} <ArrowRight size={16} /></Link>
+                      ? <Link to={ctaPath} className="pr-btn-ghost" style={{ marginBottom: 28 }}>{tier.cta}</Link>
+                      : <Link to={ctaPath} className="pr-btn-primary" style={{ marginBottom: 28 }}>{tier.cta} <ArrowRight size={16} /></Link>
                   }
 
                   {/* Features */}
@@ -429,12 +480,22 @@ export default function Pricing() {
                       Inbegrepen
                     </div>
                     <div>
-                      {tier.features.map((f) => (
-                        <div key={f} className={isFeatured ? "pr-feature-item-light" : "pr-feature-item"}>
-                          <Check size={15} style={{ color: isFeatured ? "#a7c89a" : tk.moss, flexShrink: 0, marginTop: 2 }} />
-                          <span style={{ color: isFeatured ? "rgba(255,255,255,0.8)" : tk.muted }}>{f}</span>
-                        </div>
-                      ))}
+                      {tier.features.map((f) => {
+                        const isTrial = f.startsWith("🎁");
+                        if (isTrial) {
+                          return (
+                            <div key={f} className={isFeatured ? "pr-trial-feature-light" : "pr-trial-feature"}>
+                              <span style={{ color: isFeatured ? "#f9d97a" : tk.moss }}>{f}</span>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={f} className={isFeatured ? "pr-feature-item-light" : "pr-feature-item"}>
+                            <Check size={15} style={{ color: isFeatured ? "#a7c89a" : tk.moss, flexShrink: 0, marginTop: 2 }} />
+                            <span style={{ color: isFeatured ? "rgba(255,255,255,0.8)" : tk.muted }}>{f}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -516,7 +577,7 @@ export default function Pricing() {
               Twijfel je welk abonnement bij je past? Neem contact op en we kijken het samen door.
             </p>
             <div className="pr-cta-btns" style={{ position: "relative", zIndex: 1, display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" as const }}>
-              <Link to="/register" style={{
+              <Link to={ctaPath} style={{
                 display: "inline-flex", alignItems: "center", gap: 10,
                 background: "#fff", color: tk.moss,
                 padding: "15px 30px", borderRadius: 12,

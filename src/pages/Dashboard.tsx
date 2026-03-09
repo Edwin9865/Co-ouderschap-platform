@@ -618,7 +618,7 @@ export function Dashboard() {
         )}
 
         {/* Agenda card */}
-        <div className="relative z-20 rounded-2xl shadow-sm border-2 border-white/70">
+        <div className="rounded-2xl shadow-sm border-2 border-white/70">
           <div
             className="p-5"
             style={{ background: 'linear-gradient(135deg, rgba(255, 200, 130, 0.35) 0%, rgba(255, 225, 170, 0.15) 60%, rgba(255,255,255,0.05) 100%)' }}
@@ -720,7 +720,7 @@ export function Dashboard() {
         </div>
 
         {/* Logboek card */}
-        <div className="relative z-10 rounded-2xl shadow-sm border-2 border-white/70">
+        <div className="rounded-2xl shadow-sm border-2 border-white/70">
           <div
             className="p-5"
             style={{ background: 'linear-gradient(135deg, rgba(140, 210, 175, 0.35) 0%, rgba(180, 230, 200, 0.15) 60%, rgba(255,255,255,0.05) 100%)' }}
