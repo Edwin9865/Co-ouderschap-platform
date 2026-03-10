@@ -80,7 +80,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!isValid && rememberMeEnabled) {
         console.log('[AuthContext] Session expired after 30 days of inactivity');
         await SecureStorage.clearAuthData();
-        await supabase.auth.signOut();
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-')) localStorage.removeItem(key);
+        });
+        setSession(null);
+        setUser(null);
+        setFamilyMemberships([]);
         setLoading(false);
         return;
       }
@@ -170,12 +175,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     localStorage.removeItem('helper_selected_family');
     await SecureStorage.clearAuthData();
-    try {
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (error) {
-      // Session may already be invalid on the server; local data is already cleared
-      console.warn('Sign out API call failed (session likely already expired):', error);
-    }
+    // Clear all supabase auth keys from localStorage directly to avoid API call with invalid session
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-')) localStorage.removeItem(key);
+    });
+    setSession(null);
+    setUser(null);
+    setFamilyMemberships([]);
   };
 
   const setRememberMe = async (enabled: boolean) => {
