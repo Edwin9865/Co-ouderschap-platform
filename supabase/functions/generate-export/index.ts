@@ -228,6 +228,8 @@ Deno.serve(async (req: Request) => {
       if (!event.child_id) return false;
 
       const periods = childIdsWithPeriods.get(event.child_id) || [];
+      // If no periods exist, this is an own child (no visibility restrictions) — always include
+      if (periods.length === 0) return true;
       return periods.some((period: any) => {
         const eventTime = new Date(event.created_at).getTime();
         const grantedTime = new Date(period.granted_at).getTime();
@@ -272,6 +274,8 @@ Deno.serve(async (req: Request) => {
       if (!log.child_id) return false;
 
       const periods = childIdsWithPeriods.get(log.child_id) || [];
+      // If no periods exist, this is an own child (no visibility restrictions) — always include
+      if (periods.length === 0) return true;
       return periods.some((period: any) => {
         const logTime = new Date(log.created_at).getTime();
         const grantedTime = new Date(period.granted_at).getTime();
