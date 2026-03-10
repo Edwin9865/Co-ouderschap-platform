@@ -132,7 +132,13 @@ export function Agenda() {
     }
 
     const { data } = await query;
-    const filteredData = filterByPlan(data || []);
+    // Filter client-side by visible children
+    const visibleChildIds = new Set(children.map(c => c.id));
+    const rows = (data || []) as Event[];
+    const visibleData = selectedChild === 'all'
+      ? rows.filter(event => event.child_id === null || visibleChildIds.has(event.child_id))
+      : rows;
+    const filteredData = filterByPlan(visibleData);
 
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);

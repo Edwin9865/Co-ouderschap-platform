@@ -128,21 +128,14 @@ export function Dashboard() {
 
     const isFree = subscription?.plan === 'FREE';
 
-    // Build child visibility filter based on visible children from context
-    const visibleChildIds = children.map(c => c.id);
-    const childFilter = visibleChildIds.length > 0
-      ? `child_id.is.null,child_id.in.(${visibleChildIds.join(',')})`
-      : 'child_id.is.null';
-
     // ✅ Fix: use occurred_at for FREE plan (same logic as Logboek.tsx)
     const logsQuery = supabase
       .from('log_entries')
       .select('*')
       .eq('family_id', currentFamily.id)
       .is('deleted_at', null)
-      .or(childFilter)
       .order('occurred_at', { ascending: false })
-      .limit(5);
+      .limit(20);
 
     const logsPromise = isFree ? logsQuery.gte('occurred_at', thirtyDaysAgo.toISOString()) : logsQuery;
 
@@ -152,7 +145,6 @@ export function Dashboard() {
         .select('*')
         .eq('family_id', currentFamily.id)
         .is('parent_event_id', null)
-        .or(childFilter)
         .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true }),
 
@@ -284,16 +276,22 @@ export function Dashboard() {
       setUnansweredMessages(parentUnanswered);
     }
 
+    // Filter by visible children client-side (avoids Supabase .or() syntax issues with UUIDs)
+    const visibleChildIds = new Set(children.map(c => c.id));
+    const isVisibleEvent = (e: Event) => e.child_id === null || visibleChildIds.has(e.child_id);
+    const isVisibleLog = (l: LogEntry) => l.child_id === null || visibleChildIds.has(l.child_id);
+
     const twoMonthsFromNow = new Date();
     twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
 
     const allEvents = (eventsResult.data || [])
+      .filter(isVisibleEvent)
       .flatMap((event: Event) => generateRecurringEvents(event, twoMonthsFromNow, 10))
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
       .slice(0, 3);
 
     setRecentEvents(allEvents);
-    setRecentLogs((logsResult.data || []) as LogEntry[]);
+    setRecentLogs(((logsResult.data || []) as LogEntry[]).filter(isVisibleLog).slice(0, 5));
     setLoading(false);
   }, [currentFamily, user, isHelper, isHelperMode, subscription, children]);
 

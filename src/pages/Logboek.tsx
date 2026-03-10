@@ -162,17 +162,15 @@ export function Logboek() {
 
     if (selectedChild !== 'all') {
       query = query.eq('child_id', selectedChild);
-    } else {
-      // Only show logs for visible children (or entries without a specific child)
-      const visibleChildIds = children.map(c => c.id);
-      const childFilter = visibleChildIds.length > 0
-        ? `child_id.is.null,child_id.in.(${visibleChildIds.join(',')})`
-        : 'child_id.is.null';
-      query = query.or(childFilter);
     }
 
     const { data } = await query;
-    const filteredData = filterByPlan(data || []);
+    // Filter client-side by visible children (avoids Supabase .or() UUID syntax issues)
+    const visibleChildIds = new Set(children.map(c => c.id));
+    const visibleData = selectedChild === 'all'
+      ? (data || []).filter(entry => entry.child_id === null || visibleChildIds.has(entry.child_id))
+      : (data || []);
+    const filteredData = filterByPlan(visibleData);
     setEntries(filteredData);
   };
 
