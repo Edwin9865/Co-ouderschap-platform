@@ -168,12 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem('helper_selected_family');
+    await SecureStorage.clearAuthData();
     try {
-      localStorage.removeItem('helper_selected_family');
-      await SecureStorage.clearAuthData();
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
-      console.error('Error during sign out:', error);
+      // Session may already be invalid on the server; local data is already cleared
+      console.warn('Sign out API call failed (session likely already expired):', error);
     }
   };
 
