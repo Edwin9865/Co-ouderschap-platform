@@ -112,6 +112,7 @@ export function Children() {
   const [childVisibilities, setChildVisibilities] = useState<Record<string, ChildVisibility[]>>({});
   const [showVisibilityModal, setShowVisibilityModal] = useState<string | null>(null);
   const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
+  const [deletedChildren, setDeletedChildren] = useState<Child[]>([]);
 
   // Detail view state
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
@@ -148,6 +149,13 @@ export function Children() {
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
+
+  // Fetch deleted children when on avatar tab (only for creators/parents)
+  useEffect(() => {
+    if (activeTab === 'images' && isParent && !isHelper) {
+      fetchDeletedChildren();
+    }
+  }, [activeTab, currentFamily, user]);
 
   // Sync accounts textarea when switching child or tab
   useEffect(() => {
@@ -222,14 +230,45 @@ export function Children() {
     } finally { setLoading(false); }
   };
 
+  const fetchDeletedChildren = async () => {
+    if (!currentFamily || !user) return;
+    const { data } = await supabase
+      .from('children')
+      .select('*')
+      .eq('family_id', currentFamily.id)
+      .eq('created_by', user.id)
+      .not('deleted_at', 'is', null)
+      .order('deleted_at', { ascending: false });
+    setDeletedChildren(data || []);
+  };
+
   const handleDelete = async (childId: string) => {
-    if (!confirm('Weet je zeker dat je dit kind wilt verwijderen?')) return;
+    if (!confirm('Weet je zeker dat je dit kind wilt verwijderen? De logs en afspraken blijven bewaard en verschijnen in de export als "Verwijderd kind".')) return;
     setLoading(true);
     try {
-      const { error } = await supabase.from('children').delete().eq('id', childId);
+      // Soft delete — bewaar data, sluit visibility
+      const { error } = await supabase.from('children')
+        .update({ deleted_at: new Date().toISOString(), deleted_by: user!.id })
+        .eq('id', childId);
       if (error) { alert('Fout bij verwijderen: Alleen de aanmaker kan dit kind verwijderen.'); return; }
+      // Verwijder uit child_visibility zodat anderen het niet meer zien
+      await supabase.from('child_visibility').delete().eq('child_id', childId);
       if (selectedChildId === childId) setSelectedChildId(null);
       await refreshFamily();
+      await fetchDeletedChildren();
+    } finally { setLoading(false); }
+  };
+
+  const handleRestore = async (childId: string) => {
+    if (!confirm('Wil je dit kind herstellen? Het kind wordt weer zichtbaar in de app.')) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.from('children')
+        .update({ deleted_at: null, deleted_by: null })
+        .eq('id', childId);
+      if (error) { alert('Fout bij herstellen.'); return; }
+      await refreshFamily();
+      await fetchDeletedChildren();
     } finally { setLoading(false); }
   };
 
@@ -238,6 +277,12 @@ export function Children() {
     const child = children.find((c) => c.id === childId);
     if (child && !isChildCreator(child)) { alert('Alleen de aanmaker kan de zichtbaarheid beheren.'); return; }
     const has = (childVisibilities[childId] ?? []).some((cv) => cv.user_id === userId);
+    const memberName = members.find((m) => m.user_id === userId)?.user?.name ?? 'deze persoon';
+    const childName = child?.first_name ?? 'dit kind';
+    const action = has
+      ? `Weet je zeker dat je ${childName} verbergt voor ${memberName}?`
+      : `Weet je zeker dat je ${childName} zichtbaar maakt voor ${memberName}?`;
+    if (!confirm(action)) return;
     if (has) {
       const { error, count } = await supabase.from('child_visibility').delete({ count: 'exact' }).eq('child_id', childId).eq('user_id', userId);
       console.log('[visibility] delete:', { error, count, childId, userId });
@@ -808,8 +853,43 @@ export function Children() {
           )}
         </div>
 
-        {/* Visibility + delete */}
-        {isParent && !isHelper && (
+        {/* Verwijderde kinderen — alleen op avatar tab, alleen voor aanmakers */}
+        {activeTab === 'images' && isParent && !isHelper && deletedChildren.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">Verwijderde kinderen</h4>
+            <p className="text-xs text-gray-400">Logs en afspraken zijn bewaard en verschijnen in de export.</p>
+            {deletedChildren.map((child) => (
+              <div key={child.id} className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0 opacity-50"
+                    style={{ backgroundColor: child.color ?? COLORS[0] }}
+                  >
+                    {child.first_name[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">{child.first_name}</p>
+                    {child.deleted_at && (
+                      <p className="text-xs text-gray-400">
+                        Verwijderd op {new Date(child.deleted_at).toLocaleDateString('nl-NL')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleRestore(child.id)}
+                  disabled={loading}
+                  className="text-xs px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-100 disabled:opacity-50 whitespace-nowrap"
+                >
+                  Herstellen
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Visibility + delete — only on avatar tab */}
+        {activeTab === 'images' && isParent && !isHelper && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
             {(coParents.length > 0 || helpers.length > 0) && (
               <div>

@@ -241,9 +241,10 @@ Deno.serve(async (req: Request) => {
     const eventsWithChildren = await Promise.all(
       events.map(async (event: any) => {
         const child = childrenToExport.find((c: any) => c.child_id === event.child_id);
+        const displayName = child?.deleted_at ? `Verwijderd kind (${child.first_name})` : child?.first_name;
         return {
           ...event,
-          children: child ? { first_name: child.first_name, color: child.color } : null
+          children: child ? { first_name: displayName, color: child.color } : null
         };
       })
     );
@@ -310,11 +311,12 @@ Deno.serve(async (req: Request) => {
           })
         );
 
+        const logChildName = child?.deleted_at ? `Verwijderd kind (${child.first_name})` : child?.first_name;
         return {
           ...log,
           user_name: u?.name || 'Onbekend',
           revisions: revisionsWithUsers,
-          children: child ? { first_name: child.first_name, color: child.color } : null
+          children: child ? { first_name: logChildName, color: child.color } : null
         };
       })
     );
@@ -369,12 +371,13 @@ Deno.serve(async (req: Request) => {
           })
         );
 
+        const reqChildName = child?.deleted_at ? `Verwijderd kind (${child.first_name})` : child?.first_name;
         return {
           ...r,
           user_name: creator?.name || 'Onbekend',
           last_action_by_name: lastActor?.name || null,
           proposals: proposalsWithUsers,
-          children: child ? { first_name: child.first_name, color: child.color } : null
+          children: child ? { first_name: reqChildName, color: child.color } : null
         };
       })
     );

@@ -43,7 +43,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const [familyResult, subResult, childrenResult, membersResult] = await Promise.all([
         supabase.from('families').select('*').eq('id', familyId).single(),
         supabase.from('subscriptions').select('*').eq('family_id', familyId).maybeSingle(),
-        supabase.from('children').select('*').eq('family_id', familyId).order('first_name'),
+        supabase.from('children').select('*').eq('family_id', familyId).is('deleted_at', null).order('first_name'),
         supabase
           .from('family_members')
           .select('*, user:users(*)')
