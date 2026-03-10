@@ -87,6 +87,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     };
   }, [user, currentFamily]);
 
+  // Realtime: refresh children when child_visibility changes (e.g. co-parent revokes/grants access)
+  useEffect(() => {
+    if (!currentFamily) return;
+    const channel = supabase
+      .channel(`child_visibility_${currentFamily.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'child_visibility' }, () => {
+        fetchFamilyData(currentFamily.id);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentFamily?.id]);
+
   useEffect(() => {
     if (!user) {
       setLoading(false);
