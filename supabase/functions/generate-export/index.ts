@@ -12,6 +12,7 @@ interface ExportRequest {
   childId?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
+  includeEvents?: boolean; // default true
 }
 
 type DateRange = {
@@ -117,7 +118,7 @@ Deno.serve(async (req: Request) => {
     console.log('✅ User authenticated successfully:', user.id);
 
     const body: ExportRequest = await req.json();
-    const { familyId, exportType, childId, startDate, endDate } = body;
+    const { familyId, exportType, childId, startDate, endDate, includeEvents = true } = body;
 
     console.log('Export request:', { familyId, exportType, childId, startDate, endDate, userId: user.id });
 
@@ -317,12 +318,16 @@ Deno.serve(async (req: Request) => {
       })
     );
 
-    // REQUESTS - Filter by visibility periods
+    // REQUESTS - Fetch ALL requests for this family (requests are co-parent communications
+    // and should always appear in the dossier regardless of child visibility periods)
     let requestsQ = serviceSupabase
       .from('requests')
-      .select('id, title, type, description, status, created_at, created_by, child_id')
-      .eq('family_id', familyId)
-      .in('child_id', childIds);
+      .select('id, title, type, description, status, counter_proposal, decline_reason, last_action_by, created_at, updated_at, created_by, child_id')
+      .eq('family_id', familyId);
+
+    if (exportType === 'child' && childId) {
+      requestsQ = requestsQ.eq('child_id', childId);
+    }
 
     if (exportType === 'date_range' && range) {
       console.log('Applying date range to requests:', range.startIso, 'to', range.endIso);
@@ -330,36 +335,44 @@ Deno.serve(async (req: Request) => {
     }
 
     requestsQ = requestsQ.order('created_at', { ascending: false });
-    const { data: allRequests } = await requestsQ;
+    const { data: allRequests, error: requestsError } = await requestsQ;
 
-    // Filter requests by visibility periods
-    const requests = (allRequests || []).filter((request: any) => {
-      if (!request.child_id) return false;
+    if (requestsError) {
+      console.error('Requests fetch error:', requestsError);
+    }
 
-      const periods = childIdsWithPeriods.get(request.child_id) || [];
-      return periods.some((period: any) => {
-        const requestTime = new Date(request.created_at).getTime();
-        const grantedTime = new Date(period.granted_at).getTime();
-        const revokedTime = period.revoked_at ? new Date(period.revoked_at).getTime() : Infinity;
-
-        return requestTime >= grantedTime && requestTime <= revokedTime;
-      });
-    });
-
-    console.log(`Fetched ${requests?.length || 0} requests (filtered by visibility periods)`);
+    const requests = allRequests || [];
+    console.log(`Fetched ${requests.length} requests (all statuses, no visibility period filter)`);
 
     const requestsWithUsers = await Promise.all(
       (requests || []).map(async (r) => {
         const child = childrenToExport.find((c: any) => c.child_id === r.child_id);
 
-        const { data: u } = await serviceSupabase
-          .from('users')
-          .select('name')
-          .eq('id', r.created_by)
-          .maybeSingle();
+        const [{ data: creator }, { data: lastActor }, { data: proposals }] = await Promise.all([
+          serviceSupabase.from('users').select('name').eq('id', r.created_by).maybeSingle(),
+          r.last_action_by
+            ? serviceSupabase.from('users').select('name').eq('id', r.last_action_by).maybeSingle()
+            : Promise.resolve({ data: null }),
+          serviceSupabase
+            .from('request_proposals')
+            .select('id, proposal_text, proposed_by, created_at')
+            .eq('request_id', r.id)
+            .order('created_at', { ascending: true }),
+        ]);
+
+        const proposalsWithUsers = await Promise.all(
+          (proposals || []).map(async (p: any) => {
+            const { data: proposer } = await serviceSupabase
+              .from('users').select('name').eq('id', p.proposed_by).maybeSingle();
+            return { ...p, proposer_name: proposer?.name || 'Onbekend' };
+          })
+        );
+
         return {
           ...r,
-          user_name: u?.name || 'Onbekend',
+          user_name: creator?.name || 'Onbekend',
+          last_action_by_name: lastActor?.name || null,
+          proposals: proposalsWithUsers,
           children: child ? { first_name: child.first_name, color: child.color } : null
         };
       })
@@ -502,12 +515,14 @@ Deno.serve(async (req: Request) => {
     const html = generateHTML({
       family,
       children: childrenToExport,
+      childVisibilityPeriods: Object.fromEntries(childIdsWithPeriods),
       events: eventsWithChildren || [],
       logEntries: logEntriesWithUsers || [],
       requests: requestsWithUsers || [],
       questions: questionsWithDetails || [],
       auditLogs: auditLogs || [],
       exportType,
+      includeEvents,
       exportDate: new Date().toLocaleDateString('nl-NL'),
       userEmail: user.email || 'Onbekend',
     });
@@ -537,7 +552,7 @@ Deno.serve(async (req: Request) => {
 });
 
 function generateHTML(data: any): string {
-  const { family, children, events, logEntries, requests, questions, auditLogs, exportType, exportDate, userEmail } = data;
+  const { family, children, childVisibilityPeriods, events, logEntries, requests, questions, auditLogs, exportType, includeEvents, exportDate, userEmail } = data;
 
   const categoryLabels: Record<string, string> = {
     health: 'Gezondheid',
@@ -788,7 +803,19 @@ function generateHTML(data: any): string {
         ${children && children.length > 0 ? `
         <div class="section">
             <h2 class="section-title">Kinderen (${children.length})</h2>
-            ${children.map((child: any) => `
+            ${children.map((child: any) => {
+              const periods: any[] = (childVisibilityPeriods || {})[child.child_id] || [];
+              const periodsHtml = periods.length > 0
+                ? periods.map((p: any, i: number) => `
+                    <div style="margin-top:4px; padding:6px 10px; background:#f0f9ff; border-left:3px solid ${p.revoked_at ? '#f59e0b' : '#16a34a'}; border-radius:3px; font-size:13px;">
+                      <strong>Periode ${i + 1}:</strong>
+                      Toegang verleend ${new Date(p.granted_at).toLocaleDateString('nl-NL')}
+                      ${p.revoked_at
+                        ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${p.revoke_reason})` : ''}`
+                        : ' → <span style="color:#16a34a;font-weight:600;">Actief</span>'}
+                    </div>`).join('')
+                : `<div style="margin-top:4px;font-size:13px;color:#16a34a;">Eigen kind (altijd toegang)</div>`;
+              return `
                 <div class="card">
                     <div class="card-title">
                         <span class="child-tag" style="background: ${child.color}22; color: ${child.color};">
@@ -797,19 +824,19 @@ function generateHTML(data: any): string {
                     </div>
                     <div class="card-content">
                         ${child.birth_year ? `<strong>Geboortejaar:</strong> ${child.birth_year}<br>` : ''}
-                        <strong>Toegang verleend:</strong> ${new Date(child.earliest_access).toLocaleDateString('nl-NL')}
-                        ${child.latest_revoke ? ` | <strong>Toegang ingetrokken:</strong> ${new Date(child.latest_revoke).toLocaleDateString('nl-NL')}` : ' | <span style="color: #16a34a;">Actief</span>'}
-                        ${child.deleted_at ? `<br><span style="color: #dc2626;">Kind verwijderd op: ${new Date(child.deleted_at).toLocaleDateString('nl-NL')}</span>` : ''}
+                        <strong>Toegangsperioden:</strong>
+                        ${periodsHtml}
+                        ${child.deleted_at ? `<br><span style="color:#dc2626;">Kind verwijderd op: ${new Date(child.deleted_at).toLocaleDateString('nl-NL')}</span>` : ''}
                     </div>
-                </div>
-            `).join('')}
+                </div>`;
+            }).join('')}
         </div>
         ` : ''}
 
-        ${events && events.length > 0 ? `
+        ${includeEvents !== false && events && events.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Agenda (${events.length} afspraken)</h2>
-            ${events.slice(0, 50).map((event: any) => `
+            ${events.map((event: any) => `
                 <div class="card">
                     <div class="card-title">${event.title}</div>
                     <div class="card-meta">
@@ -829,7 +856,7 @@ function generateHTML(data: any): string {
         ${logEntries && logEntries.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Logboek (${logEntries.length} items)</h2>
-            ${logEntries.slice(0, 50).map((log: any) => `
+            ${logEntries.map((log: any) => `
                 <div class="card">
                     <div class="card-title">${log.title}</div>
                     <div class="card-meta">
@@ -845,30 +872,21 @@ function generateHTML(data: any): string {
 
                     ${log.revisions && log.revisions.length > 0 ? `
                         <div class="card-content" style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #e2e8f0;">
-                            <strong style="color: #1e293b;">📝 Bewerkingsgeschiedenis (${log.revisions.length})</strong>
+                            <strong style="color: #1e293b;">Bewerkingsgeschiedenis (${log.revisions.length} versie(s))</strong>
                             <div style="margin-top: 8px;">
-                                ${log.revisions.map((rev: any, idx: number) => {
+                                ${log.revisions.map((rev: any) => {
                                   const prevData = rev.previous_data || {};
-                                  const changes = [];
-                                  if (prevData.title !== log.title && idx === 0) changes.push(`Titel gewijzigd`);
-                                  if (prevData.details !== log.details && idx === 0) changes.push(`Details gewijzigd`);
-                                  if (prevData.category !== log.category && idx === 0) changes.push(`Categorie gewijzigd`);
-
                                   return `
                                     <div style="background: #f8fafc; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 8px; border-radius: 4px;">
-                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 4px;">
-                                            <strong>Bewerkt op:</strong> ${new Date(rev.edited_at).toLocaleString('nl-NL')} door ${rev.editor_name}
+                                        <div style="font-size: 12px; color: #64748b; margin-bottom: 8px;">
+                                            <strong>Versie opgeslagen op:</strong> ${new Date(rev.edited_at).toLocaleString('nl-NL')} door ${rev.editor_name}
                                         </div>
-                                        ${changes.length > 0 ? `<div style="font-size: 12px; color: #475569;">Wijzigingen: ${changes.join(', ')}</div>` : ''}
-                                        <details style="margin-top: 8px;">
-                                            <summary style="cursor: pointer; font-size: 12px; color: #64748b;">Vorige versie bekijken</summary>
-                                            <div style="margin-top: 8px; padding: 8px; background: white; border-radius: 4px; font-size: 12px;">
-                                                <p><strong>Titel:</strong> ${prevData.title || 'N/A'}</p>
-                                                ${prevData.details ? `<p><strong>Details:</strong> ${prevData.details}</p>` : ''}
-                                                <p><strong>Categorie:</strong> ${categoryLabels[prevData.category] || prevData.category || 'N/A'}</p>
-                                                ${prevData.occurred_at ? `<p><strong>Datum:</strong> ${new Date(prevData.occurred_at).toLocaleString('nl-NL')}</p>` : ''}
-                                            </div>
-                                        </details>
+                                        <div style="padding: 8px; background: white; border-radius: 4px; font-size: 12px;">
+                                            <p><strong>Titel (voor bewerking):</strong> ${prevData.title || 'N/A'}</p>
+                                            ${prevData.details ? `<p style="margin-top:4px;"><strong>Details (voor bewerking):</strong> ${prevData.details}</p>` : ''}
+                                            <p style="margin-top:4px;"><strong>Categorie:</strong> ${categoryLabels[prevData.category] || prevData.category || 'N/A'}</p>
+                                            ${prevData.occurred_at ? `<p style="margin-top:4px;"><strong>Datum gebeurtenis:</strong> ${new Date(prevData.occurred_at).toLocaleString('nl-NL')}</p>` : ''}
+                                        </div>
                                     </div>
                                   `;
                                 }).join('')}
@@ -883,20 +901,40 @@ function generateHTML(data: any): string {
         ${requests && requests.length > 0 ? `
         <div class="section page-break">
             <h2 class="section-title">Verzoeken (${requests.length})</h2>
-            ${requests.slice(0, 50).map((request: any) => `
+            ${requests.map((request: any) => `
                 <div class="card">
                     <div class="card-title">${request.title}</div>
                     <div class="card-meta">
-                        <span class="badge ${request.status === 'ACCEPTED' ? 'badge-green' : request.status === 'DECLINED' ? 'badge-red' : request.status === 'OPEN' ? 'badge-yellow' : 'badge-gray'}">
+                        <span class="badge ${request.status === 'ACCEPTED' ? 'badge-green' : request.status === 'DECLINED' ? 'badge-red' : request.status === 'COUNTERED' ? 'badge-yellow' : request.status === 'OPEN' ? 'badge-yellow' : 'badge-gray'}">
                             ${statusLabels[request.status] || request.status}
                         </span>
                         <span class="badge badge-blue">${requestTypeLabels[request.type] || request.type}</span>
                         ${request.children ? `<span class="child-tag" style="background: ${request.children.color}22; color: ${request.children.color};">${request.children.first_name}</span>` : ''}
                         <br>
-                        <strong>Aangemaakt:</strong> ${new Date(request.created_at).toLocaleString('nl-NL')} |
-                        <strong>Door:</strong> ${request.user_name || 'Onbekend'}
+                        <strong>Aangemaakt:</strong> ${new Date(request.created_at).toLocaleString('nl-NL')} door ${request.user_name || 'Onbekend'}
+                        ${request.updated_at && request.updated_at !== request.created_at ? ` | <strong>Bijgewerkt:</strong> ${new Date(request.updated_at).toLocaleString('nl-NL')}` : ''}
+                        ${request.last_action_by_name ? ` | <strong>Laatste actie door:</strong> ${request.last_action_by_name}` : ''}
                     </div>
-                    ${request.description ? `<div class="card-content">${request.description}</div>` : ''}
+                    ${request.description ? `<div class="card-content"><strong>Omschrijving:</strong><br>${request.description}</div>` : ''}
+                    ${request.decline_reason ? `
+                        <div class="card-content" style="margin-top:10px; padding:10px; background:#fee2e2; border-left:4px solid #dc2626; border-radius:4px;">
+                            <strong style="color:#991b1b;">Reden afwijzing:</strong><br>${request.decline_reason}
+                        </div>` : ''}
+                    ${request.counter_proposal ? `
+                        <div class="card-content" style="margin-top:10px; padding:10px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:4px;">
+                            <strong style="color:#92400e;">Tegenbod:</strong><br>${request.counter_proposal}
+                        </div>` : ''}
+                    ${request.proposals && request.proposals.length > 0 ? `
+                        <div class="card-content" style="margin-top:12px; padding-top:12px; border-top:1px solid #e2e8f0;">
+                            <strong>Voorstelgeschiedenis (${request.proposals.length}):</strong>
+                            ${request.proposals.map((p: any) => `
+                                <div style="margin-top:8px; padding:10px; background:#f0f9ff; border-left:4px solid #3b82f6; border-radius:4px;">
+                                    <div style="font-size:12px; color:#64748b; margin-bottom:4px;">
+                                        ${p.proposer_name} — ${new Date(p.created_at).toLocaleString('nl-NL')}
+                                    </div>
+                                    <div style="font-size:14px;">${p.proposal_text}</div>
+                                </div>`).join('')}
+                        </div>` : ''}
                 </div>
             `).join('')}
         </div>

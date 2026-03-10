@@ -239,11 +239,16 @@ export function Children() {
     if (child && !isChildCreator(child)) { alert('Alleen de aanmaker kan de zichtbaarheid beheren.'); return; }
     const has = (childVisibilities[childId] ?? []).some((cv) => cv.user_id === userId);
     if (has) {
-      await supabase.from('child_visibility').delete().eq('child_id', childId).eq('user_id', userId);
+      const { error, count } = await supabase.from('child_visibility').delete({ count: 'exact' }).eq('child_id', childId).eq('user_id', userId);
+      console.log('[visibility] delete:', { error, count, childId, userId });
+      if (error) { console.error('Fout bij intrekken zichtbaarheid:', error); alert('Fout bij opslaan. Probeer opnieuw.'); return; }
     } else {
-      await supabase.from('child_visibility').insert({ child_id: childId, user_id: userId, granted_by: user.id });
+      const { error } = await supabase.from('child_visibility').insert({ child_id: childId, user_id: userId, granted_by: user.id });
+      console.log('[visibility] insert:', { error, childId, userId });
+      if (error) { console.error('Fout bij verlenen zichtbaarheid:', error); alert('Fout bij opslaan. Probeer opnieuw.'); return; }
     }
     await fetchChildVisibilities();
+    await refreshFamily();
   };
 
   const startEdit = (child: Child) => {

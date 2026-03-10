@@ -32,6 +32,12 @@
 */
 
 -- ============================================================================
+-- 0. Enable realtime on child_visibility so clients receive change events
+-- ============================================================================
+
+ALTER PUBLICATION supabase_realtime ADD TABLE child_visibility;
+
+-- ============================================================================
 -- 1. Remove the auto-grant trigger that bypasses user choice
 -- ============================================================================
 

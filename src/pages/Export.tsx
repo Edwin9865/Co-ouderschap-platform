@@ -46,6 +46,7 @@ export function Export() {
   const [selectedChild, setSelectedChild] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [includeEvents, setIncludeEvents] = useState(true);
 
   const canExport = canAccessFeature('export');
 
@@ -117,6 +118,7 @@ export function Export() {
           childId: selectedChild || undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
+          includeEvents,
         }),
       });
 
@@ -173,23 +175,15 @@ export function Export() {
 
         const base64 = stripDataUrlPrefix(pdfResult.base64);
 
-        // 2) Save locally
-        let writeRes;
-try {
-  writeRes = await Filesystem.writeFile({
-    path: fileName,
-    data: base64,
-    directory: Directory.Documents,
-    recursive: true,
-  });
-} catch {
-  writeRes = await Filesystem.writeFile({
-    path: fileName,
-    data: base64,
-    directory: Directory.Cache,
-    recursive: true,
-  });
-}
+        // 2) Save to Cache (FileProvider-compatible on Android/iOS)
+        // Documents (/storage/emulated/0/Documents/) is NOT a registered FileProvider root
+        // so Share.share() fails with "Failed to find configured root". Cache always works.
+        const writeRes = await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Cache,
+          recursive: true,
+        });
 
         // 3) Share sheet (mail/whatsapp/drive/print etc.)
         await Share.share({
@@ -353,6 +347,22 @@ try {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Opties</label>
+            <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={includeEvents}
+                onChange={(e) => setIncludeEvents(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <div>
+                <div className="font-medium text-gray-900">Agenda meenemen</div>
+                <div className="text-sm text-gray-600">Schakel uit om agendaafspraken weg te laten uit de export</div>
+              </div>
+            </label>
+          </div>
 
           <button
             onClick={handleExport}
