@@ -1,6 +1,6 @@
-// DEBUG: Export.tsx - Rewritten from scratch - 2026-02-13
-// Mobile: generates PDF (base64) -> saves to Documents -> opens share sheet
-// Web: opens in new window
+// Export.tsx
+// Mobile: edge function returns PDF-optimized HTML -> PdfGenerator -> save to cache -> share
+// Web: opens HTML in new window
 
 import { useState } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
@@ -119,6 +119,7 @@ export function Export() {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           includeEvents,
+          forPdf: isNative(), // mobile: PDF-compatible HTML (geen fixed positioning / @media print)
         }),
       });
 

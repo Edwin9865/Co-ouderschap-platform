@@ -13,6 +13,7 @@ interface ExportRequest {
   startDate?: string; // YYYY-MM-DD
   endDate?: string;   // YYYY-MM-DD
   includeEvents?: boolean; // default true
+  forPdf?: boolean;   // true = PDF-renderer-safe HTML (no fixed positioning, no @media print, no JS)
 }
 
 type DateRange = {
@@ -118,7 +119,7 @@ Deno.serve(async (req: Request) => {
     console.log('✅ User authenticated successfully:', user.id);
 
     const body: ExportRequest = await req.json();
-    const { familyId, exportType, childId, startDate, endDate, includeEvents = true } = body;
+    const { familyId, exportType, childId, startDate, endDate, includeEvents = true, forPdf = false } = body;
 
     console.log('Export request:', { familyId, exportType, childId, startDate, endDate, userId: user.id });
 
@@ -512,7 +513,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('Generating HTML...');
 
-    const html = generateHTML({
+    const htmlData = {
       family,
       children: childrenToExport,
       childVisibilityPeriods: Object.fromEntries(childIdsWithPeriods),
@@ -525,7 +526,9 @@ Deno.serve(async (req: Request) => {
       includeEvents,
       exportDate: new Date().toLocaleDateString('nl-NL'),
       userEmail: user.email || 'Onbekend',
-    });
+    };
+
+    const html = forPdf ? generatePdfHTML(htmlData) : generateHTML(htmlData);
 
     console.log('Export successful, HTML length:', html.length);
 
@@ -1009,4 +1012,202 @@ function generateHTML(data: any): string {
 </body>
 </html>
   `.trim();
+}
+
+// PDF-renderer-safe HTML: zelfde data als generateHTML maar zonder position:fixed,
+// zonder @media print CSS en zonder JavaScript — compatibel met @capgo/capacitor-pdf-generator WebView.
+function generatePdfHTML(data: any): string {
+  const { family, children, childVisibilityPeriods, events, logEntries, requests, questions, auditLogs, exportType, includeEvents, exportDate, userEmail } = data;
+
+  const categoryLabels: Record<string, string> = {
+    health: 'Gezondheid', behavior: 'Gedrag', development: 'Ontwikkeling',
+    incident: 'Incident', achievement: 'Prestatie', communication: 'Communicatie', other: 'Overig',
+  };
+  const eventTypeLabels: Record<string, string> = {
+    medical: 'Medisch', school: 'School', sport: 'Sport', handover: 'Overdracht', other: 'Overig',
+  };
+  const requestTypeLabels: Record<string, string> = {
+    schedule_change: 'Roosterwijziging', financial: 'Financieel', medical_decision: 'Medische beslissing',
+    education: 'Onderwijs', vacation: 'Vakantie', other: 'Overig',
+  };
+  const statusLabels: Record<string, string> = {
+    OPEN: 'Open', ACCEPTED: 'Geaccepteerd', DECLINED: 'Afgewezen',
+    COUNTERED: 'Tegenbod', CLOSED: 'Gesloten', ANSWERED: 'Beantwoord',
+  };
+
+  return `<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Co-Parenting Export - ${family?.name || 'Familie'}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #1f2937; background: #fff; padding: 16px; }
+    h1 { font-size: 22px; color: #1e293b; margin-bottom: 6px; }
+    h2 { font-size: 17px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; margin: 24px 0 12px; }
+    .meta { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+    .info-bar { margin-top: 8px; padding: 8px; background: #f0f9ff; border-left: 4px solid #3b82f6; font-size: 12px; }
+    .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
+    .card-title { font-size: 15px; font-weight: bold; color: #1e293b; margin-bottom: 6px; }
+    .card-meta { font-size: 12px; color: #64748b; margin-bottom: 8px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; margin-right: 6px; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-gray { background: #f1f5f9; color: #475569; }
+    .period { margin-top: 4px; padding: 5px 8px; border-radius: 3px; font-size: 12px; }
+    .period-active { background: #f0fdf4; border-left: 3px solid #16a34a; }
+    .period-revoked { background: #fffbeb; border-left: 3px solid #f59e0b; }
+    .decline-box { margin-top: 8px; padding: 8px; background: #fee2e2; border-left: 4px solid #dc2626; border-radius: 3px; font-size: 13px; }
+    .counter-box { margin-top: 8px; padding: 8px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 3px; font-size: 13px; }
+    .proposal-item { margin-top: 6px; padding: 8px; background: #f0f9ff; border-left: 4px solid #3b82f6; border-radius: 3px; }
+    .revision-item { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 10px; margin-bottom: 6px; border-radius: 3px; }
+    .sub-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+    th { background: #f1f5f9; font-weight: bold; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 2px solid #e2e8f0; text-align: center; color: #64748b; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h1>Co-Parenting Dossier Export</h1>
+  <div class="meta"><strong>Familie:</strong> ${family?.name || 'Onbekend'} | <strong>Export voor:</strong> ${userEmail} | <strong>Datum:</strong> ${exportDate} | <strong>Type:</strong> ${exportType === 'full' ? 'Volledig dossier' : exportType === 'child' ? 'Per kind' : 'Datumbereik'}</div>
+  <div class="info-bar">Deze export bevat alleen gegevens uit de periode(n) waarin u toegang had tot de betreffende kinderen.</div>
+
+  ${children && children.length > 0 ? `
+  <h2>Kinderen (${children.length})</h2>
+  ${children.map((child: any) => {
+    const periods: any[] = (childVisibilityPeriods || {})[child.child_id] || [];
+    const periodsHtml = periods.length > 0
+      ? periods.map((p: any, i: number) => `
+          <div class="period ${p.revoked_at ? 'period-revoked' : 'period-active'}">
+            <strong>Periode ${i + 1}:</strong> Toegang verleend ${new Date(p.granted_at).toLocaleDateString('nl-NL')}
+            ${p.revoked_at ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${p.revoke_reason})` : ''}` : ' → <strong style="color:#16a34a;">Actief</strong>'}
+          </div>`).join('')
+      : `<div class="period period-active">Eigen kind (altijd toegang)</div>`;
+    return `
+    <div class="card">
+      <div class="card-title">${child.first_name}</div>
+      <div>
+        ${child.birth_year ? `<strong>Geboortejaar:</strong> ${child.birth_year}<br>` : ''}
+        <strong>Toegangsperioden:</strong>
+        ${periodsHtml}
+        ${child.deleted_at ? `<br><span style="color:#dc2626;">Kind verwijderd op: ${new Date(child.deleted_at).toLocaleDateString('nl-NL')}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('')}` : ''}
+
+  ${includeEvents !== false && events && events.length > 0 ? `
+  <h2>Agenda (${events.length} afspraken)</h2>
+  ${events.map((event: any) => `
+  <div class="card">
+    <div class="card-title">${event.title}</div>
+    <div class="card-meta">
+      <span class="badge badge-blue">${eventTypeLabels[event.type] || event.type}</span>
+      ${event.children ? `<strong>${event.children.first_name}</strong>` : ''}
+      &nbsp;|&nbsp;<strong>Start:</strong> ${new Date(event.start_at).toLocaleString('nl-NL')}
+      &nbsp;|&nbsp;<strong>Status:</strong> ${event.status}
+    </div>
+    ${event.description ? `<div>${event.description}</div>` : ''}
+    ${event.location ? `<div><strong>Locatie:</strong> ${event.location}</div>` : ''}
+  </div>`).join('')}` : ''}
+
+  ${logEntries && logEntries.length > 0 ? `
+  <h2>Logboek (${logEntries.length} items)</h2>
+  ${logEntries.map((log: any) => `
+  <div class="card">
+    <div class="card-title">${log.title}</div>
+    <div class="card-meta">
+      <span class="badge badge-green">${categoryLabels[log.category] || log.category}</span>
+      ${log.children ? `<strong>${log.children.first_name}</strong>` : ''}
+      <br><strong>Aangemaakt:</strong> ${new Date(log.created_at).toLocaleString('nl-NL')} door ${log.user_name || 'Onbekend'}
+      <br><strong>Gebeurtenis datum:</strong> ${new Date(log.occurred_at).toLocaleString('nl-NL')}
+      ${log.deleted_at ? ' | <span style="color:#dc2626;">VERWIJDERD</span>' : ''}
+    </div>
+    ${log.details ? `<div>${log.details}</div>` : ''}
+    ${log.revisions && log.revisions.length > 0 ? `
+    <div class="sub-section">
+      <strong>Bewerkingsgeschiedenis (${log.revisions.length} versie(s)):</strong>
+      ${log.revisions.map((rev: any) => {
+        const p = rev.previous_data || {};
+        return `<div class="revision-item" style="margin-top:8px;">
+          <div style="font-size:11px;color:#64748b;margin-bottom:4px;"><strong>Versie:</strong> ${new Date(rev.edited_at).toLocaleString('nl-NL')} door ${rev.editor_name}</div>
+          <div><strong>Titel (voor bewerking):</strong> ${p.title || 'N/A'}</div>
+          ${p.details ? `<div><strong>Details:</strong> ${p.details}</div>` : ''}
+          <div><strong>Categorie:</strong> ${categoryLabels[p.category] || p.category || 'N/A'}</div>
+          ${p.occurred_at ? `<div><strong>Datum:</strong> ${new Date(p.occurred_at).toLocaleString('nl-NL')}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+  </div>`).join('')}` : ''}
+
+  ${requests && requests.length > 0 ? `
+  <h2>Verzoeken (${requests.length})</h2>
+  ${requests.map((r: any) => `
+  <div class="card">
+    <div class="card-title">${r.title}</div>
+    <div class="card-meta">
+      <span class="badge ${r.status === 'ACCEPTED' ? 'badge-green' : r.status === 'DECLINED' ? 'badge-red' : r.status === 'OPEN' ? 'badge-yellow' : 'badge-gray'}">${statusLabels[r.status] || r.status}</span>
+      <span class="badge badge-blue">${requestTypeLabels[r.type] || r.type}</span>
+      ${r.children ? `<strong>${r.children.first_name}</strong>` : ''}
+      <br><strong>Aangemaakt:</strong> ${new Date(r.created_at).toLocaleString('nl-NL')} door ${r.user_name || 'Onbekend'}
+      ${r.last_action_by_name ? `<br><strong>Laatste actie door:</strong> ${r.last_action_by_name}` : ''}
+    </div>
+    ${r.description ? `<div><strong>Omschrijving:</strong><br>${r.description}</div>` : ''}
+    ${r.decline_reason ? `<div class="decline-box"><strong>Reden afwijzing:</strong><br>${r.decline_reason}</div>` : ''}
+    ${r.counter_proposal ? `<div class="counter-box"><strong>Tegenbod:</strong><br>${r.counter_proposal}</div>` : ''}
+    ${r.proposals && r.proposals.length > 0 ? `
+    <div class="sub-section">
+      <strong>Voorstelgeschiedenis (${r.proposals.length}):</strong>
+      ${r.proposals.map((p: any) => `
+      <div class="proposal-item">
+        <div style="font-size:11px;color:#64748b;">${p.proposer_name} — ${new Date(p.created_at).toLocaleString('nl-NL')}</div>
+        <div>${p.proposal_text}</div>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`).join('')}` : ''}
+
+  ${questions && questions.length > 0 ? `
+  <h2>Vragen aan hulpverleners (${questions.length})</h2>
+  ${questions.map((q: any) => `
+  <div class="card">
+    <div class="card-title">${q.title}</div>
+    <div class="card-meta">
+      <span class="badge ${q.status === 'ANSWERED' ? 'badge-green' : 'badge-yellow'}">${statusLabels[q.status] || q.status}</span>
+      <strong>Hulpverlener:</strong> ${q.helper_name || 'Onbekend'} | <strong>Datum:</strong> ${new Date(q.created_at).toLocaleString('nl-NL')}
+    </div>
+    <div><strong>Vraag:</strong><br>${q.question_text}</div>
+    ${q.answers && q.answers.length > 0 ? `
+    <div class="sub-section">
+      <strong>Antwoorden:</strong>
+      ${q.answers.map((a: any) => `
+      <div style="margin-top:6px;padding:6px;background:#fff;border-radius:4px;">
+        <div style="font-size:11px;color:#64748b;">${a.parent_name || 'Onbekend'} - ${new Date(a.created_at).toLocaleString('nl-NL')}</div>
+        <div>${a.answer_text}</div>
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`).join('')}` : ''}
+
+  ${auditLogs && auditLogs.length > 0 ? `
+  <h2>Audit Trail (laatste 100 wijzigingen)</h2>
+  <table>
+    <thead><tr><th>Datum</th><th>Actie</th><th>Type</th><th>Entity ID</th></tr></thead>
+    <tbody>
+      ${auditLogs.map((log: any) => `
+      <tr>
+        <td>${new Date(log.created_at).toLocaleString('nl-NL')}</td>
+        <td>${log.action}</td>
+        <td>${log.entity_type}</td>
+        <td style="font-family:monospace;font-size:10px;">${log.entity_id.substring(0, 8)}...</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>` : ''}
+
+  <div class="footer">
+    <p><strong>Co-Parenting App</strong> | Geëxporteerd op ${exportDate}</p>
+    <p style="margin-top:4px;">Dit document bevat vertrouwelijke informatie en is bedoeld voor juridisch gebruik.</p>
+  </div>
+</body>
+</html>`.trim();
 }
