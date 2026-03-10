@@ -107,7 +107,7 @@ export function Logboek() {
     if (!currentFamily) return;
     fetchEntries();
     fetchUploadQuota();
-  }, [currentFamily, selectedChild]);
+  }, [currentFamily, selectedChild, children]);
 
   useEffect(() => {
     if (!currentFamily) return;
@@ -162,6 +162,13 @@ export function Logboek() {
 
     if (selectedChild !== 'all') {
       query = query.eq('child_id', selectedChild);
+    } else {
+      // Only show logs for visible children (or entries without a specific child)
+      const visibleChildIds = children.map(c => c.id);
+      const childFilter = visibleChildIds.length > 0
+        ? `child_id.is.null,child_id.in.(${visibleChildIds.join(',')})`
+        : 'child_id.is.null';
+      query = query.or(childFilter);
     }
 
     const { data } = await query;

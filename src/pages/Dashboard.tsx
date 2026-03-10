@@ -128,12 +128,19 @@ export function Dashboard() {
 
     const isFree = subscription?.plan === 'FREE';
 
+    // Build child visibility filter based on visible children from context
+    const visibleChildIds = children.map(c => c.id);
+    const childFilter = visibleChildIds.length > 0
+      ? `child_id.is.null,child_id.in.(${visibleChildIds.join(',')})`
+      : 'child_id.is.null';
+
     // ✅ Fix: use occurred_at for FREE plan (same logic as Logboek.tsx)
     const logsQuery = supabase
       .from('log_entries')
       .select('*')
       .eq('family_id', currentFamily.id)
       .is('deleted_at', null)
+      .or(childFilter)
       .order('occurred_at', { ascending: false })
       .limit(5);
 
@@ -145,6 +152,7 @@ export function Dashboard() {
         .select('*')
         .eq('family_id', currentFamily.id)
         .is('parent_event_id', null)
+        .or(childFilter)
         .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true }),
 
@@ -287,7 +295,7 @@ export function Dashboard() {
     setRecentEvents(allEvents);
     setRecentLogs((logsResult.data || []) as LogEntry[]);
     setLoading(false);
-  }, [currentFamily, user, isHelper, isHelperMode, subscription]);
+  }, [currentFamily, user, isHelper, isHelperMode, subscription, children]);
 
   useEffect(() => {
     fetchData();

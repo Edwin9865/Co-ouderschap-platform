@@ -64,11 +64,31 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         console.error('Failed to fetch members:', membersResult.error);
       }
 
-      console.log('[FamilyContext] Fetched children:', childrenResult.data);
+      const allChildren = childrenResult.data || [];
+      let visibleChildren = allChildren;
+
+      // Filter children by visibility for the current user
+      // A child is visible if: the user created it, OR there's an explicit child_visibility entry
+      const currentUser = (await supabase.auth.getUser()).data.user;
+      if (currentUser && allChildren.length > 0) {
+        const { data: visibilityData } = await supabase
+          .from('child_visibility')
+          .select('child_id')
+          .eq('user_id', currentUser.id)
+          .in('child_id', allChildren.map(c => c.id));
+
+        const visibleChildIds = new Set(visibilityData?.map(v => v.child_id) || []);
+
+        visibleChildren = allChildren.filter(child =>
+          child.created_by === currentUser.id || visibleChildIds.has(child.id)
+        );
+      }
+
+      console.log('[FamilyContext] Fetched children:', allChildren.length, '| Visible:', visibleChildren.length);
 
       if (familyResult.data) setCurrentFamily(familyResult.data);
       setSubscription(subResult.data || null);
-      setFamilyChildren(childrenResult.data || []);
+      setFamilyChildren(visibleChildren);
       setMembers((membersResult.data as Array<FamilyMember & { user: User }>) || []);
     } catch (error) {
       console.error('Error fetching family data:', error);
