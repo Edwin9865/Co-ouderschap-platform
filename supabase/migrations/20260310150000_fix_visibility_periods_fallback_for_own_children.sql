@@ -1,19 +1,22 @@
 /*
-  # Fix: get_visibility_periods fallback for own children without history
+  # Fix: get_visibility_periods — fallback for own children without history + revoke_reason
 
   ## Problem
-  `get_visibility_periods` returns an empty result when a creator has no
-  `child_visibility_history` entry for their own (possibly deleted) child.
-  The edge function then calls `.some()` on an empty array → `false` →
-  all events/logs for that child are filtered out.
+  1. `get_visibility_periods` returns empty for creator's own child when no
+     `child_visibility_history` entry exists (can happen for children created before
+     the history system, or when the auto-grant trigger fired without auth context).
+     The edge-function then shows "Eigen kind (altijd toegang)" instead of actual dates.
 
-  The code-side fix (`if (periods.length === 0) return true`) covers this,
-  but the DB function should also be correct for any future callers.
+  2. The function did not return `revoke_reason`, so the HTML template could not show
+     the reason for revocation (e.g. "CHILD_DELETED").
 
   ## Fix
-  Add a UNION fallback that synthesises a period from the child's own
-  `created_at` / `deleted_at` when no real history row exists.
+  - Add `revoke_reason` to the return type.
+  - Add a UNION fallback that synthesises a period from `children.created_at` /
+    `children.deleted_at` when no real history row exists for the creator.
 */
+
+DROP FUNCTION IF EXISTS get_visibility_periods(uuid, uuid);
 
 CREATE OR REPLACE FUNCTION get_visibility_periods(
   check_child_id uuid,
@@ -22,6 +25,7 @@ CREATE OR REPLACE FUNCTION get_visibility_periods(
 RETURNS TABLE (
   granted_at    timestamptz,
   revoked_at    timestamptz,
+  revoke_reason text,
   is_active     boolean
 )
 LANGUAGE sql
@@ -29,10 +33,11 @@ SECURITY DEFINER
 SET search_path TO 'public'
 STABLE
 AS $$
-  -- Real history rows (may be empty for own children created before history system)
+  -- Real history rows
   SELECT
     cvh.granted_at,
     cvh.revoked_at,
+    cvh.revoke_reason,
     (cvh.revoked_at IS NULL) AS is_active
   FROM child_visibility_history cvh
   WHERE cvh.child_id = check_child_id
@@ -40,11 +45,12 @@ AS $$
 
   UNION ALL
 
-  -- Synthesised fallback: only when no real history entry exists
+  -- Synthesised fallback: only when no real history entry exists for this creator
   SELECT
-    c.created_at  AS granted_at,
-    c.deleted_at  AS revoked_at,
-    (c.deleted_at IS NULL) AS is_active
+    c.created_at                                               AS granted_at,
+    c.deleted_at                                               AS revoked_at,
+    CASE WHEN c.deleted_at IS NOT NULL THEN 'CHILD_DELETED' END AS revoke_reason,
+    (c.deleted_at IS NULL)                                     AS is_active
   FROM children c
   WHERE c.id         = check_child_id
     AND c.created_by = check_user_id
@@ -59,4 +65,4 @@ AS $$
 $$;
 
 COMMENT ON FUNCTION get_visibility_periods IS
-  'Get all visibility periods for a user/child combination, with fallback for own children without history';
+  'Get all visibility periods (including revoke_reason) for a user/child combination, with fallback for own children without history';

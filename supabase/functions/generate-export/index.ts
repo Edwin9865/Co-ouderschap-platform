@@ -814,17 +814,22 @@ function generateHTML(data: any): string {
         <div class="section">
             <h2 class="section-title">Kinderen (${children.length})</h2>
             ${children.map((child: any) => {
+              const revokeReasonLabel: Record<string, string> = {
+                CHILD_DELETED: 'kind verwijderd', MANUAL_REVOKE: 'handmatig ingetrokken',
+              };
               const periods: any[] = (childVisibilityPeriods || {})[child.child_id] || [];
-              const periodsHtml = periods.length > 0
-                ? periods.map((p: any, i: number) => `
+              // Fallback: synthesise a period for own children without history entries
+              const displayPeriods = periods.length > 0 ? periods : child.deleted_at
+                ? [{ granted_at: child.created_at, revoked_at: child.deleted_at, revoke_reason: 'CHILD_DELETED', is_active: false }]
+                : [{ granted_at: child.created_at, revoked_at: null, revoke_reason: null, is_active: true }];
+              const periodsHtml = displayPeriods.map((p: any, i: number) => `
                     <div style="margin-top:4px; padding:6px 10px; background:#f0f9ff; border-left:3px solid ${p.revoked_at ? '#f59e0b' : '#16a34a'}; border-radius:3px; font-size:13px;">
                       <strong>Periode ${i + 1}:</strong>
                       Toegang verleend ${new Date(p.granted_at).toLocaleDateString('nl-NL')}
                       ${p.revoked_at
-                        ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${p.revoke_reason})` : ''}`
+                        ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${revokeReasonLabel[p.revoke_reason] || p.revoke_reason})` : ''}`
                         : ' → <span style="color:#16a34a;font-weight:600;">Actief</span>'}
-                    </div>`).join('')
-                : `<div style="margin-top:4px;font-size:13px;color:#16a34a;">Eigen kind (altijd toegang)</div>`;
+                    </div>`).join('');
               return `
                 <div class="card">
                     <div class="card-title">
@@ -1085,14 +1090,19 @@ function generatePdfHTML(data: any): string {
   ${children && children.length > 0 ? `
   <h2>Kinderen (${children.length})</h2>
   ${children.map((child: any) => {
+    const revokeReasonLabel: Record<string, string> = {
+      CHILD_DELETED: 'kind verwijderd', MANUAL_REVOKE: 'handmatig ingetrokken',
+    };
     const periods: any[] = (childVisibilityPeriods || {})[child.child_id] || [];
-    const periodsHtml = periods.length > 0
-      ? periods.map((p: any, i: number) => `
-          <div class="period ${p.revoked_at ? 'period-revoked' : 'period-active'}">
-            <strong>Periode ${i + 1}:</strong> Toegang verleend ${new Date(p.granted_at).toLocaleDateString('nl-NL')}
-            ${p.revoked_at ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${p.revoke_reason})` : ''}` : ' → <strong style="color:#16a34a;">Actief</strong>'}
-          </div>`).join('')
-      : `<div class="period period-active">Eigen kind (altijd toegang)</div>`;
+    // Fallback: synthesise a period for own children without history entries
+    const displayPeriods = periods.length > 0 ? periods : child.deleted_at
+      ? [{ granted_at: child.created_at, revoked_at: child.deleted_at, revoke_reason: 'CHILD_DELETED', is_active: false }]
+      : [{ granted_at: child.created_at, revoked_at: null, revoke_reason: null, is_active: true }];
+    const periodsHtml = displayPeriods.map((p: any, i: number) => `
+        <div class="period ${p.revoked_at ? 'period-revoked' : 'period-active'}">
+          <strong>Periode ${i + 1}:</strong> Toegang verleend ${new Date(p.granted_at).toLocaleDateString('nl-NL')}
+          ${p.revoked_at ? ` → ingetrokken ${new Date(p.revoked_at).toLocaleDateString('nl-NL')}${p.revoke_reason ? ` (${revokeReasonLabel[p.revoke_reason] || p.revoke_reason})` : ''}` : ' → <strong style="color:#16a34a;">Actief</strong>'}
+        </div>`).join('');
     return `
     <div class="card">
       <div class="card-title">${child.first_name}</div>
