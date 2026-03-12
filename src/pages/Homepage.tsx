@@ -323,7 +323,7 @@ function ScreenshotCarousel() {
               <img
                 src={s.imageUrl}
                 alt={s.title}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center", display: "block" }}
+                style={{ width: "auto", height: "100%", display: "block" }}
                 onError={e => {
                   const el = e.currentTarget as HTMLImageElement;
                   el.style.display = "none";
