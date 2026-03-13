@@ -75,12 +75,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return () => { sub.unsubscribe(); };
   }, [currentFamily, user]);
 
+  const fetchUnreadMessagesRef = useRef<() => Promise<void>>(async () => {});
+
   const fetchUnreadMessages = useCallback(async () => {
     if (!currentFamily || !user) return;
 
     const { data } = await supabase
       .from('helper_messages')
-      .select('id, recipient_id, sender_id, status, closed, parent_message_id, created_at, has_responded_users')
+      .select('id, recipient_id, sender_id, status, closed, allow_parent_reply, parent_message_id, created_at')
       .eq('family_id', currentFamily.id)
       .is('parent_message_id', null);
 
@@ -90,7 +92,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       data.map(async (msg: any) => {
         const { data: replies } = await supabase
           .from('helper_messages')
-          .select('id, sender_id, recipient_id, status, created_at, has_responded_users')
+          .select('id, sender_id, recipient_id, status, created_at')
           .eq('parent_message_id', msg.id)
           .order('created_at', { ascending: true });
         return { ...msg, replies: replies || [] };
@@ -99,51 +101,65 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
     const actionableCount = messagesWithReplies.filter(message => {
       if (message.closed) return false;
-      const isParentGroupMessage = message.recipient_id === null;
-      let needsMyResponse = false;
-      if (message.status === 'MOET_BEANTWOORDEN') {
-        if (message.recipient_id === user.id) {
-          needsMyResponse = true;
-        } else if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
-          const iHaveReplied = message.replies?.some((r: any) => r.sender_id === user.id);
-          needsMyResponse = !iHaveReplied;
-        }
-      } else if (message.status === 'BEANTWOORD') {
-        if (isParentGroupMessage && message.sender_id !== user.id && !isHelperMode) {
-          const iHaveReplied = message.replies?.some((r: any) => r.sender_id === user.id);
-          needsMyResponse = !iHaveReplied;
-        }
+
+      if (isHelperMode) {
+        // Helper: show badge if a parent-initiated message needs my response
+        return message.status === 'MOET_BEANTWOORDEN' && message.sender_id !== user.id;
       }
-      const hasRepliesThatNeedMyResponse = message.replies?.some((r: any) => {
-        if (r.status !== 'MOET_BEANTWOORDEN') return false;
-        if (isHelperMode && isParentGroupMessage) return false;
-        if (r.recipient_id === user.id) return true;
-        else if (r.recipient_id === null && r.sender_id !== user.id && !isHelperMode) {
-          const iHaveReplied = message.replies?.some((reply: any) => reply.sender_id === user.id);
-          needsMyResponse = !iHaveReplied;
-        }
-        return false;
-      });
-      return needsMyResponse || hasRepliesThatNeedMyResponse;
+
+      // Parent: direct message to me
+      if (message.recipient_id === user.id && message.status === 'MOET_BEANTWOORDEN') return true;
+
+      // Parent: group message from helper (recipient_id = null, sender is helper)
+      if (message.recipient_id === null && message.sender_id !== user.id) {
+        if (message.allow_parent_reply === false) return false;
+        // Per-round: find last reply by the helper (original sender) in thread
+        const helperRepliesInThread = (message.replies || []).filter(
+          (r: any) => r.sender_id === message.sender_id
+        );
+        const lastHelperReply = helperRepliesInThread[helperRepliesInThread.length - 1];
+        const roundStartTime = lastHelperReply
+          ? new Date(lastHelperReply.created_at)
+          : new Date(message.created_at);
+        const iHaveRepliedThisRound = (message.replies || []).some(
+          (r: any) => r.sender_id === user.id && new Date(r.created_at) > roundStartTime
+        );
+        return !iHaveRepliedThisRound && message.status === 'MOET_BEANTWOORDEN';
+      }
+
+      return false;
     }).length;
 
     setUnreadMessagesCount(actionableCount);
   }, [currentFamily, user, isHelperMode]);
 
+  // Keep ref in sync so real-time callback never has a stale closure
+  fetchUnreadMessagesRef.current = fetchUnreadMessages;
+
   useEffect(() => { fetchUnreadMessages(); }, [fetchUnreadMessages]);
 
+  // Real-time subscription — channel name includes family_id to avoid cross-family conflicts
   useEffect(() => {
     if (!currentFamily) return;
-    const sub = supabase
-      .channel('helper_messages_changes')
+    const channel = supabase
+      .channel(`helper_messages_changes_${currentFamily.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'helper_messages', filter: `family_id=eq.${currentFamily.id}` },
-        () => fetchUnreadMessages()
+        () => fetchUnreadMessagesRef.current()
       )
       .subscribe();
-    return () => { sub.unsubscribe(); };
-  }, [currentFamily, fetchUnreadMessages]);
+    return () => { channel.unsubscribe(); };
+  }, [currentFamily]);
+
+  // Fallback: refetch when the tab/app becomes visible again (covers WebSocket gaps)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchUnreadMessagesRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();

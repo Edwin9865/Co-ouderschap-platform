@@ -36,7 +36,7 @@ interface HelperMessage {
 }
 
 export function Vragen() {
-  const { currentFamily, members, isHelper, isHelperMode } = useFamily();
+  const { currentFamily, members, isHelperMode } = useFamily();
   const { user } = useAuth();
   const [messages, setMessages] = useState<HelperMessage[]>([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -72,6 +72,15 @@ export function Vragen() {
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
+
+  // Fallback: refetch when the tab/app becomes visible again
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchMessagesRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const fetchMessages = async () => {
     if (!currentFamily || !user) return;
@@ -270,14 +279,29 @@ export function Vragen() {
     if (!user) return;
     setLoading(true);
     try {
-      await supabase
+      const { error } = await supabase
         .from('helper_messages')
-        .update({ closed: true, allow_parent_reply: false })
+        .update({ closed: true })
         .eq('id', messageId);
-      setConfirmClose(null);
-      await fetchMessages();
+      if (!error) {
+        setConfirmClose(null);
+        await fetchMessages();
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleAllowParentReply = async (messageId: string, newValue: boolean) => {
+    // Optimistic local update
+    setAllowParentReplyToggle(prev => ({ ...prev, [messageId]: newValue }));
+    // Persist to DB (requires allow_parent_reply migration to be applied)
+    const { error } = await (supabase as any)
+      .from('helper_messages')
+      .update({ allow_parent_reply: newValue })
+      .eq('id', messageId);
+    if (!error) {
+      await fetchMessages();
     }
   };
 
@@ -681,7 +705,7 @@ export function Vragen() {
                           type="button"
                           onClick={() => {
                             const current = allowParentReplyToggle[message.id] !== false;
-                            setAllowParentReplyToggle({ ...allowParentReplyToggle, [message.id]: !current });
+                            handleToggleAllowParentReply(message.id, !current);
                           }}
                           className="flex items-center gap-3 select-none w-fit"
                         >
