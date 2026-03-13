@@ -8,7 +8,8 @@
       "Bash(ls -lt /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
       "Read(//d/Edwin/Bureaublad/app/Co-ouderschap-platform/**)",
       "Bash(grep -l \"log_entries\\\\|events\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
-      "Bash(xargs grep -l \"HELPER\")"
+      "Bash(xargs grep -l \"HELPER\")",
+      "Bash(npx tsc --noEmit)"
     ]
   }
 }

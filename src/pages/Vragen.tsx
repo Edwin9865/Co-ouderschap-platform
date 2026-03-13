@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -43,6 +43,7 @@ export function Vragen() {
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [allowParentReplyToggle, setAllowParentReplyToggle] = useState<Record<string, boolean>>({});
+  const [confirmClose, setConfirmClose] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -55,16 +56,19 @@ export function Vragen() {
   const parents = members.filter((m) => m.role === 'PARENT');
   const helpers = members.filter((m) => m.role === 'HELPER');
 
+  // Ref zodat de realtime-callback altijd de laatste versie van fetchMessages aanroept
+  const fetchMessagesRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
     if (!currentFamily) return;
-    fetchMessages();
+    fetchMessagesRef.current();
   }, [currentFamily, user]);
 
   useEffect(() => {
     if (!currentFamily) return;
     const channel = supabase
       .channel(`vragen_messages_${currentFamily.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'helper_messages', filter: `family_id=eq.${currentFamily.id}` }, () => fetchMessages())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'helper_messages', filter: `family_id=eq.${currentFamily.id}` }, () => fetchMessagesRef.current())
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
@@ -106,6 +110,7 @@ export function Vragen() {
       setMessages(messagesWithReplies);
     }
   };
+  fetchMessagesRef.current = fetchMessages;
 
   const handleCreateMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,15 +268,13 @@ export function Vragen() {
 
   const handleCloseMessage = async (messageId: string) => {
     if (!user) return;
-    if (!window.confirm('Weet je zeker dat je deze vraag wilt sluiten? Ouders kunnen daarna geen antwoorden meer toevoegen.')) return;
-
     setLoading(true);
     try {
       await supabase
         .from('helper_messages')
         .update({ closed: true, allow_parent_reply: false })
         .eq('id', messageId);
-
+      setConfirmClose(null);
       await fetchMessages();
     } finally {
       setLoading(false);
@@ -674,27 +677,25 @@ export function Vragen() {
                         </div>
 
                         {/* Toggle: ouders mogen reageren */}
-                        <label className="flex items-center gap-3 cursor-pointer select-none">
-                          <div className="relative">
-                            <input
-                              type="checkbox"
-                              className="sr-only"
-                              checked={allowParentReplyToggle[message.id] !== false}
-                              onChange={(e) =>
-                                setAllowParentReplyToggle({ ...allowParentReplyToggle, [message.id]: e.target.checked })
-                              }
-                            />
-                            <div className={`w-10 h-6 rounded-full transition-colors ${
-                              allowParentReplyToggle[message.id] !== false ? 'bg-slate-700' : 'bg-gray-300'
-                            }`} />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const current = allowParentReplyToggle[message.id] !== false;
+                            setAllowParentReplyToggle({ ...allowParentReplyToggle, [message.id]: !current });
+                          }}
+                          className="flex items-center gap-3 select-none w-fit"
+                        >
+                          <div className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${
+                            allowParentReplyToggle[message.id] !== false ? 'bg-slate-700' : 'bg-gray-300'
+                          }`}>
                             <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
                               allowParentReplyToggle[message.id] !== false ? 'translate-x-4' : ''
                             }`} />
                           </div>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-gray-700 text-left">
                             Ouders mogen verder reageren na uw antwoord
                           </span>
-                        </label>
+                        </button>
 
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
@@ -705,14 +706,34 @@ export function Vragen() {
                             <Send className="w-4 h-4" />
                             <span>{loading ? 'Bezig...' : 'Reactie versturen'}</span>
                           </button>
-                          <button
-                            onClick={() => handleCloseMessage(message.id)}
-                            disabled={loading}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 justify-center text-sm sm:text-base"
-                          >
-                            <X className="w-4 h-4" />
-                            <span>Vraag sluiten</span>
-                          </button>
+
+                          {confirmClose === message.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleCloseMessage(message.id)}
+                                disabled={loading}
+                                className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm font-medium"
+                              >
+                                {loading ? 'Bezig...' : 'Bevestig sluiten'}
+                              </button>
+                              <button
+                                onClick={() => setConfirmClose(null)}
+                                disabled={loading}
+                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+                              >
+                                Annuleren
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmClose(message.id)}
+                              disabled={loading}
+                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 justify-center text-sm sm:text-base"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Vraag sluiten</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     ) : parentCanReply ? (

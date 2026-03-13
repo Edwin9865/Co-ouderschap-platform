@@ -47,6 +47,7 @@ export function Dashboard() {
   const [codeCopied, setCodeCopied] = useState(false);
   const [hasCoupling, setHasCoupling] = useState(false);
   const [unansweredMessages, setUnansweredMessages] = useState<any[]>([]);
+  const [messagesWaitingOnParents, setMessagesWaitingOnParents] = useState<any[]>([]);
   const [pendingCouplingRequests, setPendingCouplingRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -200,21 +201,38 @@ export function Dashboard() {
         })
       );
 
-      const unanswered = messagesWithReplies.filter((msg: any) => {
-        const needsMyResponse =
+      const parentMembers = members.filter(m => m.role === 'PARENT');
+      const helperIds = members.filter(m => m.role === 'HELPER').map(m => m.user_id);
+
+      // Berichten die de hulpverlener zelf moet beantwoorden (van ouders aan hulpverlener)
+      const needsHelperReply = messagesWithReplies.filter((msg: any) => {
+        if (msg.closed) return false;
+        return (
           msg.status === 'MOET_BEANTWOORDEN' &&
-          (msg.recipient_id === user.id || (msg.recipient_id === null && msg.sender_id !== user.id));
-
-        const hasRepliesThatNeedMyResponse = msg.replies?.some(
-          (r: any) =>
-            r.status === 'MOET_BEANTWOORDEN' &&
-            (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
+          (msg.recipient_id === user.id || (msg.recipient_id === null && msg.sender_id !== user.id))
         );
-
-        return needsMyResponse || hasRepliesThatNeedMyResponse;
       });
 
-      setUnansweredMessages(unanswered);
+      // Berichten van hulpverlener aan beide ouders, wachtend op ouder-antwoorden (deze ronde)
+      const waitingOnParents = messagesWithReplies.filter((msg: any) => {
+        if (msg.closed) return false;
+        if (msg.sender_id !== user.id) return false;
+        if (msg.recipient_id !== null) return false; // alleen groepsberichten
+
+        const helperReplies = (msg.replies || []).filter((r: any) => helperIds.includes(r.sender_id));
+        const lastHelperReply = helperReplies[helperReplies.length - 1];
+        const roundStartTime = lastHelperReply ? new Date(lastHelperReply.created_at) : new Date(msg.created_at);
+
+        const parentRepliesThisRound = (msg.replies || []).filter((r: any) =>
+          parentMembers.some((p: any) => p.user_id === r.sender_id) &&
+          new Date(r.created_at) > roundStartTime
+        );
+        const respondedCount = new Set(parentRepliesThisRound.map((r: any) => r.sender_id)).size;
+        return respondedCount < parentMembers.length;
+      });
+
+      setUnansweredMessages(needsHelperReply);
+      setMessagesWaitingOnParents(waitingOnParents);
     } else {
       const [, , requestsResult, inviteCodeResult, familyMembersResult, couplingRequestsResult] = results;
 
@@ -239,7 +257,7 @@ export function Dashboard() {
         (parentMessages || []).map(async (msg: any) => {
           const { data: replies } = await supabase
             .from('helper_messages')
-            .select('id, sender_id, recipient_id, status')
+            .select('id, sender_id, recipient_id, status, created_at')
             .eq('parent_message_id', msg.id);
 
           return {
@@ -249,18 +267,28 @@ export function Dashboard() {
         })
       );
 
+      const helperMemberIds = members.filter(m => m.role === 'HELPER').map(m => m.user_id);
+
       const parentUnanswered = parentMessagesWithReplies.filter((msg: any) => {
+        const isGroupFromHelper = msg.recipient_id === null && helperMemberIds.includes(msg.sender_id);
         const needsMyResponse =
           msg.status === 'MOET_BEANTWOORDEN' &&
-          (msg.recipient_id === user.id || (msg.recipient_id === null && msg.sender_id !== user.id));
+          (msg.recipient_id === user.id || isGroupFromHelper);
 
-        const hasRepliesThatNeedMyResponse = msg.replies?.some(
-          (r: any) =>
-            r.status === 'MOET_BEANTWOORDEN' &&
-            (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
-        );
+        if (!needsMyResponse) return false;
 
-        return needsMyResponse || hasRepliesThatNeedMyResponse;
+        // Groepsbericht van hulpverlener: badge niet tonen als ik al geantwoord heb in deze ronde
+        if (isGroupFromHelper) {
+          const helperReplies = (msg.replies || []).filter((r: any) => helperMemberIds.includes(r.sender_id));
+          const lastHelperReply = helperReplies[helperReplies.length - 1];
+          const roundStartTime = lastHelperReply ? new Date(lastHelperReply.created_at) : new Date(msg.created_at);
+          const iHaveRepliedThisRound = (msg.replies || []).some(
+            (r: any) => r.sender_id === user.id && new Date(r.created_at) > roundStartTime
+          );
+          if (iHaveRepliedThisRound) return false;
+        }
+
+        return true;
       });
 
       setUnansweredMessages(parentUnanswered);
@@ -401,20 +429,31 @@ export function Dashboard() {
           </p>
         </div>
 
-        {unansweredMessages.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+        {(unansweredMessages.length > 0 || messagesWaitingOnParents.length > 0) && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 space-y-3">
             <div className="flex items-start">
-              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-amber-900 mb-2">
-                  {unansweredMessages.length} openstaande {unansweredMessages.length === 1 ? 'vraag' : 'vragen'}
-                </h3>
-                <p className="text-sm text-amber-800 mb-3">
-                  Deze vragen wachten nog op antwoorden van een of beide ouders.
-                </p>
-                <Link to="/vragen" className="text-sm text-amber-800 hover:underline font-medium">
-                  Bekijk openstaande vragen
-                </Link>
+              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1 space-y-3">
+                {unansweredMessages.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-amber-900 mb-1">
+                      {unansweredMessages.length} {unansweredMessages.length === 1 ? 'vraag' : 'vragen'} wacht op uw reactie
+                    </h3>
+                    <Link to="/vragen" className="text-sm text-amber-800 hover:underline font-medium">
+                      Bekijk openstaande vragen
+                    </Link>
+                  </div>
+                )}
+                {messagesWaitingOnParents.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-amber-900 mb-1">
+                      {messagesWaitingOnParents.length} {messagesWaitingOnParents.length === 1 ? 'vraag' : 'vragen'} wacht op ouder-antwoord
+                    </h3>
+                    <Link to="/vragen" className="text-sm text-amber-800 hover:underline font-medium">
+                      Bekijk vragen
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -512,15 +551,24 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <div className="text-3xl font-bold text-gray-900">{children.length}</div>
             <div className="text-sm text-gray-600 mt-1">{children.length === 1 ? 'Kind' : 'Kinderen'}</div>
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-gray-200">
-            <div className="text-3xl font-bold text-gray-900">{unansweredMessages.length}</div>
-            <div className="text-sm text-gray-600 mt-1">Wachtend op antwoord</div>
+            <div className={`text-3xl font-bold ${unansweredMessages.length > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+              {unansweredMessages.length}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">Wacht op uw reactie</div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg border border-gray-200">
+            <div className={`text-3xl font-bold ${messagesWaitingOnParents.length > 0 ? 'text-amber-600' : 'text-gray-900'}`}>
+              {messagesWaitingOnParents.length}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">Wacht op ouders</div>
           </div>
 
           <div className="bg-white p-6 rounded-lg border border-gray-200">
