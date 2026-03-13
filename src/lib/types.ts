@@ -614,6 +614,59 @@ export interface Database {
           last_accessed_at?: string | null
         }
       }
+      helper_messages: {
+        Row: {
+          id: string
+          family_id: string
+          sender_id: string
+          recipient_id: string | null
+          subject: string
+          message: string
+          parent_message_id: string | null
+          is_read: boolean
+          status: 'MOET_BEANTWOORDEN' | 'BEANTWOORD'
+          has_responded_users: string[]
+          helper_has_read_replies: string[]
+          closed: boolean
+          allow_parent_reply: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          family_id: string
+          sender_id: string
+          recipient_id?: string | null
+          subject: string
+          message: string
+          parent_message_id?: string | null
+          is_read?: boolean
+          status?: 'MOET_BEANTWOORDEN' | 'BEANTWOORD'
+          has_responded_users?: string[]
+          helper_has_read_replies?: string[]
+          closed?: boolean
+          allow_parent_reply?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          family_id?: string
+          sender_id?: string
+          recipient_id?: string | null
+          subject?: string
+          message?: string
+          parent_message_id?: string | null
+          is_read?: boolean
+          status?: 'MOET_BEANTWOORDEN' | 'BEANTWOORD'
+          has_responded_users?: string[]
+          helper_has_read_replies?: string[]
+          closed?: boolean
+          allow_parent_reply?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
       notification_settings: {
         Row: {
           id: string

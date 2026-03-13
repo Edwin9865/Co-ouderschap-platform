@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Plus, Send, Users as UsersIcon, User, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Send, Users as UsersIcon, User, X, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 
 interface HelperMessage {
   id: string;
@@ -17,6 +17,7 @@ interface HelperMessage {
   has_responded_users: string[];
   helper_has_read_replies: string[];
   closed: boolean;
+  allow_parent_reply: boolean;
   created_at: string;
   updated_at: string;
   sender: {
@@ -41,6 +42,7 @@ export function Vragen() {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [allowParentReplyToggle, setAllowParentReplyToggle] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -123,6 +125,7 @@ export function Vragen() {
         message: formData.message,
         recipient_id: formData.recipient_id || null,
         status: 'MOET_BEANTWOORDEN',
+        allow_parent_reply: true,
       };
 
       await supabase.from('helper_messages').insert(messageData);
@@ -143,10 +146,10 @@ export function Vragen() {
 
     setLoading(true);
     try {
-      const isParentGroupMessage = parentMessage.recipient_id === null;
+      const isGroupMessage = parentMessage.recipient_id === null;
 
       let recipientId;
-      if (isParentGroupMessage) {
+      if (isGroupMessage) {
         recipientId = null;
       } else {
         recipientId = parentMessage.sender_id === user.id
@@ -163,41 +166,36 @@ export function Vragen() {
         parent_message_id: parentMessageId,
       });
 
-      if (parentMessage.sender_id === user.id) {
-        if (parentMessage.recipient_id === null) {
-          await supabase
-            .from('helper_messages')
-            .update({
-              helper_has_read_replies: [],
-              status: 'MOET_BEANTWOORDEN'
-            })
-            .eq('id', parentMessageId);
-        } else {
-          await supabase
-            .from('helper_messages')
-            .update({ status: 'MOET_BEANTWOORDEN' })
-            .eq('id', parentMessageId);
-        }
+      if (isHelperMode) {
+        // Helper controls allow_parent_reply and status
+        const shouldAllowParentReply = allowParentReplyToggle[parentMessageId] !== false;
+        const helperReplyStatus: 'MOET_BEANTWOORDEN' | 'BEANTWOORD' = shouldAllowParentReply ? 'MOET_BEANTWOORDEN' : 'BEANTWOORD';
+        // allow_parent_reply is a new column — cast needed until types are regenerated
+        await (supabase as any)
+          .from('helper_messages')
+          .update({
+            allow_parent_reply: shouldAllowParentReply,
+            status: helperReplyStatus,
+          })
+          .eq('id', parentMessageId);
       } else {
-        if (parentMessage.recipient_id === null) {
+        // Parent is replying
+        if (isGroupMessage) {
           const { data: allReplies } = await supabase
             .from('helper_messages')
             .select('sender_id')
             .eq('parent_message_id', parentMessageId);
 
           const parentIds = parents.map(p => p.user_id);
-          const respondedParentIds = [...new Set(
-            (allReplies || [])
-              .map((r: any) => r.sender_id)
+          const respondedIds = [...new Set(
+            [...(allReplies || []).map((r: any) => r.sender_id), user.id]
               .filter((id: string) => parentIds.includes(id))
           )];
-
-          const allParentsResponded = respondedParentIds.length >= parents.length;
-          const newStatus = allParentsResponded ? 'BEANTWOORD' : 'MOET_BEANTWOORDEN';
+          const allParentsResponded = respondedIds.length >= parents.length;
 
           await supabase
             .from('helper_messages')
-            .update({ status: newStatus })
+            .update({ status: allParentsResponded ? 'BEANTWOORD' : 'MOET_BEANTWOORDEN' })
             .eq('id', parentMessageId);
         } else if (parentMessage.recipient_id === user.id) {
           await supabase
@@ -233,9 +231,7 @@ export function Vragen() {
       const currentReadReplies = Array.isArray(message.helper_has_read_replies)
         ? message.helper_has_read_replies
         : [];
-
       const newReadReplies = [...new Set([...currentReadReplies, ...replyIds])];
-
       await supabase
         .from('helper_messages')
         .update({ helper_has_read_replies: newReadReplies })
@@ -245,7 +241,6 @@ export function Vragen() {
         !r.is_read &&
         (r.recipient_id === user.id || (r.recipient_id === null && r.sender_id !== user.id))
       );
-
       for (const reply of unreadReplies) {
         await supabase
           .from('helper_messages')
@@ -268,12 +263,13 @@ export function Vragen() {
 
   const handleCloseMessage = async (messageId: string) => {
     if (!user) return;
+    if (!window.confirm('Weet je zeker dat je deze vraag wilt sluiten? Ouders kunnen daarna geen antwoorden meer toevoegen.')) return;
 
     setLoading(true);
     try {
       await supabase
         .from('helper_messages')
-        .update({ closed: true })
+        .update({ closed: true, allow_parent_reply: false })
         .eq('id', messageId);
 
       await fetchMessages();
@@ -333,6 +329,16 @@ export function Vragen() {
         )}
       </div>
 
+      {/* Banner voor hulpverleners */}
+      {isHelperMode && (
+        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-blue-800">
+            <strong>Let op:</strong> Sluit een vraag zodra het onderwerp is afgerond. Ouders kunnen daarna geen nieuwe antwoorden meer toevoegen. U heeft altijd de regie over het gesprek.
+          </p>
+        </div>
+      )}
+
       {showCreate && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Nieuw bericht</h2>
@@ -347,7 +353,7 @@ export function Vragen() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
               >
                 {isHelperMode ? (
-                  <option value="">Hele gezin (beide ouders)</option>
+                  <option value="">Beide ouders</option>
                 ) : (
                   <option value="">Selecteer hulpverlener</option>
                 )}
@@ -435,39 +441,68 @@ export function Vragen() {
           monthlyMessages.map((message) => {
             const iAmSender = message.sender_id === user?.id;
             const isGroupMessage = message.recipient_id === null;
-            const parentCount = parents.length;
+            const senderIsHelper = helpers.some(h => h.user_id === message.sender_id);
 
-            const parentReplies = message.replies?.filter((r: any) =>
-              parents.some(p => p.user_id === r.sender_id)
-            ) || [];
-            const respondedParentIds = [...new Set(parentReplies.map((r: any) => r.sender_id))];
-            const respondedCount = respondedParentIds.length;
+            // Per-ronde tracking voor groepsberichten van hulpverlener
+            let iHaveRepliedThisRound = false;
+            let allParentsRepliedThisRound = false;
+            let respondedParentIdsThisRound: string[] = [];
+            let respondedParentsThisRound: typeof parents = [];
+            let notRespondedParentsThisRound: typeof parents = [];
 
-            const respondedParents = parents.filter(p => respondedParentIds.includes(p.user_id));
-            const notRespondedParents = parents.filter(p => !respondedParentIds.includes(p.user_id));
+            if (isGroupMessage && senderIsHelper) {
+              const helperReplies = (message.replies || []).filter(r =>
+                helpers.some(h => h.user_id === r.sender_id)
+              );
+              // replies zijn gesorteerd ascending op created_at
+              const lastHelperReply = helperReplies[helperReplies.length - 1];
+              const roundStartTime = lastHelperReply
+                ? new Date(lastHelperReply.created_at)
+                : new Date(message.created_at);
 
+              const parentRepliesThisRound = (message.replies || []).filter(r =>
+                parents.some(p => p.user_id === r.sender_id) &&
+                new Date(r.created_at) > roundStartTime
+              );
+
+              respondedParentIdsThisRound = [...new Set(parentRepliesThisRound.map(r => r.sender_id))];
+              allParentsRepliedThisRound = respondedParentIdsThisRound.length >= parents.length;
+              iHaveRepliedThisRound = respondedParentIdsThisRound.includes(user?.id || '');
+              respondedParentsThisRound = parents.filter(p => respondedParentIdsThisRound.includes(p.user_id));
+              notRespondedParentsThisRound = parents.filter(p => !respondedParentIdsThisRound.includes(p.user_id));
+            }
+
+            // Kan de huidige ouder nu antwoorden?
+            const parentCanReply = !isHelperMode && !message.closed && message.allow_parent_reply && (
+              isGroupMessage && senderIsHelper ? !iHaveRepliedThisRound : true
+            );
+
+            // Bepaal statusbadge
             let messageStatus = '';
             let statusColor = '';
 
             if (message.closed) {
               messageStatus = 'Gesloten';
               statusColor = 'bg-gray-100 text-gray-800';
-            } else if (isGroupMessage) {
-              const allParentsResponded = respondedCount >= parentCount;
-              const iHaveResponded = respondedParentIds.includes(user?.id || '');
-
+            } else if (isGroupMessage && senderIsHelper) {
               if (isHelperMode) {
-                if (allParentsResponded) {
-                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
+                if (allParentsRepliedThisRound) {
+                  messageStatus = `Alle ouders geantwoord (${respondedParentIdsThisRound.length}/${parents.length})`;
                   statusColor = 'bg-green-100 text-green-800';
                 } else {
-                  messageStatus = `Wacht op antwoord (${respondedCount}/${parentCount})`;
+                  messageStatus = `Wacht op antwoord (${respondedParentIdsThisRound.length}/${parents.length})`;
                   statusColor = 'bg-amber-100 text-amber-800';
                 }
               } else {
-                if (iHaveResponded) {
-                  messageStatus = `Beantwoord (${respondedCount}/${parentCount})`;
-                  statusColor = allParentsResponded ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800';
+                if (iHaveRepliedThisRound && allParentsRepliedThisRound) {
+                  messageStatus = 'Beantwoord — wacht op hulpverlener';
+                  statusColor = 'bg-green-100 text-green-800';
+                } else if (iHaveRepliedThisRound) {
+                  messageStatus = 'Beantwoord — wacht op andere ouder';
+                  statusColor = 'bg-amber-100 text-amber-800';
+                } else if (!message.allow_parent_reply) {
+                  messageStatus = 'Geen reactie nodig';
+                  statusColor = 'bg-gray-100 text-gray-600';
                 } else {
                   messageStatus = 'Moet beantwoorden';
                   statusColor = 'bg-red-100 text-red-800';
@@ -476,13 +511,8 @@ export function Vragen() {
             } else {
               if (message.status === 'MOET_BEANTWOORDEN') {
                 if (iAmSender) {
-                  if (isHelperMode) {
-                    messageStatus = 'Wacht op antwoord';
-                    statusColor = 'bg-amber-100 text-amber-800';
-                  } else {
-                    messageStatus = 'Wacht op hulpverlener';
-                    statusColor = 'bg-amber-100 text-amber-800';
-                  }
+                  messageStatus = isHelperMode ? 'Wacht op antwoord' : 'Wacht op hulpverlener';
+                  statusColor = 'bg-amber-100 text-amber-800';
                 } else {
                   messageStatus = 'Moet beantwoorden';
                   statusColor = 'bg-red-100 text-red-800';
@@ -525,7 +555,7 @@ export function Vragen() {
                           ) : (
                             <>
                               <UsersIcon className="w-3 h-3 flex-shrink-0" />
-                              <span>Aan: {isHelperMode ? 'Hele gezin' : 'Alle hulpverleners'}</span>
+                              <span>Aan: {isHelperMode ? 'Beide ouders' : 'Alle hulpverleners'}</span>
                             </>
                           )}
                         </span>
@@ -544,6 +574,7 @@ export function Vragen() {
 
                 {selectedMessage === message.id && (
                   <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
+                    {/* Origineel bericht */}
                     <div className="mb-6">
                       <div className="text-sm font-medium text-gray-500 mb-2">Origineel bericht</div>
                       <div className="bg-white p-4 rounded-lg border border-gray-200">
@@ -551,75 +582,120 @@ export function Vragen() {
                       </div>
                     </div>
 
-                    {isHelperMode && iAmSender && message.recipient_id === null && (
+                    {/* Status ouders (hulpverlener-view, groepsbericht) */}
+                    {isHelperMode && iAmSender && isGroupMessage && (
                       <div className="mb-6">
-                        <div className="text-sm font-medium text-gray-500 mb-3">Status ouders</div>
+                        <div className="text-sm font-medium text-gray-500 mb-3">Status ouders (deze ronde)</div>
                         <div className="space-y-2">
-                          {respondedParents.map(parent => (
+                          {respondedParentsThisRound.map(parent => (
                             <div
                               key={parent.user_id}
                               className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-4 py-2"
                             >
-                              <span className="text-sm font-medium text-green-900">
-                                {parent.user.name}
-                              </span>
-                              <span className="text-xs text-green-700 font-medium">
-                                Beantwoord
-                              </span>
+                              <span className="text-sm font-medium text-green-900">{parent.user.name}</span>
+                              <span className="text-xs text-green-700 font-medium">Geantwoord</span>
                             </div>
                           ))}
-                          {notRespondedParents.map(parent => (
+                          {notRespondedParentsThisRound.map(parent => (
                             <div
                               key={parent.user_id}
                               className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2"
                             >
-                              <span className="text-sm font-medium text-amber-900">
-                                {parent.user.name}
-                              </span>
-                              <span className="text-xs text-amber-700 font-medium">
-                                Wacht op antwoord
-                              </span>
+                              <span className="text-sm font-medium text-amber-900">{parent.user.name}</span>
+                              <span className="text-xs text-amber-700 font-medium">Wacht op antwoord</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
+                    {/* Replies */}
                     {message.replies && message.replies.length > 0 && (
                       <div className="space-y-3 mb-6">
                         <div className="text-sm font-medium text-gray-500">Antwoorden</div>
-                        {message.replies.map((reply) => (
-                          <div
-                            key={reply.id}
-                            className="bg-white p-4 rounded-lg border border-gray-200"
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {reply.sender.name}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(reply.created_at).toLocaleString('nl-NL')}
-                              </span>
+                        {message.replies.map((reply) => {
+                          const replySenderIsHelper = helpers.some(h => h.user_id === reply.sender_id);
+                          return (
+                            <div
+                              key={reply.id}
+                              className={`p-4 rounded-lg border ${
+                                replySenderIsHelper
+                                  ? 'bg-blue-50 border-blue-200'
+                                  : 'bg-white border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <span className={`text-sm font-medium ${replySenderIsHelper ? 'text-blue-900' : 'text-gray-900'}`}>
+                                  {reply.sender.name}
+                                  {replySenderIsHelper && (
+                                    <span className="ml-2 text-xs font-normal text-blue-600">hulpverlener</span>
+                                  )}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(reply.created_at).toLocaleString('nl-NL')}
+                                </span>
+                              </div>
+                              <p className="text-gray-700 whitespace-pre-wrap">{reply.message}</p>
                             </div>
-                            <p className="text-gray-700 whitespace-pre-wrap">{reply.message}</p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
 
-                    {!message.closed ? (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Antwoord
+                    {/* Antwoordgebied */}
+                    {message.closed ? (
+                      <div className="text-center py-4 text-gray-500 bg-gray-100 rounded-lg">
+                        Deze vraag is gesloten. Er kunnen geen antwoorden meer worden toegevoegd.
+                      </div>
+                    ) : isHelperMode ? (
+                      /* Hulpverlener: actiesectie */
+                      <div className="space-y-4">
+                        {isGroupMessage && iAmSender && allParentsRepliedThisRound && (
+                          <div className="flex items-start gap-2 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+                            <Info className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-green-800">
+                              Alle ouders hebben geantwoord. U kunt nu reageren of de vraag sluiten.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Uw reactie
+                          </label>
+                          <textarea
+                            value={replyText[message.id] || ''}
+                            onChange={(e) => setReplyText({ ...replyText, [message.id]: e.target.value })}
+                            placeholder="Typ uw reactie..."
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                            rows={3}
+                            maxLength={2000}
+                          />
+                        </div>
+
+                        {/* Toggle: ouders mogen reageren */}
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={allowParentReplyToggle[message.id] !== false}
+                              onChange={(e) =>
+                                setAllowParentReplyToggle({ ...allowParentReplyToggle, [message.id]: e.target.checked })
+                              }
+                            />
+                            <div className={`w-10 h-6 rounded-full transition-colors ${
+                              allowParentReplyToggle[message.id] !== false ? 'bg-slate-700' : 'bg-gray-300'
+                            }`} />
+                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                              allowParentReplyToggle[message.id] !== false ? 'translate-x-4' : ''
+                            }`} />
+                          </div>
+                          <span className="text-sm text-gray-700">
+                            Ouders mogen verder reageren na uw antwoord
+                          </span>
                         </label>
-                        <textarea
-                          value={replyText[message.id] || ''}
-                          onChange={(e) => setReplyText({ ...replyText, [message.id]: e.target.value })}
-                          placeholder="Typ je antwoord..."
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
-                          rows={3}
-                          maxLength={2000}
-                        />
+
                         <div className="flex flex-col sm:flex-row gap-2">
                           <button
                             onClick={() => handleReply(message.id)}
@@ -627,24 +703,52 @@ export function Vragen() {
                             className="flex-1 flex items-center gap-2 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 justify-center text-sm sm:text-base"
                           >
                             <Send className="w-4 h-4" />
-                            <span>{loading ? 'Bezig...' : 'Antwoord versturen'}</span>
+                            <span>{loading ? 'Bezig...' : 'Reactie versturen'}</span>
                           </button>
-                          {message.sender_id === user?.id && isHelperMode && (
-                            <button
-                              onClick={() => handleCloseMessage(message.id)}
-                              disabled={loading}
-                              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 justify-center text-sm sm:text-base"
-                              title="Vraag sluiten"
-                            >
-                              <X className="w-4 h-4" />
-                              <span>Sluiten</span>
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleCloseMessage(message.id)}
+                            disabled={loading}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-2 justify-center text-sm sm:text-base"
+                          >
+                            <X className="w-4 h-4" />
+                            <span>Vraag sluiten</span>
+                          </button>
                         </div>
                       </div>
+                    ) : parentCanReply ? (
+                      /* Ouder kan antwoorden */
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Uw antwoord
+                        </label>
+                        <textarea
+                          value={replyText[message.id] || ''}
+                          onChange={(e) => setReplyText({ ...replyText, [message.id]: e.target.value })}
+                          placeholder="Typ uw antwoord..."
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+                          rows={3}
+                          maxLength={2000}
+                        />
+                        <button
+                          onClick={() => handleReply(message.id)}
+                          disabled={loading || !replyText[message.id]?.trim()}
+                          className="w-full flex items-center gap-2 py-2 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 justify-center text-sm sm:text-base"
+                        >
+                          <Send className="w-4 h-4" />
+                          <span>{loading ? 'Bezig...' : 'Antwoord versturen'}</span>
+                        </button>
+                        {isGroupMessage && (
+                          <p className="text-xs text-gray-500">
+                            U kunt één antwoord geven. Uw antwoord is pas zichtbaar voor de andere ouder als beide ouders hebben geantwoord.
+                          </p>
+                        )}
+                      </div>
                     ) : (
-                      <div className="text-center py-4 text-gray-500 bg-gray-100 rounded-lg">
-                        Deze vraag is gesloten. Er kunnen geen antwoorden meer worden toegevoegd.
+                      /* Ouder kan niet (meer) antwoorden */
+                      <div className="text-center py-4 rounded-lg bg-gray-100 text-gray-600 text-sm">
+                        {iHaveRepliedThisRound
+                          ? 'U heeft geantwoord. De hulpverlener reageert zodra alle informatie beschikbaar is.'
+                          : 'De hulpverlener heeft aangegeven dat er geen verdere reacties nodig zijn.'}
                       </div>
                     )}
                   </div>

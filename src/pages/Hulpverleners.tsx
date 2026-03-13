@@ -12,9 +12,7 @@ import {
   Users as UsersIcon,
   User as UserIcon,
   CheckCircle2,
-  UserCheck,
-  X,
-  Clock,
+
   Link2,
 } from 'lucide-react';
 
@@ -48,22 +46,6 @@ interface HelperMessage {
   replies?: HelperMessage[];
 }
 
-interface HelperRequest {
-  id: string;
-  helper_id: string;
-  family_id: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
-  message: string | null;
-  requested_at: string;
-  responded_at: string | null;
-  responded_by: string | null;
-  helper: {
-    id: string;
-    name: string;
-    email: string;
-  };
-}
-
 type Plan = 'FREE' | 'PLUS' | 'PRO';
 
 function normalizePlan(input?: string | null): Plan {
@@ -94,15 +76,12 @@ export function Hulpverleners() {
 
   const [activeTab, setActiveTab] = useState<'helpers' | 'messages' | 'requests' | 'connect'>('messages');
 
-  const [inviteCode, setInviteCode] = useState('');
   const [helperCode, setHelperCode] = useState('');
-  const [copiedFamilyCode, setCopiedFamilyCode] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [messages, setMessages] = useState<HelperMessage[]>([]);
-  const [helperRequests, setHelperRequests] = useState<HelperRequest[]>([]);
 
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -158,44 +137,12 @@ export function Hulpverleners() {
     }
   }, [currentFamily, user, canUseHelpersFeature]);
 
-  const fetchHelperRequests = useCallback(async () => {
-    if (!currentFamily || !canUseHelpersFeature) return;
-
-    const { data } = await supabase
-      .from('helper_requests')
-      .select(
-        `
-        *,
-        helper:users!helper_requests_helper_id_fkey(id, name, email)
-      `
-      )
-      .eq('family_id', currentFamily.id)
-      .order('requested_at', { ascending: false });
-
-    if (data) setHelperRequests(data as any);
-  }, [currentFamily, canUseHelpersFeature]);
-
-  const fetchInviteCode = useCallback(async () => {
-    if (!currentFamily || !canUseHelpersFeature) return;
-
-    const { data } = await supabase
-      .from('family_invite_codes')
-      .select('code')
-      .eq('family_id', currentFamily.id)
-      .is('used_at', null)
-      .maybeSingle();
-
-    setInviteCode((data as any)?.code ?? '');
-  }, [currentFamily, canUseHelpersFeature]);
-
   useEffect(() => {
     // Alleen PRO haalt data op en zet realtime subscriptions
     if (!canUseHelpersFeature) return;
 
     fetchMessages();
-    fetchHelperRequests();
-    fetchInviteCode();
-  }, [canUseHelpersFeature, fetchMessages, fetchHelperRequests, fetchInviteCode]);
+  }, [canUseHelpersFeature, fetchMessages]);
 
   useEffect(() => {
     if (!currentFamily || !canUseHelpersFeature) return;
@@ -212,70 +159,12 @@ export function Hulpverleners() {
         },
         () => fetchMessages()
       )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'helper_requests',
-          filter: `family_id=eq.${currentFamily.id}`,
-        },
-        () => fetchHelperRequests()
-      )
       .subscribe();
 
     return () => {
       sub.unsubscribe();
     };
-  }, [currentFamily, canUseHelpersFeature, fetchMessages, fetchHelperRequests]);
-
-  const handleApproveRequest = async (requestId: string) => {
-    if (!canUseHelpersFeature) return;
-    if (!confirm('Weet je zeker dat je deze hulpverlener wilt goedkeuren?')) return;
-
-    const req = helperRequests.find(r => r.id === requestId);
-
-    setLoading(true);
-    try {
-      await supabase.from('helper_requests').update({ status: 'APPROVED' }).eq('id', requestId);
-      await fetchHelperRequests();
-      await refreshFamily();
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && req) {
-        fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-fcm-notification`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            familyId: currentFamily!.id,
-            title: 'Hulpverlener verzoek goedgekeurd',
-            body: `${req.helper.name} heeft nu toegang`,
-            url: '/hulpverleners',
-            excludeUserId: user!.id,
-          }),
-        }).catch(console.error);
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Fout bij goedkeuren verzoek');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRejectRequest = async (requestId: string) => {
-    if (!canUseHelpersFeature) return;
-    if (!confirm('Weet je zeker dat je dit verzoek wilt afwijzen?')) return;
-
-    setLoading(true);
-    try {
-      await supabase.from('helper_requests').update({ status: 'REJECTED' }).eq('id', requestId);
-      await fetchHelperRequests();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Fout bij afwijzen verzoek');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [currentFamily, canUseHelpersFeature, fetchMessages]);
 
   const handleRemove = async (memberId: string) => {
     if (!canUseHelpersFeature) return;
@@ -288,15 +177,6 @@ export function Hulpverleners() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const copyFamilyCode = async () => {
-    if (!canUseHelpersFeature) return;
-    if (!inviteCode) return;
-
-    await navigator.clipboard.writeText(inviteCode);
-    setCopiedFamilyCode(true);
-    setTimeout(() => setCopiedFamilyCode(false), 2000);
   };
 
   const handleAddHelperByCode = async (e: React.FormEvent) => {
@@ -580,8 +460,6 @@ export function Hulpverleners() {
     return needsMyResponse || hasRepliesThatNeedMyResponse;
   }).length;
 
-  const pendingRequestsCount = helperRequests.filter((r) => r.status === 'PENDING').length;
-
   return (
     <div className="space-y-6">
       <div>
@@ -605,25 +483,6 @@ export function Hulpverleners() {
               {unreadCount > 0 && (
                 <span className="bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {unreadCount}
-                </span>
-              )}
-            </div>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('requests')}
-            className={`py-4 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-              activeTab === 'requests'
-                ? 'border-slate-800 text-slate-900'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              <span className="hidden sm:inline">Verzoeken</span>
-              {pendingRequestsCount > 0 && (
-                <span className="bg-blue-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {pendingRequestsCount}
                 </span>
               )}
             </div>
@@ -658,95 +517,6 @@ export function Hulpverleners() {
           </button>
         </nav>
       </div>
-
-      {activeTab === 'requests' && (
-        <div className="space-y-6">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm text-blue-900">
-              Hulpverleners kunnen een verzoek indienen om toegang te krijgen tot dit gezin. Hier kun je hun verzoeken
-              goedkeuren of afwijzen.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {helperRequests.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">Geen verzoeken ontvangen</div>
-            ) : (
-              helperRequests.map((request) => (
-                <div key={request.id} className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
-                        <h3 className="text-base sm:text-lg font-semibold text-gray-900 break-words">
-                          {request.helper.name}
-                        </h3>
-
-                        {request.status === 'PENDING' && (
-                          <span className="px-2 sm:px-3 py-1 bg-amber-100 text-amber-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
-                            <Clock className="w-3 h-3" />
-                            In afwachting
-                          </span>
-                        )}
-                        {request.status === 'APPROVED' && (
-                          <span className="px-2 sm:px-3 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
-                            <UserCheck className="w-3 h-3" />
-                            Goedgekeurd
-                          </span>
-                        )}
-                        {request.status === 'REJECTED' && (
-                          <span className="px-2 sm:px-3 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium flex items-center gap-1 whitespace-nowrap">
-                            <X className="w-3 h-3" />
-                            Afgewezen
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-gray-600 mb-2 break-all">{request.helper.email}</p>
-
-                      {request.message && (
-                        <p className="text-xs sm:text-sm text-gray-700 mb-3 bg-gray-50 p-3 rounded break-words">
-                          {request.message}
-                        </p>
-                      )}
-
-                      <div className="text-xs text-gray-500">
-                        Verzoek ingediend op {new Date(request.requested_at).toLocaleString('nl-NL')}
-                        {request.responded_at && (
-                          <span>
-                            {' • '}Behandeld op {new Date(request.responded_at).toLocaleString('nl-NL')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {request.status === 'PENDING' && (
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <button
-                          onClick={() => handleApproveRequest(request.id)}
-                          disabled={loading}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          <UserCheck className="w-4 h-4" />
-                          <span>Goedkeuren</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleRejectRequest(request.id)}
-                          disabled={loading}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          <span>Afwijzen</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
 
       {activeTab === 'connect' && (
         <div className="flex items-start mb-6">
@@ -800,22 +570,6 @@ export function Hulpverleners() {
                 {loading ? 'Bezig met toevoegen...' : 'Hulpverlener toevoegen'}
               </button>
 
-              <div className="pt-2">
-                <div className="text-sm text-gray-700 mb-2">Of deel de familiecode:</div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-3 py-2 border border-gray-200 rounded-lg font-mono text-sm bg-white overflow-x-auto">
-                    {inviteCode || '—'}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copyFamilyCode}
-                    disabled={!inviteCode}
-                    className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {copiedFamilyCode ? 'Gekopieerd' : 'Kopieer'}
-                  </button>
-                </div>
-              </div>
             </form>
           </div>
         </div>

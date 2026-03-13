@@ -1,7 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep -l \"Export\")"
+      "Bash(xargs grep -l \"Export\")",
+      "Bash(grep -E \"\\\\.\\(tsx?|sql\\)$\")",
+      "Bash(grep -rn \"child_visibility\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
+      "Bash(grep -A 15 \"CREATE POLICY.*children FOR SELECT\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
+      "Bash(ls -lt /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
+      "Read(//d/Edwin/Bureaublad/app/Co-ouderschap-platform/**)",
+      "Bash(grep -l \"log_entries\\\\|events\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/*.sql)",
+      "Bash(xargs grep -l \"HELPER\")"
     ]
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useFamily } from '../contexts/FamilyContext';
 import { supabase } from '../lib/supabase';
 import { Users, ChevronRight, Baby, LogOut, Copy, CheckCircle2, Plus, Clock, UserCheck, X as XIcon, Trash2 } from 'lucide-react';
 import type { Family, FamilyMember, Child } from '../lib/types';
@@ -26,6 +27,7 @@ interface HelperRequest {
 
 export function HelperFamilySelector() {
   const { user, signOut } = useAuth();
+  const { selectFamily: selectFamilyInContext } = useFamily();
   const navigate = useNavigate();
   const [families, setFamilies] = useState<FamilyWithDetails[]>([]);
   const [helperRequests, setHelperRequests] = useState<HelperRequest[]>([]);
@@ -183,6 +185,7 @@ export function HelperFamilySelector() {
 
   const selectFamily = async (familyId: string) => {
     localStorage.setItem('helper_selected_family', familyId);
+    selectFamilyInContext(familyId);
     navigate('/dashboard');
   };
 
