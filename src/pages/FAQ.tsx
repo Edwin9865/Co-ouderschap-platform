@@ -295,11 +295,86 @@ export default function FAQ() {
     <div className="fq-page">
       <style>{globalStyles}</style>
       <Seo
-        title="FAQ | CoParenting"
-        description="Antwoorden op veelgestelde vragen over CoParenting: co-ouderschap, koppelen, agenda, logboek, privacy en abonnementen."
-        canonicalUrl={(import.meta as any).env?.VITE_SITE_URL ? `${(import.meta as any).env.VITE_SITE_URL}/faq` : undefined}
-        ogTitle="Veelgestelde vragen | CoParenting"
-        ogDescription="Vind snel antwoorden over co-ouderschap, functies, privacy, hulpverleners en abonnementen."
+        title="Veelgestelde vragen over co-ouderschap | FAQ CoParenting"
+        description="Antwoorden op veelgestelde vragen over CoParenting: hoe werkt de app voor gescheiden ouders, koppelen met co-ouder, agenda, logboek, privacy, hulpverleners en abonnementen."
+        canonicalUrl="https://coparenting.nl/faq"
+        ogTitle="Veelgestelde vragen | CoParenting – App voor gescheiden ouders"
+        ogDescription="Vind snel antwoorden over co-ouderschap, de gedeelde agenda, logboek, hulpverleners, privacy en abonnementen van CoParenting."
+        ogUrl="https://coparenting.nl/faq"
+        keywords={[
+          "co-ouderschap FAQ",
+          "vragen co-ouderschap app",
+          "co ouderschap app uitleg",
+          "gedeelde agenda ouders vragen",
+          "co-parenting platform help",
+          "gescheiden ouders app vragen",
+          "logboek co-ouderschap",
+          "hulpverlener co-ouderschap toegang",
+          "co ouderschap privacy",
+          "omgangsregeling app vragen",
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Wat is co-ouderschap en hoe helpt CoParenting daarbij?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Co-ouderschap betekent dat beide ouders na een scheiding actief betrokken blijven bij de opvoeding. CoParenting helpt door afspraken, communicatie en documentatie op één plek te bundelen: een gedeelde agenda, logboek, verzoeken en export. Dat geeft overzicht, voorkomt misverstanden en helpt om rust en voorspelbaarheid voor kinderen te creëren."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Moet mijn ex-partner ook een account aanmaken?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. Voor gedeelde functies (agenda, logboek, verzoeken) maken beide ouders een eigen account aan. Jullie koppelen daarna veilig via een koppelcode of uitnodiging. Zo heeft ieder een eigen login en blijven rechten en privacy duidelijk."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Werkt de app ook als we bijna geen direct contact hebben?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. De app is juist geschikt wanneer direct contact lastig is. Met het verzoeken-systeem en duidelijke, terugvindbare communicatie verminder je ruis en misverstanden."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Hoe veilig is mijn data in CoParenting?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Privacy en veiligheid staan centraal. Data wordt opgeslagen op beveiligde infrastructuur en je bepaalt zelf wie toegang heeft. Je gegevens worden niet verkocht aan derden."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Kan ik gratis proberen voordat ik betaal?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. Je start gratis met het Basis-plan. Upgraden kan altijd later en je zit niet vast aan een proefperiode met creditcard."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Hoe werkt de gedeelde agenda in CoParenting?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Beide ouders zien dezelfde agenda-items. Je voegt afspraken toe (wissels, school, sport, doktersafspraken) en koppelt ze eventueel aan een kind. Wijzigingen zijn direct zichtbaar en kunnen notificaties triggeren."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Hoe werkt toegang voor hulpverleners?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Je kunt een hulpverlener veilig toegang geven met duidelijke rechten, zoals alleen lezen of beperkt reageren. Je kunt deze toegang altijd intrekken."
+              }
+            }
+          ]
+        }}
       />
 
       <SiteHeader />

@@ -11,7 +11,8 @@
       "Bash(xargs grep -l \"HELPER\")",
       "Bash(npx tsc --noEmit)",
       "Bash(grep -l \"helper_messages\" \"d:/Edwin/Bureaublad/app/Co-ouderschap-platform/supabase/migrations/\"*.sql)",
-      "Bash(xargs grep -l \"UPDATE\\\\|update\\\\|policy\\\\|POLICY\")"
+      "Bash(xargs grep -l \"UPDATE\\\\|update\\\\|policy\\\\|POLICY\")",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")"
     ]
   }
 }

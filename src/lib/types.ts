@@ -225,6 +225,7 @@ export interface Database {
           status: 'scheduled' | 'completed' | 'cancelled'
           recurrence_rule: string | null
           recurrence_end_date: string | null
+          excluded_dates: string[] | null
           parent_event_id: string | null
           created_by: string
           created_at: string
@@ -246,6 +247,7 @@ export interface Database {
           status?: 'scheduled' | 'completed' | 'cancelled'
           recurrence_rule?: string | null
           recurrence_end_date?: string | null
+          excluded_dates?: string[] | null
           parent_event_id?: string | null
           created_by: string
           created_at?: string
@@ -267,6 +269,7 @@ export interface Database {
           status?: 'scheduled' | 'completed' | 'cancelled'
           recurrence_rule?: string | null
           recurrence_end_date?: string | null
+          excluded_dates?: string[] | null
           parent_event_id?: string | null
           created_by?: string
           created_at?: string

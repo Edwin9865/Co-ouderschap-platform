@@ -1,8 +1,8 @@
 // src/pages/AboutUs.tsx
-import { Helmet } from 'react-helmet-async';
 import { Users, Heart, Shield, Calendar, FileText, MessageSquare, UserPlus, Sparkles, ArrowRight, CheckCircle } from 'lucide-react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
+import Seo from '../components/Seo';
 
 /* ─── Design tokens (zelfde als Homepage) ─── */
 const tk = {
@@ -162,31 +162,44 @@ const globalStyles = `
 export function AboutUs() {
   return (
     <>
-      <Helmet>
-        <title>Over Ons - CoParenting · Rust en overzicht in co-ouderschap</title>
-        <meta name="description" content="Ontdek hoe CoParenting tot stand is gekomen door samenwerking met ervaringsdeskundigen en hulpverleners. Een platform dat communicatie, planning en transparantie bevordert voor gescheiden ouders." />
-        <meta name="keywords" content="co-parenting app, gescheiden ouders, co-ouderschap, ouderschap na scheiding, communicatie gescheiden ouders, omgangsregeling app, gedeeld ouderschap" />
-        <link rel="canonical" href="https://coparenting.app/over-ons" />
-        <meta property="og:title" content="Over Ons - CoParenting" />
-        <meta property="og:description" content="Een platform ontwikkeld met ervaringsdeskundigen en hulpverleners voor effectieve communicatie in co-ouderschap." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://coparenting.app/over-ons" />
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "AboutPage",
-            "mainEntity": {
-              "@type": "Organization",
-              "name": "CoParenting",
-              "description": "Platform voor effectieve communicatie en samenwerking tussen gescheiden ouders",
-              "url": "https://coparenting.app",
-              "foundingDate": "2024",
-              "areaServed": "Nederland",
-              "serviceType": "Co-parenting platform"
-            }
-          })}
-        </script>
-      </Helmet>
+      <Seo
+        title="Over ons | CoParenting – Gebouwd voor gescheiden ouders"
+        description="Ontdek hoe CoParenting tot stand is gekomen door samenwerking met ervaringsdeskundigen, mediators en hulpverleners. Een platform voor effectieve communicatie, planning en transparantie in co-ouderschap."
+        canonicalUrl="https://coparenting.nl/over-ons"
+        ogTitle="Over ons | CoParenting – App voor gescheiden ouders"
+        ogDescription="CoParenting is ontwikkeld met en voor ouders die weten hoe uitdagend co-ouderschap kan zijn. Gebouwd met input van mediators en gezinstherapeuten."
+        ogUrl="https://coparenting.nl/over-ons"
+        keywords={[
+          "CoParenting over ons",
+          "co-ouderschap app ontwikkeld",
+          "co-parenting platform Nederland",
+          "gescheiden ouders communicatie app",
+          "co ouderschap missie",
+          "samen opvoeden platform",
+          "co-ouderschap hulpverleners",
+          "omgangsregeling app gedeeld ouderschap",
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "mainEntity": {
+            "@type": "Organization",
+            "name": "CoParenting",
+            "description": "Platform voor effectieve communicatie en samenwerking tussen gescheiden ouders in Nederland en België",
+            "url": "https://coparenting.nl",
+            "foundingDate": "2024",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Provincialeweg 163",
+              "postalCode": "9865AG",
+              "addressLocality": "Opende",
+              "addressCountry": "NL"
+            },
+            "areaServed": ["NL", "BE"],
+            "serviceType": "Co-parenting platform"
+          }
+        }}
+      />
 
       <div className="au-page">
         <style>{globalStyles}</style>

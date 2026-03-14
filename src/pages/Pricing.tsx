@@ -347,11 +347,54 @@ export default function Pricing() {
     <div className="pr-page">
       <style>{globalStyles}</style>
       <Seo
-        title="Prijzen | CoParenting"
-        description="Transparante prijzen voor CoParenting. Start gratis en upgrade wanneer je meer functies nodig hebt. Maandelijks opzegbaar."
-        canonicalUrl={(import.meta as any).env?.VITE_SITE_URL ? `${(import.meta as any).env.VITE_SITE_URL}/pricing` : undefined}
-        ogTitle="Prijzen | CoParenting"
-        ogDescription="Start gratis, upgrade wanneer nodig. Transparante abonnementen zonder verrassingen."
+        title="Prijzen co-ouderschap app | Gratis starten – CoParenting"
+        description="Transparante prijzen voor CoParenting, de app voor gescheiden ouders. Start gratis zonder creditcard. PLUS vanaf €6,95/maand met 7 dagen gratis proberen. Maandelijks opzegbaar."
+        canonicalUrl="https://coparenting.nl/pricing"
+        ogTitle="Prijzen | CoParenting – App voor gescheiden ouders"
+        ogDescription="Start gratis of kies PLUS/PRO. Transparante abonnementen voor co-ouders, zonder verrassingen. 7 dagen gratis proberen."
+        ogUrl="https://coparenting.nl/pricing"
+        keywords={[
+          "co-ouderschap app kosten",
+          "gratis co ouderschap app",
+          "abonnement co-ouderschap platform",
+          "co-parenting app prijs",
+          "app gescheiden ouders gratis",
+          "co ouderschap app Nederland prijs",
+          "co-parenting platform abonnement",
+          "samen opvoeden app kosten",
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "PriceSpecification",
+          "name": "CoParenting abonnementen",
+          "description": "Prijsoverzicht voor CoParenting – de app voor gescheiden ouders",
+          "url": "https://coparenting.nl/pricing",
+          "offers": [
+            {
+              "@type": "Offer",
+              "name": "FREE",
+              "price": "0",
+              "priceCurrency": "EUR",
+              "description": "Gratis basisplan met agenda, logboek en 30 dagen geschiedenis voor 1 kind."
+            },
+            {
+              "@type": "Offer",
+              "name": "PLUS",
+              "price": "6.95",
+              "priceCurrency": "EUR",
+              "billingIncrement": 1,
+              "description": "Meerdere kinderen, volledige geschiedenis, bijlagen, PDF-export en prioriteitsondersteuning. 7 dagen gratis proberen."
+            },
+            {
+              "@type": "Offer",
+              "name": "PRO",
+              "price": "11.95",
+              "priceCurrency": "EUR",
+              "billingIncrement": 1,
+              "description": "Alles van PLUS plus hulpverleners uitnodigen, geavanceerde exports en persoonlijke onboarding. 7 dagen gratis proberen."
+            }
+          ]
+        }}
       />
       <SiteHeader />
 

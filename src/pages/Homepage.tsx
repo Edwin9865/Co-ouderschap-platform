@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
+import Seo from "../components/Seo";
 
 /* ─── Design tokens ─── */
 const tk = {
@@ -388,6 +389,67 @@ function ScreenshotCarousel() {
 export function Homepage() {
   return (
     <div className="cp-page">
+      <Seo
+        title="CoParenting – App voor gescheiden ouders | Veilig communiceren &amp; samen opvoeden"
+        description="CoParenting helpt gescheiden ouders in Nederland en België veilig communiceren, afspraken plannen en samen opvoeden. Gedeelde agenda, digitaal logboek en verzoekensysteem. Gratis te starten."
+        canonicalUrl="https://coparenting.nl/"
+        ogTitle="CoParenting – App voor gescheiden ouders"
+        ogDescription="Samen opvoeden na een relatiebreuk. Communiceer veilig, leg afspraken vast en houd overzicht in één platform. Gratis te starten."
+        ogUrl="https://coparenting.nl/"
+        keywords={[
+          "co-ouderschap app",
+          "co ouderschap",
+          "samen opvoeden",
+          "app voor gescheiden ouders",
+          "co-parenting platform",
+          "gedeelde agenda gescheiden ouders",
+          "communicatie na scheiding",
+          "omgangsregeling bijhouden",
+          "digitaal logboek ouders",
+          "co ouderschap Nederland",
+          "co ouderschap België",
+          "kinderen na scheiding app",
+          "co-parenting Nederland",
+        ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Is er een gratis plan?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. Je kunt gratis starten zonder creditcard. De meeste functies zijn direct beschikbaar. Upgraden kan altijd later als je meer nodig hebt."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Werkt co-ouderschap app ook bij veel conflict?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. Je kunt directe communicatie beperken en via verzoeken werken, zodat alles via het platform loopt. Dat helpt misverstanden te verminderen."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Kan een hulpverlener meekijken in de co-ouderschap app?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Ja. Je kunt veilige toegang geven met duidelijke rechten. Een hulpverlener kan meelezen of beperkt beheren — jij bepaalt wat."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is mijn data veilig in CoParenting?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Privacy staat centraal. Jij bepaalt wie toegang heeft. Gegevens worden veilig opgeslagen en nooit gedeeld met derden."
+              }
+            }
+          ]
+        }}
+      />
       <style>{globalStyles}</style>
       <SiteHeader />
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -141,14 +141,23 @@ export function Children() {
     fetchCreatorNames();
   }, [children]);
 
+  const refreshFamilyRef = useRef<() => void>(() => {});
+  refreshFamilyRef.current = refreshFamily;
+
   useEffect(() => {
     if (!currentFamily) return;
     const channel = supabase
       .channel(`children_${currentFamily.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'children', filter: `family_id=eq.${currentFamily.id}` }, () => refreshFamily())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'children', filter: `family_id=eq.${currentFamily.id}` }, () => refreshFamilyRef.current())
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshFamilyRef.current(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   // Fetch deleted children when on avatar tab (only for creators/parents)
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -36,15 +36,23 @@ export function Verzoeken() {
     fetchParentCount();
   }, [currentFamily]);
 
+  const fetchRequestsRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (!currentFamily) return;
     const channel = supabase
       .channel(`verzoeken_requests_${currentFamily.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequests())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'request_proposals', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequests())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'requests', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequestsRef.current())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'request_proposals', filter: `family_id=eq.${currentFamily.id}` }, () => fetchRequestsRef.current())
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchRequestsRef.current(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const fetchParentCount = async () => {
     if (!currentFamily) return;
@@ -88,6 +96,7 @@ export function Verzoeken() {
       setRequests(requestsWithProposals);
     }
   };
+  fetchRequestsRef.current = fetchRequests;
 
   const filterByPlan = (data: Request[]) => {
     const canAccessHistory = canAccessFeature('history');

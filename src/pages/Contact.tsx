@@ -354,22 +354,55 @@ export default function Contact() {
     <div className="ct-page">
       <style>{globalStyles}</style>
       <Seo
-        title="Contact & Support | CoParenting"
-        description="Neem contact op met CoParenting voor vragen, technische support, privacy en feedback. We reageren meestal binnen 24 uur op werkdagen."
-        canonicalUrl={canonicalUrl}
+        title="Contact & Support | CoParenting – App voor gescheiden ouders"
+        description="Neem contact op met CoParenting voor vragen over de co-ouderschap app, technische support, privacy of feedback. Reactie binnen 24 uur op werkdagen. E-mail: info@coparenting.nl"
+        canonicalUrl="https://coparenting.nl/contact"
         ogTitle="Contact & Support | CoParenting"
-        ogDescription="Vragen of hulp nodig? Neem contact op met CoParenting via e-mail. Meestal reactie binnen 24 uur op werkdagen."
-        ogImage=""
+        ogDescription="Vragen of hulp nodig met de co-ouderschap app? Neem contact op via e-mail. Reactie binnen 24 uur op werkdagen."
+        ogUrl="https://coparenting.nl/contact"
         keywords={[
           "CoParenting contact",
           "CoParenting support",
-          "coparenting helpdesk",
           "co-ouderschap app support",
-          "co-ouderschap platform help",
-          "privacy coparenting",
-          "technische support coparenting",
-          "co parenting communicatie app",
+          "co-ouderschap platform helpdesk",
+          "privacy co-ouderschap app",
+          "technische support co-parenting",
+          "contact gescheiden ouders app",
+          "info coparenting nl",
         ]}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "name": "Contact CoParenting",
+          "description": "Contactpagina van CoParenting – de app voor gescheiden ouders",
+          "url": "https://coparenting.nl/contact",
+          "mainEntity": {
+            "@type": "Organization",
+            "name": "CoParenting",
+            "url": "https://coparenting.nl",
+            "email": "info@coparenting.nl",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Provincialeweg 163",
+              "postalCode": "9865AG",
+              "addressLocality": "Opende",
+              "addressRegion": "Groningen",
+              "addressCountry": "NL"
+            },
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "email": "info@coparenting.nl",
+              "availableLanguage": ["Dutch"],
+              "hoursAvailable": {
+                "@type": "OpeningHoursSpecification",
+                "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+                "opens": "09:00",
+                "closes": "17:00"
+              }
+            }
+          }
+        }}
       />
 
       <SiteHeader />

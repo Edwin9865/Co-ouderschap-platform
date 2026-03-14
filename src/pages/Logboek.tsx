@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -109,14 +109,22 @@ export function Logboek() {
     fetchUploadQuota();
   }, [currentFamily, selectedChild, children]);
 
+  const fetchEntriesRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (!currentFamily) return;
     const channel = supabase
       .channel(`logboek_entries_${currentFamily.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'log_entries', filter: `family_id=eq.${currentFamily.id}` }, () => fetchEntries())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'log_entries', filter: `family_id=eq.${currentFamily.id}` }, () => fetchEntriesRef.current())
       .subscribe();
     return () => { channel.unsubscribe(); };
   }, [currentFamily]);
+
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchEntriesRef.current(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const fetchUploadQuota = async () => {
     if (!currentFamily) return;
@@ -173,6 +181,7 @@ export function Logboek() {
     const filteredData = filterByPlan(visibleData);
     setEntries(filteredData);
   };
+  fetchEntriesRef.current = fetchEntries;
 
   const filterByPlan = (data: LogEntry[]) => {
     if (canAccessHistory) return data;

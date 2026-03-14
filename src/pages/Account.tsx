@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { User, Mail, Lock, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Users } from 'lucide-react';
 
 export function Account() {
   const { user, refreshUser } = useAuth();
@@ -14,6 +14,65 @@ export function Account() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [familyId, setFamilyId] = useState<string | null>(null);
+  const [familyName, setFamilyName] = useState('');
+  const [originalFamilyName, setOriginalFamilyName] = useState('');
+
+  useEffect(() => {
+    if (!user) return;
+
+    supabase
+      .from('family_members')
+      .select('family_id, role')
+      .eq('user_id', user.id)
+      .limit(1)
+      .then(({ data }) => {
+        const row = (data as { family_id: string; role: string }[] | null)?.[0];
+        if (!row) return;
+        setFamilyId(row.family_id);
+
+        supabase
+          .from('families')
+          .select('name')
+          .eq('id', row.family_id)
+          .limit(1)
+          .then(({ data: fData }) => {
+            const f = (fData as { name: string }[] | null)?.[0];
+            if (f) {
+              setFamilyName(f.name ?? '');
+              setOriginalFamilyName(f.name ?? '');
+            }
+          });
+      });
+  }, [user?.id]);
+
+  const handleUpdateFamilyName = async () => {
+    if (!familyId) return;
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = supabase as any;
+      const { error: updateError } = await db
+        .from('families')
+        .update({ name: familyName })
+        .eq('id', familyId);
+
+      if (updateError) throw updateError;
+
+      setOriginalFamilyName(familyName);
+      setSuccess('Gezinsnaam bijgewerkt');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fout bij bijwerken gezinsnaam');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -197,6 +256,40 @@ export function Account() {
             </div>
           </div>
         </div>
+
+        {user && (
+          <div className="border-t pt-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              Gezinsnaam
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="familyName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Gezinsnaam
+                </label>
+                <input
+                  id="familyName"
+                  type="text"
+                  value={familyName}
+                  onChange={(e) => setFamilyName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={loading}
+                />
+              </div>
+
+              <button
+                onClick={handleUpdateFamilyName}
+                disabled={loading || familyName === originalFamilyName || !familyName}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4" />
+                Gezinsnaam opslaan
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="border-t pt-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">

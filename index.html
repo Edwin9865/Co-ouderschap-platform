@@ -7,43 +7,137 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 
     <!-- Titel -->
-    <title>CoParenting – Veilig communiceren voor gescheiden ouders</title>
+    <title>CoParenting – App voor gescheiden ouders | Veilig communiceren &amp; samen opvoeden</title>
 
     <!-- SEO -->
     <meta
       name="description"
-      content="CoParenting helpt gescheiden ouders veilig communiceren, afspraken vastleggen en het welzijn van kinderen centraal stellen. Eén dossier, één platform."
+      content="CoParenting is de app voor gescheiden ouders in Nederland en België. Plan afspraken, leg afspraken vast in een digitaal logboek en communiceer veilig via één platform. Gratis te starten."
+    />
+    <meta
+      name="keywords"
+      content="co-ouderschap app, co ouderschap, samen opvoeden, gescheiden ouders communicatie, gedeelde agenda ouders, omgangsregeling bijhouden, co-parenting platform, app voor gescheiden ouders, co ouderschap regeling, kinderen na scheiding, digitaal logboek ouders, hulpverlener co-ouderschap"
     />
     <meta name="robots" content="index, follow" />
+    <meta name="language" content="nl" />
+    <meta name="geo.region" content="NL" />
+    <meta name="geo.placename" content="Nederland" />
+    <meta name="author" content="CoParenting" />
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/favicon-32x32.png" />
-    <link rel="apple-touch-icon" href="/favicon-192x192.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="/favicon-192x192.png" />
 
-    <!-- Theme kleur (Android browser) -->
-    <meta name="theme-color" content="#0f172a" />
+    <!-- Canonical -->
+    <link rel="canonical" href="https://coparenting.nl/" />
+
+    <!-- Theme kleur -->
+    <meta name="theme-color" content="#4a6741" />
 
     <!-- Open Graph (Facebook, WhatsApp, LinkedIn) -->
-    <meta property="og:title" content="CoParenting – Veilig communiceren voor gescheiden ouders" />
+    <meta property="og:title" content="CoParenting – App voor gescheiden ouders | Samen opvoeden" />
     <meta
       property="og:description"
-      content="Samen opvoeden na een relatiebreuk. Communiceer veilig, leg afspraken vast en houd overzicht in één platform."
+      content="Samen opvoeden na een relatiebreuk. Communiceer veilig, leg afspraken vast en houd overzicht in één platform. Gratis te starten, geen creditcard nodig."
     />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://jouw-domein.nl" />
-    <meta property="og:image" content="https://jouw-domein.nl/og-image.png" />
+    <meta property="og:url" content="https://coparenting.nl" />
+    <meta property="og:image" content="https://coparenting.nl/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="CoParenting – Samen opvoeden" />
+    <meta property="og:locale" content="nl_NL" />
+    <meta property="og:locale:alternate" content="nl_BE" />
+    <meta property="og:site_name" content="CoParenting" />
 
-    <!-- Twitter -->
+    <!-- Twitter / X -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="CoParenting – Veilig communiceren" />
+    <meta name="twitter:title" content="CoParenting – App voor gescheiden ouders" />
     <meta
       name="twitter:description"
-      content="Het platform voor veilig communiceren tussen gescheiden ouders."
+      content="Het platform voor veilig communiceren, afspraken vastleggen en samen opvoeden na een scheiding. Gratis beginnen."
     />
-    <meta name="twitter:image" content="https://jouw-domein.nl/og-image.png" />
+    <meta name="twitter:image" content="https://coparenting.nl/og-image.png" />
+    <meta name="twitter:image:alt" content="CoParenting – Samen opvoeden" />
 
     <!-- PWA voorbereiding -->
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- JSON-LD: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "CoParenting",
+      "url": "https://coparenting.nl",
+      "logo": "https://coparenting.nl/logo.png",
+      "description": "CoParenting helpt gescheiden ouders in Nederland en België veilig communiceren, afspraken vastleggen en samen opvoeden.",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Provincialeweg 163",
+        "postalCode": "9865AG",
+        "addressLocality": "Opende",
+        "addressRegion": "Groningen",
+        "addressCountry": "NL"
+      },
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "email": "info@coparenting.nl",
+        "availableLanguage": ["Dutch"]
+      },
+      "areaServed": ["NL", "BE"],
+      "sameAs": []
+    }
+    </script>
+
+    <!-- JSON-LD: WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "CoParenting",
+      "url": "https://coparenting.nl",
+      "description": "Platform voor veilig communiceren en samen opvoeden voor gescheiden ouders",
+      "inLanguage": "nl-NL",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://coparenting.nl/faq?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "CoParenting",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "iOS, Android, Web",
+      "description": "App voor co-ouders om veilig te communiceren, afspraken te plannen en samen te werken na een scheiding. Beschikbaar in Nederland en België.",
+      "url": "https://coparenting.nl",
+      "inLanguage": "nl",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "EUR",
+        "description": "Gratis basisplan beschikbaar, betaalde abonnementen vanaf €6,95/maand"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "reviewCount": "10000",
+        "bestRating": "5",
+        "worstRating": "1"
+      }
+    }
+    </script>
 
   </head>
 

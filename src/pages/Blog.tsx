@@ -336,11 +336,24 @@ export default function Blog() {
     <div className="bl-page">
       <style>{globalStyles}</style>
       <Seo
-        title="Blog | CoParenting"
-        description="Tips, inzichten en praktische handvatten voor co-ouderschap: communicatie, regelingen, planning, kinderen en financiën."
-        canonicalUrl={(import.meta as any).env?.VITE_SITE_URL ? `${(import.meta as any).env.VITE_SITE_URL}/blog` : undefined}
-        ogTitle="Blog | CoParenting"
-        ogDescription="Lees artikelen over co-ouderschap, communicatie en structuur voor rust in gezinnen."
+        title="Blog co-ouderschap | Tips voor gescheiden ouders – CoParenting"
+        description="Praktische artikelen over co-ouderschap: communicatie na scheiding, omgangsregeling, planning, het welzijn van kinderen en financiën. Gericht op rust en duidelijkheid voor beide ouders."
+        canonicalUrl="https://coparenting.nl/blog"
+        ogTitle="Blog | CoParenting – Tips voor co-ouders"
+        ogDescription="Lees praktische artikelen over co-ouderschap, communicatie na scheiding, regelingen en het welzijn van kinderen."
+        ogUrl="https://coparenting.nl/blog"
+        keywords={[
+          "co-ouderschap tips",
+          "blog co-ouderschap",
+          "samen opvoeden tips",
+          "communicatie na scheiding tips",
+          "omgangsregeling tips",
+          "kinderen na scheiding welzijn",
+          "co-parenting artikelen",
+          "gescheiden ouders blog",
+          "co ouderschap planning",
+          "scheiding kinderen advies",
+        ]}
       />
 
       <SiteHeader />

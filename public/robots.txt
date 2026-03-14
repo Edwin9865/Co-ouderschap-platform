@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+# Beveiligde app-pagina's niet indexeren
+Disallow: /dashboard
+Disallow: /kinderen
+Disallow: /agenda
+Disallow: /logboek
+Disallow: /verzoeken
+Disallow: /hulpverleners
+Disallow: /vragen
+Disallow: /export
+Disallow: /families
+Disallow: /helper-families
+Disallow: /artikelen
+Disallow: /instellingen/
+Disallow: /account
+Disallow: /reset-password
+Disallow: /forgot-password
+
+# Sitemap
+Sitemap: https://coparenting.nl/sitemap.xml
