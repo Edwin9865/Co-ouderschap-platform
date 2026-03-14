@@ -352,7 +352,7 @@ export function Abonnement() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Abonnement</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">Abonnement</h1>
         <p className="text-slate-700">Kies het plan dat bij jullie past</p>
       </div>
 
@@ -366,7 +366,7 @@ export function Abonnement() {
                 Abonnementen zijn gekoppeld aan een gezin. Maak een gezin aan of selecteer een bestaand gezin voordat je
                 kunt upgraden.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   onClick={() => navigate('/families')}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-700 text-white hover:bg-amber-800"
@@ -396,7 +396,7 @@ export function Abonnement() {
                 Je kunt pas upgraden als er een co-ouder is gekoppeld. Er moeten 2 ouders in{' '}
                 <code>family_members</code> staan met status <b>ACTIVE</b>.
               </p>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   onClick={() => navigate('/instellingen/koppelen')}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-700 text-white hover:bg-amber-800"
@@ -482,7 +482,7 @@ export function Abonnement() {
       {hasPaidSubscription && (
         <div className="overflow-hidden rounded-2xl shadow-sm border-2 border-white/70">
         <div className="p-6 space-y-4" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.25) 60%, rgba(255,255,255,0.05) 100%)' }}>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-slate-900 mb-2">Beheer je abonnement</h3>
               <p className="text-sm text-slate-700">
@@ -493,7 +493,7 @@ export function Abonnement() {
             </div>
 
             {isSubscriptionOwner && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:flex-shrink-0">
               <button
                 onClick={handleManageBilling}
                 disabled={loading === 'portal' || completing || !canManageBilling}
@@ -574,7 +574,7 @@ export function Abonnement() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
         {PLANS.map((plan) => {
           const isActive = currentPlan === plan.id;
           const isLoading = loading === plan.priceId;
@@ -613,23 +613,23 @@ export function Abonnement() {
                 </div>
               )}
 
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Crown
-                      className={`w-6 h-6 ${
+                      className={`w-5 h-5 sm:w-6 sm:h-6 ${
                         isActive ? 'text-green-600' : plan.popular ? 'text-blue-600' : 'text-gray-400'
                       }`}
                     />
-                    <h3 className="text-2xl font-bold text-gray-900">{plan.name}</h3>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900">{plan.name}</h3>
                   </div>
-                  {isActive && <CheckCircle2 className="w-6 h-6 text-green-600" />}
+                  {isActive && <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />}
                 </div>
 
-                <div className="mb-6">
-                  <p className="text-3xl font-bold text-gray-900">
+                <div className="mb-5 sm:mb-6">
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">
                     {plan.price === 0 ? 'Gratis' : `€${plan.price.toFixed(2)}`}
-                    {plan.price > 0 && <span className="text-base font-normal text-gray-600">/maand</span>}
+                    {plan.price > 0 && <span className="text-sm sm:text-base font-normal text-gray-600">/maand</span>}
                   </p>
                 </div>
 
