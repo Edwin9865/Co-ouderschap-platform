@@ -382,6 +382,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <span className="text-gray-300">|</span>
                 <Link to="/privacybeleid" className="hover:text-gray-900">Privacybeleid</Link>
                 <span className="text-gray-300">|</span>
+                <Link to="/cookieverklaring" className="hover:text-gray-900">Cookieverklaring</Link>
+                <span className="text-gray-300">|</span>
+                <Link to="/disclaimer" className="hover:text-gray-900">Disclaimer</Link>
+                <span className="text-gray-300">|</span>
                 <Link to="/contact" className="hover:text-gray-900">Contact & Support</Link>
               </div>
               <p className="text-center text-xs text-gray-500 mt-4">

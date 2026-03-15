@@ -157,6 +157,110 @@ Deno.serve(async (req) => {
 
       console.log(`[send-admin-email] Abonnement-mail verstuurd voor family: ${family_id}, plan: ${plan}`);
 
+    } else if (type === "subscription_cancelled") {
+      const { plan, family_id, customer_email } = data;
+
+      await sendEmail(
+        ZEPTO_TOKEN,
+        `Abonnement opgezegd: ${plan}`,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e293b;">Abonnement opgezegd op CoParenting</h2>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Plan</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${plan}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">E-mail klant</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${customer_email ?? "onbekend"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Family ID</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${family_id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Datum</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${now}</td>
+            </tr>
+          </table>
+        </div>
+        `
+      );
+
+      console.log(`[send-admin-email] Opzegging-mail verstuurd voor family: ${family_id}`);
+
+    } else if (type === "subscription_past_due") {
+      const { plan, family_id, customer_email } = data;
+
+      await sendEmail(
+        ZEPTO_TOKEN,
+        `Betaling mislukt: ${plan}`,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #dc2626;">Betaling mislukt op CoParenting</h2>
+          <p style="color: #64748b;">De betaling voor onderstaand abonnement is mislukt of achterstallig.</p>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Plan</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${plan}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">E-mail klant</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${customer_email ?? "onbekend"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Family ID</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${family_id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Datum</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${now}</td>
+            </tr>
+          </table>
+        </div>
+        `
+      );
+
+      console.log(`[send-admin-email] Betaling-mislukt-mail verstuurd voor family: ${family_id}`);
+
+    } else if (type === "subscription_changed") {
+      const { plan, old_plan, family_id, customer_email } = data;
+
+      await sendEmail(
+        ZEPTO_TOKEN,
+        `Abonnement gewijzigd: ${old_plan} → ${plan}`,
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1e293b;">Abonnement gewijzigd op CoParenting</h2>
+          <table style="border-collapse: collapse; width: 100%;">
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Oud plan</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${old_plan}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Nieuw plan</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${plan}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">E-mail klant</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${customer_email ?? "onbekend"}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Family ID</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${family_id}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; font-weight: bold; background: #f8fafc; border: 1px solid #e2e8f0;">Datum</td>
+              <td style="padding: 8px 12px; border: 1px solid #e2e8f0;">${now}</td>
+            </tr>
+          </table>
+        </div>
+        `
+      );
+
+      console.log(`[send-admin-email] Plan-wijziging-mail verstuurd voor family: ${family_id}, ${old_plan} → ${plan}`);
+
     } else {
       return new Response(JSON.stringify({ error: `Onbekend type: ${type}` }), { status: 400 });
     }

@@ -36,7 +36,10 @@ import { AppBlog } from "./pages/AppBlog";
 
 import { AlgemeneVoorwaarden } from "./pages/AlgemeneVoorwaarden";
 import { Privacybeleid } from "./pages/Privacybeleid";
+import { Cookieverklaring } from "./pages/Cookieverklaring";
+import { Disclaimer } from "./pages/Disclaimer";
 import { ContactSupport } from "./pages/ContactSupport";
+import { CookieConsent } from "./components/CookieConsent";
 
 import { Homepage } from "./pages/Homepage";
 import Blog from "./pages/Blog";
@@ -128,6 +131,7 @@ function AppRoutes() {
         <NativeAuthDeepLinkHandler />
         <ScrollToTop />
         <ScrollToTopButton />
+        <CookieConsent />
         <Routes>
           {/* ---------------- Public routes (web + native) ---------------- */}
           <Route path="/login" element={<Login />} />
@@ -136,6 +140,8 @@ function AppRoutes() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
           <Route path="/privacybeleid" element={<Privacybeleid />} />
+          <Route path="/cookieverklaring" element={<Cookieverklaring />} />
+          <Route path="/disclaimer" element={<Disclaimer />} />
           <Route path="/contact" element={<ContactSupport />} />
 
           {/* ---------------- Marketing routes (WEB only) ---------------- */}

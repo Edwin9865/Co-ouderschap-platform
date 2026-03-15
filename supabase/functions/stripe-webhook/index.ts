@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(rawBody, sig, STRIPE_WEBHOOK_SECRET);
+      event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET);
     } catch (err: any) {
       console.error("[WEBHOOK] Signature verification failed:", err?.message);
       return json(400, { error: "Invalid signature", message: err?.message, version: VERSION });
@@ -128,6 +128,22 @@ Deno.serve(async (req) => {
       }
     };
 
+    const getPlan = (priceId: string) => {
+      if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) return "PLUS";
+      if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) return "PRO";
+      return "FREE";
+    };
+
+    const getCustomerEmail = async (sub: Stripe.Subscription): Promise<string | null> => {
+      try {
+        const customer = await stripe.customers.retrieve(
+          typeof sub.customer === "string" ? sub.customer : sub.customer.id
+        );
+        if (!customer.deleted) return (customer as Stripe.Customer).email ?? null;
+      } catch { /* negeer */ }
+      return null;
+    };
+
     switch (event.type) {
       // Best signals to keep DB correct:
       case "customer.subscription.created":
@@ -136,31 +152,44 @@ Deno.serve(async (req) => {
         const sub = event.data.object as Stripe.Subscription;
         await upsertFromSubscription(sub);
 
-        // Stuur admin-mail bij nieuw actief abonnement
+        const familyId =
+          (sub.metadata?.family_id ?? "").trim() ||
+          (sub.items.data[0]?.price?.metadata?.family_id ?? "").trim();
+        const priceId = sub.items.data[0]?.price?.id ?? "";
+        const plan = getPlan(priceId);
+
         if (event.type === "customer.subscription.created" && sub.status === "active") {
-          // Haal e-mail op van de Stripe klant
-          let customerEmail: string | null = null;
-          try {
-            const customer = await stripe.customers.retrieve(
-              typeof sub.customer === "string" ? sub.customer : sub.customer.id
-            );
-            if (!customer.deleted) customerEmail = customer.email ?? null;
-          } catch { /* negeer */ }
-
-          const familyId =
-            (sub.metadata?.family_id ?? "").trim() ||
-            (sub.items.data[0]?.price?.metadata?.family_id ?? "").trim();
-          const priceId = sub.items.data[0]?.price?.id ?? "";
-          let plan = "FREE";
-          if (priceId && STRIPE_PRICE_PLUS && priceId === STRIPE_PRICE_PLUS) plan = "PLUS";
-          if (priceId && STRIPE_PRICE_PRO && priceId === STRIPE_PRICE_PRO) plan = "PRO";
-
           await notifyAdmin("subscription", {
             plan,
             family_id: familyId,
-            customer_email: customerEmail,
+            customer_email: await getCustomerEmail(sub),
             status: sub.status,
           });
+        } else if (event.type === "customer.subscription.deleted") {
+          await notifyAdmin("subscription_cancelled", {
+            plan,
+            family_id: familyId,
+            customer_email: await getCustomerEmail(sub),
+          });
+        } else if (event.type === "customer.subscription.updated") {
+          if (sub.status === "past_due" || sub.status === "unpaid") {
+            await notifyAdmin("subscription_past_due", {
+              plan,
+              family_id: familyId,
+              customer_email: await getCustomerEmail(sub),
+            });
+          } else {
+            const prev = (event.data as any).previous_attributes;
+            const oldPriceId: string | null = prev?.items?.data?.[0]?.price?.id ?? null;
+            if (oldPriceId && oldPriceId !== priceId) {
+              await notifyAdmin("subscription_changed", {
+                plan,
+                old_plan: getPlan(oldPriceId),
+                family_id: familyId,
+                customer_email: await getCustomerEmail(sub),
+              });
+            }
+          }
         }
         break;
       }

@@ -46,6 +46,8 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm">
               <li><Link to="/privacybeleid" className="hover:text-white transition">Privacybeleid</Link></li>
               <li><Link to="/algemene-voorwaarden" className="hover:text-white transition">Algemene voorwaarden</Link></li>
+              <li><Link to="/cookieverklaring" className="hover:text-white transition">Cookieverklaring</Link></li>
+              <li><Link to="/disclaimer" className="hover:text-white transition">Disclaimer</Link></li>
             </ul>
           </div>
 
