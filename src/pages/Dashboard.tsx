@@ -65,44 +65,45 @@ export function Dashboard() {
   const generateRecurringEvents = (baseEvent: Event, maxDate: Date, maxInstances = 10): Event[] => {
     if (!baseEvent.recurrence_rule) return [baseEvent];
 
-    const events: Event[] = [baseEvent];
+    const now = new Date();
     const startDate = new Date(baseEvent.start_at);
     const endDate = baseEvent.recurrence_end_date ? new Date(baseEvent.recurrence_end_date) : maxDate;
+    const duration = baseEvent.end_at ? new Date(baseEvent.end_at).getTime() - startDate.getTime() : 0;
 
-    let currentDate = new Date(startDate);
-    let instanceCount = 0;
-
-    while (currentDate <= endDate && instanceCount < maxInstances) {
+    const advance = (date: Date): boolean => {
       switch (baseEvent.recurrence_rule) {
-        case 'DAILY':
-          currentDate.setDate(currentDate.getDate() + 1);
-          break;
-        case 'WEEKLY':
-          currentDate.setDate(currentDate.getDate() + 7);
-          break;
-        case 'MONTHLY':
-          currentDate.setMonth(currentDate.getMonth() + 1);
-          break;
-        case 'YEARLY':
-          currentDate.setFullYear(currentDate.getFullYear() + 1);
-          break;
-        default:
-          return events;
+        case 'DAILY': date.setDate(date.getDate() + 1); return true;
+        case 'WEEKLY': date.setDate(date.getDate() + 7); return true;
+        case 'MONTHLY': date.setMonth(date.getMonth() + 1); return true;
+        case 'YEARLY': date.setFullYear(date.getFullYear() + 1); return true;
+        default: return false; // onbekend formaat → stop
       }
+    };
 
-      if (currentDate > endDate) break;
+    // Snel vooruitspoelen naar de eerste instantie die nog niet verstreken is
+    const currentDate = new Date(startDate);
+    while (currentDate < now && currentDate <= endDate) {
+      if (!advance(currentDate)) return []; // onbekend formaat, geef niets terug
+    }
 
-      const duration = baseEvent.end_at ? new Date(baseEvent.end_at).getTime() - startDate.getTime() : 0;
+    const events: Event[] = [];
+    // Voeg de originele afspraak toe als die nog in de toekomst ligt
+    if (startDate >= now && startDate <= endDate && startDate <= maxDate) {
+      events.push(baseEvent);
+    }
 
-      const recurringEvent: Event = {
-        ...baseEvent,
-        id: `${baseEvent.id}-recur-${instanceCount}`,
-        start_at: currentDate.toISOString(),
-        end_at: duration > 0 ? new Date(currentDate.getTime() + duration).toISOString() : baseEvent.end_at,
-      };
-
-      events.push(recurringEvent);
-      instanceCount++;
+    let instanceCount = 0;
+    while (currentDate <= endDate && currentDate <= maxDate && instanceCount < maxInstances) {
+      if (currentDate.getTime() !== startDate.getTime()) {
+        events.push({
+          ...baseEvent,
+          id: `${baseEvent.id}-recur-${currentDate.getTime()}`,
+          start_at: new Date(currentDate).toISOString(),
+          end_at: duration > 0 ? new Date(currentDate.getTime() + duration).toISOString() : baseEvent.end_at,
+        });
+        instanceCount++;
+      }
+      if (!advance(currentDate)) break; // onbekend formaat → stop loop
     }
 
     return events;
@@ -136,7 +137,6 @@ export function Dashboard() {
         .select('*')
         .eq('family_id', currentFamily.id)
         .is('parent_event_id', null)
-        .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true }),
 
       logsPromise,
@@ -305,6 +305,7 @@ export function Dashboard() {
     const allEvents = (eventsResult.data || [])
       .filter(isVisibleEvent)
       .flatMap((event: Event) => generateRecurringEvents(event, twoMonthsFromNow, 10))
+      .filter((event: Event) => new Date(event.start_at) >= new Date())
       .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
       .slice(0, 3);
 

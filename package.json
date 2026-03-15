@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "android": "npm run build && npx cap sync android && npx cap open android",
     "ios": "npm run build && npx cap sync ios && npx cap open ios",
-    "sync": "npm run build && npx cap sync"
+    "sync": "npm run build && npx cap sync",
+    "version:patch": "node scripts/version-bump.js patch",
+    "version:minor": "node scripts/version-bump.js minor",
+    "version:major": "node scripts/version-bump.js major"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

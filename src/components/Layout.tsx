@@ -14,6 +14,7 @@ import {
   X,
   Newspaper,
   ExternalLink,
+  Menu,
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
@@ -39,9 +40,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [openRequestsCount, setOpenRequestsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
-  // Swipe-up detection — alleen op de drag-handle balk
-  const swipeStartY = useRef<number | null>(null);
-  const swipeStartX = useRef<number | null>(null);
 
   useBackButton();
 
@@ -219,23 +217,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ];
 
-  // Swipe-up op de drag-handle balk boven de bottom nav
-  const handleHandleTouchStart = (e: React.TouchEvent) => {
-    swipeStartY.current = e.touches[0].clientY;
-    swipeStartX.current = e.touches[0].clientX;
-  };
-
-  const handleHandleTouchEnd = (e: React.TouchEvent) => {
-    if (swipeStartY.current === null || swipeStartX.current === null) return;
-    const deltaY = swipeStartY.current - e.changedTouches[0].clientY;
-    const deltaX = Math.abs(e.changedTouches[0].clientX - (swipeStartX.current ?? 0));
-    // Omhoog veeg van minimaal 20px, overwegend verticaal → menu openen
-    if (deltaY > 20 && deltaX < 60) {
-      setMenuSheetOpen(true);
-    }
-    swipeStartY.current = null;
-    swipeStartX.current = null;
-  };
 
   if (!currentFamily && location.pathname !== '/families' && location.pathname !== '/helper-families') {
     return (
@@ -401,17 +382,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         className="md:hidden fixed bottom-0 left-0 right-0 bg-white/10 backdrop-blur-md border-t border-white/20 z-40"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-        {/* Drag handle — tik of veeg omhoog om het volledige menu te openen */}
-        <button
-          onClick={() => setMenuSheetOpen(true)}
-          onTouchStart={handleHandleTouchStart}
-          onTouchEnd={handleHandleTouchEnd}
-          className="w-full flex justify-center pt-2 pb-1 touch-none"
-          aria-label="Open menu"
-        >
-          <div className="w-10 h-1.5 bg-white rounded-full shadow-sm" />
-        </button>
-
         <div className="flex">
           {bottomNavItems.map((item) => {
             const active = isActive(item.href);
@@ -439,6 +409,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {/* Meer-knop opent het volledige menu */}
+          <button
+            onClick={() => setMenuSheetOpen(true)}
+            className="flex-1 flex flex-col items-center py-2"
+            aria-label="Meer opties"
+          >
+            <Menu className="w-6 h-6 text-gray-400" />
+            <span className="text-[10px] mt-0.5 font-medium text-gray-400">Meer</span>
+          </button>
         </div>
       </nav>
 

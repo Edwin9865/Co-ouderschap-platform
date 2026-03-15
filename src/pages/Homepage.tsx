@@ -467,7 +467,7 @@ export function Homepage() {
               </h1>
               <p className="cp-fade-up cp-delay-2" style={{ fontSize: 18, lineHeight: 1.75, color: tk.muted, maxWidth: 480, margin: "0 0 40px" }}>
                 CoParenting helpt ouders om duidelijk te communiceren, afspraken te bewaren
-                en samen te werken — ook als dat soms moeilijk is.
+                en samen te werken, ook als dat soms moeilijk is.
               </p>
               <div className="cp-fade-up cp-delay-3" style={{ display: "flex", gap: 14, flexWrap: "wrap" as const, alignItems: "center" }}>
                 <Link to="/register" className="cp-btn-primary">
