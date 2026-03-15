@@ -9,6 +9,7 @@ export function Register() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [accountType, setAccountType] = useState<'PARENT' | 'HELPER'>('PARENT');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
@@ -190,9 +191,30 @@ export function Register() {
               <p className="mt-1 text-xs text-gray-500">Minimaal 6 tekens</p>
             </div>
 
+            <div className="flex items-start gap-3">
+              <input
+                id="terms"
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-slate-800 cursor-pointer flex-shrink-0"
+                required
+              />
+              <label htmlFor="terms" className="text-sm text-gray-600 cursor-pointer">
+                Ik ga akkoord met de{' '}
+                <Link to="/algemene-voorwaarden" className="text-slate-800 font-medium hover:underline" target="_blank">
+                  Algemene Voorwaarden
+                </Link>{' '}
+                en het{' '}
+                <Link to="/privacybeleid" className="text-slate-800 font-medium hover:underline" target="_blank">
+                  Privacybeleid
+                </Link>
+              </label>
+            </div>
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !agreedToTerms}
               className="w-full py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 font-medium"
             >
               {loading ? 'Bezig met registreren...' : 'Registreren'}

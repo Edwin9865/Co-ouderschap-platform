@@ -172,8 +172,8 @@ export function Cookieverklaring() {
               Wij gebruiken de volgende e-maildiensten voor het versturen van berichten:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700">
-              <li><strong>Zoho Mail</strong> — voor zakelijke e-mailcommunicatie en klantenservice</li>
-              <li><strong>Zepto Mail</strong> — voor transactionele e-mails zoals bevestigingen, wachtwoord-resets en notificaties</li>
+              <li><strong>Zoho Mail</strong> : Voor zakelijke e-mailcommunicatie en klantenservice</li>
+              <li><strong>Zepto Mail</strong> : Voor transactionele e-mails zoals bevestigingen, wachtwoord-resets en notificaties</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mt-3 text-sm">
               Deze diensten plaatsen geen cookies op onze website. Zij verwerken alleen e-mailadressen

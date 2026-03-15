@@ -62,7 +62,7 @@ export function ContactSupport() {
               <div className="flex-1">
                 <h2 className="text-lg font-semibold text-gray-900 mb-2">Snel een e-mail starten</h2>
                 <p className="text-sm text-gray-600 mb-4">
-                  Kies een onderwerp — alles komt binnen op hetzelfde e-mailadres.
+                  Kies een onderwerp, alles komt binnen op hetzelfde e-mailadres.
                 </p>
 
                 <div className="flex flex-wrap gap-2">

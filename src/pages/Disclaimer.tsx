@@ -43,14 +43,14 @@ export function Disclaimer() {
               vervangt nadrukkelijk <strong>geen</strong>:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-3">
-              <li><strong>Juridisch advies</strong> — Voor juridische kwesties rondom scheiding, gezag,
+              <li><strong>Juridisch advies</strong> : Voor juridische kwesties rondom scheiding, gezag,
               omgangsregelingen of alimentatie dient u een advocaat of mediator te raadplegen</li>
-              <li><strong>Psychologisch of therapeutisch advies</strong> — Voor emotionele of
+              <li><strong>Psychologisch of therapeutisch advies</strong> : Voor emotionele of
               psychologische ondersteuning dient u contact op te nemen met een erkend psycholoog
               of therapeut</li>
-              <li><strong>Medisch advies</strong> — Voor medische vragen en beslissingen betreffende
+              <li><strong>Medisch advies</strong> : Voor medische vragen en beslissingen betreffende
               uw kinderen dient u een arts te raadplegen</li>
-              <li><strong>Maatschappelijk werk of jeugdzorgbegeleiding</strong> — Wij zijn geen
+              <li><strong>Maatschappelijk werk of jeugdzorgbegeleiding</strong> : Wij zijn geen
               erkende zorginstelling</li>
             </ul>
             <p className="text-gray-700 leading-relaxed">
@@ -76,7 +76,7 @@ export function Disclaimer() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Aansprakelijkheidsbeperking</h2>
             <p className="text-gray-700 leading-relaxed mb-3">
-              Co-Ouderschap is niet aansprakelijk voor enige schade — direct of indirect — die voortvloeit
+              Co-Ouderschap is niet aansprakelijk voor enige schade, direct of indirect, die voortvloeit
               uit het gebruik of de onmogelijkheid van gebruik van het platform, waaronder maar niet
               beperkt tot:
             </p>
@@ -110,8 +110,8 @@ export function Disclaimer() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Intellectuele Eigendom</h2>
             <p className="text-gray-700 leading-relaxed mb-3">
-              Alle inhoud op de website en in het platform — waaronder teksten, afbeeldingen, logo's,
-              ontwerpen en software — is eigendom van Co-Ouderschap of haar licentiegevers en is
+              Alle inhoud op de website en in het platform, waaronder teksten, afbeeldingen, logo's,
+              ontwerpen en software, is eigendom van Co-Ouderschap of haar licentiegevers en is
               beschermd door intellectuele eigendomsrechten.
             </p>
             <p className="text-gray-700 leading-relaxed">

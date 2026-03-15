@@ -193,10 +193,10 @@ export function Privacybeleid() {
               ons gegevens verwerken. Met alle sub-verwerkers hebben wij verwerkersovereenkomsten gesloten:
             </p>
             <ul className="list-disc pl-6 space-y-2 text-gray-700 mb-4">
-              <li><strong>Supabase</strong> — database en authenticatie (opslag binnen de EER)</li>
-              <li><strong>Stripe</strong> — betalingsverwerking</li>
-              <li><strong>E-mailserviceprovider</strong> — voor het verzenden van transactionele e-mails en notificaties</li>
-              <li><strong>Push notification service</strong> — voor het verzenden van pushmeldingen</li>
+              <li><strong>Supabase</strong> : Database en authenticatie (opslag binnen de EER)</li>
+              <li><strong>Stripe</strong> : Betalingsverwerking</li>
+              <li><strong>E-mailserviceprovider</strong> : Voor het verzenden van transactionele e-mails en notificaties</li>
+              <li><strong>Push notification service</strong> : Voor het verzenden van pushmeldingen</li>
             </ul>
             <p className="text-gray-700 leading-relaxed mb-4">
               Deze partijen zijn contractueel verplicht om uw gegevens alleen te gebruiken voor de

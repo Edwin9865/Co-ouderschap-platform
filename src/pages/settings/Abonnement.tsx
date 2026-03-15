@@ -54,6 +54,7 @@ export function Abonnement() {
   const [parentMembers, setParentMembers] = useState<ParentMember[]>([]);
   const [linkCheckLoading, setLinkCheckLoading] = useState(false);
   const [confirmUpgrade, setConfirmUpgrade] = useState<{ priceId: string; plan: PlanDetails } | null>(null);
+  const [confirmAgreed, setConfirmAgreed] = useState(false);
 
   // Separate state to prevent double-execution (replaces useRef)
   const [checkoutDone, setCheckoutDone] = useState(false);
@@ -706,9 +707,24 @@ export function Abonnement() {
                 ? 'Je trial gaat direct over naar het nieuwe plan. Je wordt pas na je trial gefactureerd.'
                 : 'Je betaalt alleen het prijsverschil voor de resterende dagen van deze maand.'}
             </p>
+            <div className="flex items-start gap-3">
+              <input
+                id="confirm-terms"
+                type="checkbox"
+                checked={confirmAgreed}
+                onChange={(e) => setConfirmAgreed(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-slate-800 cursor-pointer flex-shrink-0"
+              />
+              <label htmlFor="confirm-terms" className="text-sm text-gray-600 cursor-pointer">
+                Ik ga akkoord met de{' '}
+                <Link to="/algemene-voorwaarden" className="text-slate-800 font-medium hover:underline" target="_blank">
+                  Algemene Voorwaarden
+                </Link>
+              </label>
+            </div>
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => setConfirmUpgrade(null)}
+                onClick={() => { setConfirmUpgrade(null); setConfirmAgreed(false); }}
                 disabled={loading !== null}
                 className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
@@ -718,9 +734,10 @@ export function Abonnement() {
                 onClick={() => {
                   const { priceId } = confirmUpgrade;
                   setConfirmUpgrade(null);
+                  setConfirmAgreed(false);
                   handleUpgrade(priceId);
                 }}
-                disabled={loading !== null}
+                disabled={loading !== null || !confirmAgreed}
                 className="px-4 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
               >
                 {loading !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
