@@ -92,7 +92,7 @@ export function CookieConsent() {
         {/* Body */}
         <div className="p-4 sm:p-5">
           <p className="text-sm text-gray-600 leading-relaxed mb-3">
-            Wij gebruiken cookies om het platform goed te laten werken en — met uw toestemming —
+            Wij gebruiken cookies om het platform goed te laten werken en, met uw toestemming,
             om bezoekersstatistieken bij te houden via Google Analytics.{' '}
             <Link to="/cookieverklaring" className="text-blue-600 hover:underline">
               Meer informatie
