@@ -4,7 +4,7 @@ android {
     namespace = "com.coparenting.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.coparenting.app"
+        applicationId "nl.coouderschap.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
