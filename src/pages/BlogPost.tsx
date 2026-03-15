@@ -16,7 +16,7 @@ import {
 import Seo from "../components/Seo";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
-import { posts } from "../data/blogPosts";
+import { allPosts } from "../data/allBlogPosts";
 
 /* ─── Design tokens ─── */
 const tk = {
@@ -271,7 +271,7 @@ export default function BlogPost() {
   const { slug } = useParams<{ slug: string }>();
 
   const sortedPosts = useMemo(
-    () => posts.slice().sort((a, b) => (a.date < b.date ? 1 : -1)),
+    () => allPosts.slice().sort((a, b) => (a.date < b.date ? 1 : -1)),
     []
   );
 

@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, Calendar, Clock, Search, BookOpen, ChevronRight } from 'lucide-react';
-import { posts } from '../data/blogPosts';
+import { allPosts } from '../data/allBlogPosts';
 
 const CATEGORY_COLORS: Record<string, string> = {
   Communicatie: 'bg-blue-100 text-blue-700',
@@ -23,7 +23,7 @@ function BlogList() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
-  const filtered = posts.filter(
+  const filtered = allPosts.filter(
     (p) =>
       p.title.toLowerCase().includes(search.toLowerCase()) ||
       p.excerpt.toLowerCase().includes(search.toLowerCase()) ||
@@ -105,7 +105,7 @@ function BlogList() {
 /* ─── Detail view ─── */
 function BlogDetail({ slug }: { slug: string }) {
   const navigate = useNavigate();
-  const post = posts.find((p) => p.slug === slug);
+  const post = allPosts.find((p) => p.slug === slug);
 
   if (!post) {
     return (
@@ -121,9 +121,9 @@ function BlogDetail({ slug }: { slug: string }) {
     );
   }
 
-  const currentIndex = posts.findIndex((p) => p.slug === slug);
-  const prev = currentIndex > 0 ? posts[currentIndex - 1] : null;
-  const next = currentIndex < posts.length - 1 ? posts[currentIndex + 1] : null;
+  const currentIndex = allPosts.findIndex((p) => p.slug === slug);
+  const prev = currentIndex > 0 ? allPosts[currentIndex - 1] : null;
+  const next = currentIndex < allPosts.length - 1 ? allPosts[currentIndex + 1] : null;
 
   return (
     <div className="max-w-3xl mx-auto">

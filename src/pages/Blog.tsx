@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Calendar, Clock, ArrowRight, Search, Filter } from "lucide-react";
-import { posts } from "../data/blogPosts";
+import { allPosts } from "../data/allBlogPosts";
 import { SiteHeader } from "../components/SiteHeader";
 import { SiteFooter } from "../components/SiteFooter";
 import Seo from "../components/Seo";
@@ -306,11 +306,14 @@ type Category =
   | "Kinderen"
   | "Planning"
   | "Relaties"
-  | "Financiën";
+  | "Financiën"
+  | "Tools"
+  | "Juridisch & hulp"
+  | "Welzijn";
 
 export default function Blog() {
   const categories: Category[] = useMemo(
-    () => ["Alle", "Communicatie", "Regelingen", "Kinderen", "Planning", "Relaties", "Financiën"],
+    () => ["Alle", "Communicatie", "Regelingen", "Kinderen", "Planning", "Relaties", "Financiën", "Tools", "Juridisch & hulp", "Welzijn"],
     []
   );
 
@@ -319,7 +322,7 @@ export default function Blog() {
 
   const filteredPosts = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return posts
+    return allPosts
       .filter((p) => selectedCategory === "Alle" || p.category === selectedCategory)
       .filter((p) => {
         if (!term) return true;
