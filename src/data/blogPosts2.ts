@@ -262,13 +262,11 @@ Mondeling is onvoldoende. Na mediatie:
 
 ## 7) Mini-beslisboom
 
-```
-Herhalend conflict over dezelfde kwestie?
-  → Ja: probeer eerst BIFF + vast overlegmoment
-     → Werkt niet: zoek mediator via MfN
-        → Andere ouder wil niet: individuele coaching
-           → Urgente veiligheid/omgang: rechter
-```
+**Herhalend conflict over dezelfde kwestie?**
+- Ja: probeer eerst BIFF + vast overlegmoment
+  - Werkt niet: zoek mediator via MfN
+    - Andere ouder wil niet: individuele coaching
+      - Urgente veiligheid/omgang: rechter
 
 
 
