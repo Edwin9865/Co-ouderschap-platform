@@ -34,6 +34,7 @@ export function AccountSettings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [hasCoparent, setHasCoparent] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -46,6 +47,20 @@ export function AccountSettings() {
         const row = (data as { family_id: string }[] | null)?.[0];
         if (!row) return;
         setFamilyId(row.family_id);
+
+        // Check for active co-parent in same family
+        supabase
+          .from('family_members')
+          .select('id')
+          .eq('family_id', row.family_id)
+          .eq('role', 'PARENT')
+          .eq('status', 'ACTIVE')
+          .neq('user_id', user.id)
+          .limit(1)
+          .then(({ data: coData }) => {
+            setHasCoparent((coData as { id: string }[] | null)?.length === 1);
+          });
+
         supabase
           .from('families')
           .select('name')
@@ -461,17 +476,27 @@ export function AccountSettings() {
             De gedeelde familiedata (kinderen, agenda, logboek) blijft bewaard voor je co-ouder.
             Na 2 jaar zonder actieve co-ouder wordt alle data definitief verwijderd.
           </p>
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-900">
-              Ben je nog gekoppeld met een co-ouder? Ontkoppel dan eerst via{' '}
-              <strong>Instellingen → Koppelen</strong> voordat je je account verwijdert.
-            </p>
-          </div>
+          {hasCoparent ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-900">
+                Je bent nog gekoppeld met een co-ouder. Ontkoppel eerst via{' '}
+                <strong>Instellingen → Koppelen</strong> voordat je je account kunt verwijderen.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-900">
+                Je persoonlijke gegevens worden gewist. Familiedata blijft bewaard en wordt na 2 jaar automatisch verwijderd.
+              </p>
+            </div>
+          )}
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              disabled={hasCoparent}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <Trash2 className="w-4 h-4" />
               Account verwijderen
