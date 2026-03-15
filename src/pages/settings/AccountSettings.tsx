@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { SecureStorage } from '../../lib/secureStorage';
-import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Info, Shield, Users } from 'lucide-react';
+import { User, Mail, Lock, Save, AlertCircle, CheckCircle2, Info, Shield, Users, Trash2 } from 'lucide-react';
 
 interface ValidationErrors {
   length?: string;
@@ -30,6 +30,10 @@ export function AccountSettings() {
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [familyName, setFamilyName] = useState('');
   const [originalFamilyName, setOriginalFamilyName] = useState('');
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -236,6 +240,33 @@ export function AccountSettings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeleteLoading(true);
+    setError('');
+    try {
+      // 1. Soft-delete in DB (checks for active co-parent)
+      const { data, error: rpcError } = await supabase.rpc('delete_user_account');
+      if (rpcError) throw rpcError;
+      if (!data.success) throw new Error(data.error);
+
+      // 2. Scramble auth credentials so re-login is impossible
+      const randomPassword = crypto.randomUUID() + '!Aa1';
+      await supabase.auth.updateUser({
+        email: `deleted_${user.id}@deleted.invalid`,
+        password: randomPassword,
+      });
+
+      // 3. Sign out
+      await supabase.auth.signOut();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Account verwijderen mislukt');
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+      setDeleteConfirmText('');
+    }
+  };
+
   const isPasswordValid = newPassword
     ? Object.keys(validatePassword(newPassword)).length === 0
     : false;
@@ -418,6 +449,65 @@ export function AccountSettings() {
               </label>
             </div>
           </div>
+        </div>
+
+        <div className="border-t pt-6">
+          <h2 className="text-xl font-semibold text-red-700 mb-2 flex items-center gap-2">
+            <Trash2 className="w-5 h-5" />
+            Account verwijderen
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Als je je account verwijdert worden je persoonlijke gegevens (naam en e-mailadres) gewist.
+            De gedeelde familiedata (kinderen, agenda, logboek) blijft bewaard voor je co-ouder.
+            Na 2 jaar zonder actieve co-ouder wordt alle data definitief verwijderd.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-900">
+              Ben je nog gekoppeld met een co-ouder? Ontkoppel dan eerst via{' '}
+              <strong>Instellingen → Koppelen</strong> voordat je je account verwijdert.
+            </p>
+          </div>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Account verwijderen
+            </button>
+          ) : (
+            <div className="border border-red-200 rounded-lg p-4 bg-red-50 space-y-3">
+              <p className="text-sm font-medium text-red-900">
+                Typ <strong>VERWIJDEREN</strong> om te bevestigen:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="VERWIJDEREN"
+                className="w-full px-3 py-2 border border-red-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                disabled={deleteLoading}
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                  disabled={deleteLoading}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading || deleteConfirmText !== 'VERWIJDEREN'}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleteLoading ? 'Bezig...' : 'Definitief verwijderen'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t pt-6">
