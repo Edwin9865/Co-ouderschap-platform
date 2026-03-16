@@ -1,11 +1,7 @@
 {
-	"appId": "com.coparenting.app",
+	"appId": "nl.coouderschap.app",
 	"appName": "CoParenting",
 	"webDir": "dist",
-	"server": {
-		"androidScheme": "https",
-		"cleartext": true
-	},
 	"plugins": {
 		"PushNotifications": {
 			"presentationOptions": [
@@ -27,10 +23,13 @@
 	"packageClassList": [
 		"AppPlugin",
 		"CAPBrowserPlugin",
+		"CAPCameraPlugin",
 		"FilesystemPlugin",
+		"PreferencesPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin",
 		"StatusBarPlugin",
+		"ToastPlugin",
 		"PdfGeneratorPlugin"
 	]
 }

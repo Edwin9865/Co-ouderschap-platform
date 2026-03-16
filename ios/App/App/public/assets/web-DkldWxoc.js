@@ -1,0 +1,1 @@
+import{W as n}from"./index-CeH9CmCF.js";class o extends n{async fromURL(e){throw this.unimplemented("fromURL is not available in the web implementation.")}async fromData(e){throw this.unimplemented("fromData is not available in the web implementation.")}async getPluginVersion(){return{version:"web"}}}export{o as PdfGeneratorWeb};

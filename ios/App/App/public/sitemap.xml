@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <!-- Homepage -->
+  <url>
+    <loc>https://coparenting.nl/</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <!-- Pricing -->
+  <url>
+    <loc>https://coparenting.nl/pricing</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- FAQ -->
+  <url>
+    <loc>https://coparenting.nl/faq</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Blog -->
+  <url>
+    <loc>https://coparenting.nl/blog</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Over ons -->
+  <url>
+    <loc>https://coparenting.nl/over-ons</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Contact -->
+  <url>
+    <loc>https://coparenting.nl/contact</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Registreren -->
+  <url>
+    <loc>https://coparenting.nl/register</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- Inloggen -->
+  <url>
+    <loc>https://coparenting.nl/login</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+
+  <!-- Privacybeleid -->
+  <url>
+    <loc>https://coparenting.nl/privacybeleid</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+  <!-- Algemene voorwaarden -->
+  <url>
+    <loc>https://coparenting.nl/algemene-voorwaarden</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.4</priority>
+  </url>
+
+</urlset>
