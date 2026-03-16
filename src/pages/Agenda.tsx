@@ -143,6 +143,10 @@ export function Agenda() {
   const [recurrenceEditScope, setRecurrenceEditScope] = useState<'this' | 'all' | 'future' | null>(null);
   const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<string | null>(null);
 
+  // Delete confirmation
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState<VirtualEvent | null>(null);
+
   const fetchEventsRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
@@ -329,13 +333,49 @@ export function Agenda() {
     }
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
+  const handleDeleteClick = (event: VirtualEvent) => {
+    setDeletingEvent(event);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirmed = async (scope: 'single' | 'this' | 'future' | 'all') => {
+    if (!deletingEvent) return;
+    setShowDeleteDialog(false);
+    const db = supabase as any;
     try {
-      await supabase.from('events').delete().eq('id', eventId);
+      switch (scope) {
+        case 'single':
+        case 'all':
+          await db.from('events').delete().eq('id', deletingEvent.id);
+          break;
+        case 'this': {
+          const dateKey = (deletingEvent._occurrenceDate ?? deletingEvent.start_at).split('T')[0];
+          const existing: string[] = deletingEvent.excluded_dates ?? [];
+          await db.from('events')
+            .update({ excluded_dates: [...existing, dateKey] })
+            .eq('id', deletingEvent.id);
+          break;
+        }
+        case 'future': {
+          const dayBefore = new Date(deletingEvent._occurrenceDate ?? deletingEvent.start_at);
+          dayBefore.setDate(dayBefore.getDate() - 1);
+          await db.from('events')
+            .update({ recurrence_end_date: dayBefore.toISOString().split('T')[0] })
+            .eq('id', deletingEvent.id);
+          break;
+        }
+      }
       fetchEvents();
     } catch (err) {
       console.error('Error deleting event:', err);
+    } finally {
+      setDeletingEvent(null);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteDialog(false);
+    setDeletingEvent(null);
   };
 
   // ── Filtering ─────────────────────────────────────────────────────────────
@@ -482,6 +522,55 @@ export function Agenda() {
             <button
               onClick={() => { setShowRecurrenceDialog(false); setEditingEvent(null); }}
               className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-700 py-2"
+            >
+              Annuleren
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirmation dialog ── */}
+      {showDeleteDialog && deletingEvent && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+            {deletingEvent.recurrence_rule ? (
+              <>
+                <h3 className="text-lg font-bold mb-1">Herhalende afspraak verwijderen</h3>
+                <p className="text-sm text-gray-500 mb-4">Welke afspraken wil je verwijderen?</p>
+                <div className="space-y-2">
+                  {([
+                    { scope: 'this'   as const, title: 'Alleen deze afspraak',           sub: 'Alleen de geselecteerde datum wordt verwijderd' },
+                    { scope: 'future' as const, title: 'Deze en toekomstige afspraken',   sub: 'Vanaf deze datum worden alle herhalingen verwijderd' },
+                    { scope: 'all'    as const, title: 'Alle afspraken in deze reeks',    sub: 'De volledige reeks wordt verwijderd' },
+                  ]).map(({ scope, title, sub }) => (
+                    <button
+                      key={scope}
+                      onClick={() => handleDeleteConfirmed(scope)}
+                      className="w-full text-left px-4 py-3 rounded-lg border border-gray-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+                    >
+                      <div className="font-medium text-gray-800">{title}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold mb-1">Afspraak verwijderen</h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Weet je zeker dat je <span className="font-medium text-gray-800">"{deletingEvent.title}"</span> wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+                </p>
+                <button
+                  onClick={() => handleDeleteConfirmed('single')}
+                  className="w-full px-4 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium mb-2"
+                >
+                  Verwijderen
+                </button>
+              </>
+            )}
+            <button
+              onClick={handleDeleteCancel}
+              className="mt-2 w-full text-center text-sm text-gray-500 hover:text-gray-700 py-2"
             >
               Annuleren
             </button>
@@ -773,7 +862,7 @@ export function Agenda() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDeleteEvent(event.id)}
+                        onClick={() => handleDeleteClick(event)}
                         className="p-2 hover:bg-red-100 rounded text-red-500"
                         title="Verwijderen"
                       >

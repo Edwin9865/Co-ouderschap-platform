@@ -587,10 +587,10 @@ export default function Pricing() {
           </h2>
 
           {[
-            { q: "Kan ik mijn abonnement opzeggen?",            a: "Ja. Alle betaalde abonnementen zijn maandelijks opzegbaar. Je behoudt toegang tot het einde van je lopende periode." },
-            { q: "Wat gebeurt er met mijn data als ik stop?",   a: "Je kunt altijd exporteren (bij Pro en Familie). Bij stoppen ga je terug naar het gratis plan. We raden aan om vóór downgrade je gewenste exports te maken." },
-            { q: "Betalen beide ouders apart?",                 a: "Nee. Eén abonnement is bedoeld voor het gezin en geeft toegang aan beide ouders (en eventueel extra gezinsleden)." },
-            { q: "Is er korting voor jaarabonnementen?",        a: "Vaak wel. Als je dit wilt, stuur even een bericht via contact — dan regelen we het voor je." },
+            { q: "Kan ik mijn abonnement opzeggen?",              a: "Ja. Alle betaalde abonnementen zijn maandelijks opzegbaar. Je behoudt toegang tot het einde van je lopende periode." },
+            { q: "Wat gebeurt er met mijn data als ik stop?",     a: "Je kunt altijd exporteren (bij PLUS of PRO). Bij stoppen ga je terug naar het gratis plan. We raden aan om vóór downgrade je gewenste exports te maken." },
+            { q: "Betalen beide ouders apart?",                   a: "Nee. Zodra een van de twee gekoppelde ouders een betaald abonnement afsluit, profiteren beide ouders automatisch van de premiumfuncties. Je hoeft dit niet dubbel te betalen." },
+            { q: "Kan ik upgraden of downgraden wanneer ik wil?", a: "Ja. Je kunt op elk moment upgraden of downgraden. Bij een upgrade gaan de extra functies direct in. Bij een downgrade behoud je toegang tot je huidige abonnement tot het einde van de lopende betaalperiode, daarna schakel je automatisch over naar het lagere plan." },
           ].map(({ q, a }) => (
             <div key={q} className="pr-faq-item">
               <div style={{ fontSize: 16, fontWeight: 500, color: tk.slate, marginBottom: 10 }}>{q}</div>

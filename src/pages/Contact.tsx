@@ -284,8 +284,9 @@ const FAQ_QUICK = [
     q: "Hoe kan ik mijn co-ouder uitnodigen?",
     a: (
       <span>
-        Ga naar het Dashboard en zoek naar "Co-ouder uitnodigen". Deel de koppelcode met je co-ouder,
-        die de code kan gebruiken bij registratie.
+        Ga naar Instellingen &gt; Koppelen. Deel de koppelcode met je co-ouder via een veilig kanaal
+        (bijv. SMS of WhatsApp). Je co-ouder voert de code in bij Instellingen &gt; Koppelen. Na
+        bevestiging zijn jullie gekoppeld.
       </span>
     ),
   },
@@ -293,8 +294,9 @@ const FAQ_QUICK = [
     q: "Kan ik mijn gegevens verwijderen?",
     a: (
       <span>
-        Alle gegevens worden opgeslagen voor dossierbeheer. Je kunt je account deactiveren. Lees meer
-        in ons{" "}
+        Ja. Op basis van de AVG heb je recht op verwijdering van je gegevens. Neem hiervoor contact
+        op met onze support. We raden aan om vóór verwijdering een export te maken als je je
+        administratie wilt bewaren. Lees meer in ons{" "}
         <Link to="/privacybeleid" className="ct-link">
           Privacybeleid
         </Link>
@@ -307,7 +309,7 @@ const FAQ_QUICK = [
     a: (
       <span>
         Ga naar Export in het menu voor een volledig overzicht van alle gegevens in je gezin (PDF-formaat,
-        beschikbaar in Pro en Familie).
+        beschikbaar in PLUS en PRO).
       </span>
     ),
   },
