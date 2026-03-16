@@ -1,9 +1,10 @@
 // src/pages/AppBlog.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowLeft, Calendar, Clock, Search, BookOpen, ChevronRight } from 'lucide-react';
+import { App } from '@capacitor/app';
 import { allPosts } from '../data/allBlogPosts';
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -107,6 +108,13 @@ function BlogDetail({ slug }: { slug: string }) {
   const navigate = useNavigate();
   const post = allPosts.find((p) => p.slug === slug);
 
+  useEffect(() => {
+    const listener = App.addListener('backButton', () => {
+      navigate('/artikelen');
+    });
+    return () => { listener.then((h) => h.remove()); };
+  }, [navigate]);
+
   if (!post) {
     return (
       <div className="max-w-3xl mx-auto text-center py-16">
@@ -159,7 +167,6 @@ function BlogDetail({ slug }: { slug: string }) {
       </div>
 
       <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-snug">{post.title}</h1>
-      <p className="text-gray-500 text-sm mb-1">Door {post.author}</p>
 
       <hr className="my-5 border-gray-100" />
 

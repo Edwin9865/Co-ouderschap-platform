@@ -35,7 +35,7 @@ export const posts: BlogPost[] = [
     title: "Effectieve communicatie met je co-ouder",
     excerpt: "Leer hoe je constructief communiceert, zelfs als gesprekken snel escaleren. Met praktische scripts, BIFF-berichten en afspraken die ruzie voorkomen.",
     author: "Sarah de Vries",
-    date: "2026-02-10",
+    date: "2025-04-15",
     readTime: "7 min",
     category: "Communicatie",
     image: "https://images.pexels.com/photos/5212317/pexels-photo-5212317.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -62,7 +62,7 @@ export const posts: BlogPost[] = [
     contentMd: `
 Goede communicatie is geen “extraatje” bij co-ouderschap. Het is de **snelste manier om stress bij kinderen te verlagen**: niet doordat ouders alles perfect doen, maar doordat conflicten minder vaak en minder heftig worden. Onderzoek en professionele richtlijnen wijzen er al jaren op dat **aanhoudend ouderconflict** een belangrijke risicofactor is voor de ontwikkeling van kinderen bij scheiding.
 
-In dit artikel krijg je een aanpak die in de praktijk werkt — óók als jullie relatie stroef is.
+In dit artikel krijg je een aanpak die in de praktijk werkt,óók als jullie relatie stroef is.
 
 
 
@@ -199,7 +199,7 @@ Zie de ‘sources’ bij dit blogpost-object.
     title: "Een co-ouderschap regeling opstellen",
     excerpt: "Van weekindeling tot financiën en communicatie: zo maak je afspraken die duidelijk, uitvoerbaar en kindgericht zijn.",
     author: "Mark Janssen",
-    date: "2026-02-05",
+    date: "2025-03-28",
     readTime: "8 min",
     category: "Regelingen",
     image: "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -351,7 +351,7 @@ Zie ‘sources’ in dit object.
     title: "De overgang tussen huizen makkelijker maken",
     excerpt: "Praktische routines, dubbele spullen en emotionele check-ins: zo help je je kind soepel schakelen tussen twee woonomgevingen.",
     author: "Lisa van Dam",
-    date: "2026-01-28",
+    date: "2025-03-10",
     readTime: "7 min",
     category: "Kinderen",
     image: "https://images.pexels.com/photos/4473864/pexels-photo-4473864.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -520,7 +520,7 @@ Zie ‘sources’ in dit object.
     title: "Omgaan met feestdagen en vakanties",
     excerpt: "Voorkom jaarlijks gedoe: zo verdeel je feestdagen en vakanties eerlijk, duidelijk en kindgericht (met voorbeeldschema’s).",
     author: "Tom Hendriksen",
-    date: "2026-01-20",
+    date: "2025-02-20",
     readTime: "9 min",
     category: "Planning",
     image: "https://images.pexels.com/photos/6393342/pexels-photo-6393342.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -645,7 +645,7 @@ Zie ‘sources’ in dit object.
     title: "Nieuwe partners introduceren",
     excerpt: "Wanneer is het ‘het juiste moment’? En hoe doe je dit rustig, met respect voor je kind én minimale spanning met je co-ouder?",
     author: "Emma Bakker",
-    date: "2026-01-15",
+    date: "2025-02-02",
     readTime: "8 min",
     category: "Relaties",
     image: "https://images.pexels.com/photos/3094215/pexels-photo-3094215.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -769,7 +769,7 @@ Zie ‘sources’ in dit object.
     title: "Financiële afspraken in co-ouderschap",
     excerpt: "Zo verdeel je kosten eerlijk en voorkom je discussies: met categorieën, drempelbedragen, verrekenen en een simpel systeem voor bonnetjes.",
     author: "David Peters",
-    date: "2026-01-08",
+    date: "2025-01-15",
     readTime: "8 min",
     category: "Financiën",
     image: "https://images.pexels.com/photos/4386431/pexels-photo-4386431.jpeg?auto=compress&cs=tinysrgb&w=800",

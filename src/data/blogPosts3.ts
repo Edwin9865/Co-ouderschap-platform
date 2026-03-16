@@ -7,9 +7,9 @@ export const posts3: BlogPost[] = [
     id: 13,
     slug: "co-ouderschap-na-vechtscheiding",
     title: "Co-ouderschap na een vechtscheiding: een nieuwe start",
-    excerpt: "Een vechtscheiding laat diepe sporen. Maar ook daarna is goed co-ouderschap mogelijk — als je weet hoe je de overgang maakt van strijd naar samenwerking.",
+    excerpt: "Een vechtscheiding laat diepe sporen. Maar ook daarna is goed co-ouderschap mogelijk,als je weet hoe je de overgang maakt van strijd naar samenwerking.",
     author: "Sarah de Vries",
-    date: "2026-03-12",
+    date: "2025-11-17",
     readTime: "9 min",
     category: "Communicatie",
     image: "https://images.pexels.com/photos/3807571/pexels-photo-3807571.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -33,7 +33,7 @@ export const posts3: BlogPost[] = [
     },
 
     contentMd: `
-Een vechtscheiding is niet zomaar een moeilijke scheiding. Het is een periode van aanhoudend conflict, juridische strijd, emotionele uitputting — en kinderen die dit allemaal van dichtbij meemaken.
+Een vechtscheiding is niet zomaar een moeilijke scheiding. Het is een periode van aanhoudend conflict, juridische strijd, emotionele uitputting,en kinderen die dit allemaal van dichtbij meemaken.
 
 Het goede nieuws: ook ná een vechtscheiding is co-ouderschap mogelijk. Niet meteen perfect. Maar werkbaar. En dat is genoeg.
 
@@ -54,7 +54,7 @@ Dat is normaal. Herstel gaat in golven, niet in een rechte lijn.
 
 ## 2) Schakel de schakelaar om: van 'ex-partner' naar 'co-ouder'
 
-Dit klinkt eenvoudig, maar is het niet. Je co-ouder is niet meer je partner, je vijand of je zaak — maar de ouder van je kind.
+Dit klinkt eenvoudig, maar is het niet. Je co-ouder is niet meer je partner, je vijand of je zaak,maar de ouder van je kind.
 
 Praktisch:
 - spreek intern over hem/haar als "de ouder van [naam kind]" (niet als "hij/zij")
@@ -139,9 +139,9 @@ Zie 'sources' in dit object.
     id: 14,
     slug: "ouderschapsplan-aanpassen-na-wijziging",
     title: "Ouderschapsplan aanpassen: wanneer en hoe doe je dat?",
-    excerpt: "Omstandigheden veranderen. Een verhuizing, nieuwe school, puber die andere behoeften heeft — zo pas je het ouderschapsplan aan zonder ruzie.",
+    excerpt: "Omstandigheden veranderen. Een verhuizing, nieuwe school, puber die andere behoeften heeft,zo pas je het ouderschapsplan aan zonder ruzie.",
     author: "Mark Janssen",
-    date: "2026-03-08",
+    date: "2025-10-30",
     readTime: "7 min",
     category: "Juridisch & hulp",
     image: "https://images.pexels.com/photos/4427611/pexels-photo-4427611.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -198,7 +198,7 @@ Voorbeeld openingsbericht:
 
 ## 3) Als je er niet uitkomt: mediatie
 
-Een mediator helpt jullie samen tot een nieuw akkoord te komen — sneller en goedkoper dan de rechter.
+Een mediator helpt jullie samen tot een nieuw akkoord te komen,sneller en goedkoper dan de rechter.
 
 Voordeel: jullie houden zelf de regie over de uitkomst.
 
@@ -206,7 +206,7 @@ Voordeel: jullie houden zelf de regie over de uitkomst.
 
 ## 4) Officiële wijziging via de rechter
 
-Als onderling overleg niet lukt, kun je de rechter vragen het ouderschapsplan te wijzigen. Daarvoor moet er sprake zijn van een **wijziging van omstandigheden** — de rechter accepteert niet zomaar elk verzoek.
+Als onderling overleg niet lukt, kun je de rechter vragen het ouderschapsplan te wijzigen. Daarvoor moet er sprake zijn van een **wijziging van omstandigheden**,de rechter accepteert niet zomaar elk verzoek.
 
 Voorbeelden van erkende gronden:
 - aanzienlijke verhuizing
@@ -264,7 +264,7 @@ Zie 'sources' in dit object.
     title: "Kinderalimentatie bij co-ouderschap: berekening en afspraken",
     excerpt: "Wanneer geldt kinderalimentatie bij co-ouderschap, hoe wordt het berekend en wat leg je vast? Alles wat je moet weten over de financiële kant.",
     author: "David Peters",
-    date: "2026-03-01",
+    date: "2025-10-12",
     readTime: "8 min",
     category: "Financiën",
     image: "https://images.pexels.com/photos/5632370/pexels-photo-5632370.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -288,7 +288,7 @@ Zie 'sources' in dit object.
     },
 
     contentMd: `
-Ook bij co-ouderschap kan er kinderalimentatie gelden. Dat klinkt tegenstrijdig — allebei verzorgen jullie het kind — maar de financiële situatie kan scheef liggen. Dan is alimentatie bedoeld om die scheve verhouding te corrigeren.
+Ook bij co-ouderschap kan er kinderalimentatie gelden. Dat klinkt tegenstrijdig,allebei verzorgen jullie het kind,maar de financiële situatie kan scheef liggen. Dan is alimentatie bedoeld om die scheve verhouding te corrigeren.
 
 
 
@@ -308,11 +308,11 @@ Bij gelijk inkomen en gelijke zorgverdeling is alimentatie vaak niet aan de orde
 
 De Nederlandse rechter gebruikt de **Tremanormen** (richtlijnen van de Expertgroep Alimentatienormen):
 
-Stap 1: **Behoefte kind** bepalen — hoeveel kost het kind per maand? (Nibud-tabel op basis van gezinsinkomen)
+Stap 1: **Behoefte kind** bepalen,hoeveel kost het kind per maand? (Nibud-tabel op basis van gezinsinkomen)
 
-Stap 2: **Draagkracht** berekenen voor beide ouders — wat kunnen ze redelijkerwijs bijdragen?
+Stap 2: **Draagkracht** berekenen voor beide ouders,wat kunnen ze redelijkerwijs bijdragen?
 
-Stap 3: **Zorgkorting** toepassen — hoe meer tijd een ouder met het kind doorbrengt, hoe lager de alimentatieplicht (korting van 15%, 25% of 35% afhankelijk van de zorgverdeling).
+Stap 3: **Zorgkorting** toepassen,hoe meer tijd een ouder met het kind doorbrengt, hoe lager de alimentatieplicht (korting van 15%, 25% of 35% afhankelijk van de zorgverdeling).
 
 Het resultaat is een bedrag per maand dat de alimentatieplichtige ouder betaalt.
 
@@ -331,7 +331,7 @@ Bij echte 50/50 co-ouderschap is de zorgkorting maximaal, maar kan er nog steeds
 
 ## 4) Indexering: alimentatie stijgt elk jaar
 
-Kinderalimentatie wordt jaarlijks geïndexeerd — automatisch aangepast aan de loonontwikkeling. Het percentage wordt elk jaar door de overheid vastgesteld.
+Kinderalimentatie wordt jaarlijks geïndexeerd,automatisch aangepast aan de loonontwikkeling. Het percentage wordt elk jaar door de overheid vastgesteld.
 
 Tip: zet een jaarlijkse herinnering zodat je dit niet vergeet te verwerken.
 
@@ -344,7 +344,7 @@ Je kunt alimentatie laten herzien als er sprake is van een **wijziging van omsta
 - kind gaat zelfstandig wonen
 - wisselschema verandert significant
 
-Dit kan via onderling overleg of — als dat niet lukt — via de rechter.
+Dit kan via onderling overleg of,als dat niet lukt,via de rechter.
 
 
 
@@ -355,7 +355,7 @@ Alimentatieafspraken kun je vastleggen in:
 - een **convenant** (bij samenlevers)
 - een **rechterlijke uitspraak**
 
-Mondeling is technisch mogelijk maar niet aan te raden — geen bewijs, geen indexering.
+Mondeling is technisch mogelijk maar niet aan te raden,geen bewijs, geen indexering.
 
 
 
@@ -385,10 +385,10 @@ Zie 'sources' in dit object.
     title: "Co-ouderschap met een kind met bijzondere behoeften",
     excerpt: "Een kind met ADHD, autisme, angstklachten of een chronische aandoening vraagt meer afstemming. Zo organiseer je co-ouderschap zo rustig en consistent mogelijk.",
     author: "Lisa van Dam",
-    date: "2026-02-22",
+    date: "2025-09-24",
     readTime: "8 min",
     category: "Kinderen",
-    image: "https://images.pexels.com/photos/8363104/pexels-photo-8363104.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=800",
 
     seo: {
       title: "Co-ouderschap met een kind met bijzondere behoeften: ADHD, autisme en meer",
@@ -405,11 +405,11 @@ Zie 'sources' in dit object.
       canonicalPath: "/blog/kind-met-bijzondere-behoeften-co-ouderschap",
       ogTitle: "Co-ouderschap met een kind met bijzondere behoeften",
       ogDescription: "Consistentie, communicatie en afstemming bij een kind met ADHD, autisme of chronische aandoening.",
-      ogImage: "https://images.pexels.com/photos/8363104/pexels-photo-8363104.jpeg?auto=compress&cs=tinysrgb&w=1200"
+      ogImage: "https://images.pexels.com/photos/3662667/pexels-photo-3662667.jpeg?auto=compress&cs=tinysrgb&w=1200"
     },
 
     contentMd: `
-Co-ouderschap is al complex. Als je kind ook nog bijzondere behoeften heeft — ADHD, autisme, angststoornissen, een chronische ziekte of een ontwikkelingsachterstand — wordt de lat hoger gelegd. Niet omdat het niet kan, maar omdat **consistentie** dan nóg belangrijker is.
+Co-ouderschap is al complex. Als je kind ook nog bijzondere behoeften heeft,ADHD, autisme, angststoornissen, een chronische ziekte of een ontwikkelingsachterstand,wordt de lat hoger gelegd. Niet omdat het niet kan, maar omdat **consistentie** dan nóg belangrijker is.
 
 
 
@@ -445,7 +445,7 @@ Bij school, psycholoog, fysiotherapeut of huisarts:
 - bespreek of jullie apart of gezamenlijk in gesprek gaan
 - vraag de zorgverlener om updates naar beide ouders te sturen
 
-Vermijd dat informatie altijd via één ouder loopt — dat vergroot de kans op ruis.
+Vermijd dat informatie altijd via één ouder loopt,dat vergroot de kans op ruis.
 
 
 
@@ -507,7 +507,7 @@ Zie 'sources' in dit object.
     title: "Grensoverschrijdend gedrag van je co-ouder: herkennen en handelen",
     excerpt: "Niet elk conflict is hoog conflict. Maar sommig gedrag overschrijdt grenzen. Leer het verschil herkennen en weet wat je kunt doen.",
     author: "Emma Bakker",
-    date: "2026-02-15",
+    date: "2025-09-06",
     readTime: "8 min",
     category: "Communicatie",
     image: "https://images.pexels.com/photos/3807733/pexels-photo-3807733.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -532,7 +532,7 @@ Zie 'sources' in dit object.
     },
 
     contentMd: `
-Conflict tussen co-ouders is normaal. Maar er is een verschil tussen "moeilijk samenwerken" en gedrag dat grenzen overschrijdt. Dat verschil herkennen is belangrijk — voor jezelf én voor je kind.
+Conflict tussen co-ouders is normaal. Maar er is een verschil tussen "moeilijk samenwerken" en gedrag dat grenzen overschrijdt. Dat verschil herkennen is belangrijk,voor jezelf én voor je kind.
 
 
 
@@ -596,7 +596,7 @@ Wat je doet:
 ## 5) Communicatiehygiëne als bescherming
 
 Bij grensoverschrijdend gedrag:
-- reageer **nooit** op emotionele lading — alleen op inhoud
+- reageer **nooit** op emotionele lading,alleen op inhoud
 - gebruik alleen schriftelijke communicatie (bewijs)
 - stel een vaste reactietermijn in (bijv. 48 uur)
 - schakel indien mogelijk een derde in die bemiddelt
@@ -618,7 +618,7 @@ Kinderen die getuige zijn van aanhoudend grensoverschrijdend gedrag lopen risico
 
 ## 7) Zorg ook voor jezelf
 
-Slachtoffers van manipulatie of intimidatie twijfelen vaak aan zichzelf. Dat is het effect van het gedrag — geen bewijs dat jij het bij het verkeerde eind hebt.
+Slachtoffers van manipulatie of intimidatie twijfelen vaak aan zichzelf. Dat is het effect van het gedrag,geen bewijs dat jij het bij het verkeerde eind hebt.
 
 Zoek steun bij:
 - een psycholoog of traumatherapeut
@@ -645,10 +645,10 @@ Zie 'sources' in dit object.
     title: "Samengesteld gezin en co-ouderschap: praktische gids",
     excerpt: "Nieuwe partners, stiefkinderen, halfbroers en -zussen: hoe combineer je co-ouderschap met een samengesteld gezin zonder dat het kind de dupe wordt?",
     author: "Tom Hendriksen",
-    date: "2026-02-08",
+    date: "2025-08-19",
     readTime: "9 min",
     category: "Relaties",
-    image: "https://images.pexels.com/photos/5257508/pexels-photo-5257508.jpeg?auto=compress&cs=tinysrgb&w=800",
+    image: "https://images.pexels.com/photos/4259140/pexels-photo-4259140.jpeg?auto=compress&cs=tinysrgb&w=800",
 
     seo: {
       title: "Samengesteld gezin en co-ouderschap: gids voor ouders en stiefouders",
@@ -665,11 +665,11 @@ Zie 'sources' in dit object.
       canonicalPath: "/blog/samengesteld-gezin-co-ouderschap",
       ogTitle: "Samengesteld gezin en co-ouderschap: praktische gids",
       ogDescription: "De rol van stiefouder, halfbroers en -zussen en loyaliteitsconflict in een samengesteld gezin.",
-      ogImage: "https://images.pexels.com/photos/5257508/pexels-photo-5257508.jpeg?auto=compress&cs=tinysrgb&w=1200"
+      ogImage: "https://images.pexels.com/photos/4259140/pexels-photo-4259140.jpeg?auto=compress&cs=tinysrgb&w=1200"
     },
 
     contentMd: `
-Samengestelde gezinnen zijn de norm geworden, niet de uitzondering. Toch lopen veel gezinnen vast — niet omdat de intenties slecht zijn, maar omdat de complexiteit wordt onderschat.
+Samengestelde gezinnen zijn de norm geworden, niet de uitzondering. Toch lopen veel gezinnen vast,niet omdat de intenties slecht zijn, maar omdat de complexiteit wordt onderschat.
 
 Een samengesteld gezin vraagt om bewuste keuzes over rollen, grenzen en communicatie.
 
@@ -691,11 +691,11 @@ Uitdagingen die uniek zijn voor samengestelde gezinnen:
 De meest gemaakte fout: de stiefouder neemt te snel een ouderrol op zich.
 
 Gezonde opbouw:
-- **Fase 1** (eerste maanden): vriend/vriendin van de ouder — geen opvoedrol
-- **Fase 2** (na vertrouwen): betrokken volwassene — ondersteunend, niet sturend
-- **Fase 3** (op termijn): deel van het gezin — met eigen invloed, maar respect voor biologische ouder
+- **Fase 1** (eerste maanden): vriend/vriendin van de ouder,geen opvoedrol
+- **Fase 2** (na vertrouwen): betrokken volwassene,ondersteunend, niet sturend
+- **Fase 3** (op termijn): deel van het gezin,met eigen invloed, maar respect voor biologische ouder
 
-Vuistregel: de stiefouder stelt geen regels, de biologische ouder wel — totdat het kind de stiefouder genoeg vertrouwt.
+Vuistregel: de stiefouder stelt geen regels, de biologische ouder wel,totdat het kind de stiefouder genoeg vertrouwt.
 
 
 
@@ -749,7 +749,7 @@ Bij een samengesteld gezin kunnen aanpassingen nodig zijn:
 - hoe gaat het bij medische spoed als de biologische ouder niet bereikbaar is?
 - wat zijn de afspraken als er een baby komt in het nieuwe gezin?
 
-Leg dit vast — onduidelijkheid leidt tot conflict.
+Leg dit vast,onduidelijkheid leidt tot conflict.
 
 
 

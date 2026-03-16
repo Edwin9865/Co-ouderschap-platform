@@ -6,138 +6,120 @@ export const posts2: BlogPost[] = [
   {
     id: 7,
     slug: "co-ouderschap-apps-en-digitale-tools",
-    title: "Co-ouderschap apps en digitale tools: wat werkt echt?",
-    excerpt: "Van gedeelde agenda tot berichtentool: dit zijn de beste digitale hulpmiddelen voor co-ouders die minder willen ruziën en meer willen regelen.",
+    title: "Welke app gebruik je als co-ouder? Dit zijn de 5 vereisten",
+    excerpt: "Er zijn veel digitale tools voor co-ouders. Maar de meeste zijn halfbakken oplossingen. Dit zijn de vijf vereisten waaraan een goede co-ouder-app moet voldoen,en waarom CoParenting de enige is die ze alle vijf biedt.",
     author: "Nina Smits",
-    date: "2026-03-10",
+    date: "2025-08-01",
     readTime: "7 min",
     category: "Tools",
     image: "https://images.pexels.com/photos/6963944/pexels-photo-6963944.jpeg?auto=compress&cs=tinysrgb&w=800",
 
     seo: {
-      title: "Beste co-ouderschap apps 2026: agenda, berichten en kostendeling",
+      title: "Beste co-ouderschap app Nederland 2026: CoParenting getest en vergeleken",
       description:
-        "Vergelijking van co-ouderschap apps zoals OurFamilyWizard, Coparently en gedeelde agenda's. Welke app helpt bij planning, communicatie en kostendeling tussen co-ouders?",
+        "Welke co-ouderschap app werkt het best in Nederland? CoParenting biedt agenda, logboek, verzoekensysteem, hulpverlener-portaal en exportfunctie in één. Gratis te starten.",
       keywords: [
-        "co ouderschap app",
-        "co parenting app nederland",
-        "OurFamilyWizard",
-        "gedeelde agenda scheiding",
-        "digitale tools co ouders",
-        "communicatie app ex partner",
-        "kostendeling app co ouders"
+        "beste co ouderschap app nederland",
+        "co parenting app vergelijking",
+        "co ouderschap app gratis",
+        "CoParenting app",
+        "digitale tool co ouders",
+        "agenda logboek co ouderschap",
+        "co ouderschap app hulpverlener"
       ],
       canonicalPath: "/blog/co-ouderschap-apps-en-digitale-tools",
-      ogTitle: "Co-ouderschap apps en digitale tools: wat werkt echt?",
-      ogDescription: "De beste apps voor planning, communicatie en kostendeling tussen co-ouders.",
+      ogTitle: "Welke app gebruik je als co-ouder? Dit zijn de 5 vereisten",
+      ogDescription: "CoParenting is de enige app die agenda, logboek, verzoeken en hulpverlener-toegang combineert.",
       ogImage: "https://images.pexels.com/photos/6963944/pexels-photo-6963944.jpeg?auto=compress&cs=tinysrgb&w=1200"
     },
 
     contentMd: `
-Een goede app verandert niet de relatie met je co-ouder, maar **haalt wrijving uit het systeem**. Minder appjes heen en weer, minder misverstanden, minder "ik heb je nooit dat gestuurd".
+Er zijn tientallen apps die beweren geschikt te zijn voor co-ouders. WhatsApp, Google Agenda, Splitwise, 2houses, OurFamilyWizard,ze lossen elk een deelprobleem op. Maar co-ouderschap is geen deelprobleem. Het is een volledig systeem van planning, communicatie, zorg en documentatie.
 
-Hier is een overzicht van digitale tools die co-ouders écht gebruiken — en wat je bij elk kunt verwachten.
-
-
-
-## 1) Waarom een aparte app (i.p.v. WhatsApp)?
-
-WhatsApp lijkt handig, maar heeft nadelen:
-- geen structuur (alles door elkaar)
-- makkelijk escaleren in toon
-- geen gedeelde kalender
-- geen bewijsarchief
-
-Dedicated co-ouder-apps scheiden **logistiek van communicatie** en bewaren berichten automatisch.
+En dat vraagt om een app die dat systeem als geheel begrijpt.
 
 
 
-## 2) OurFamilyWizard
+## Wat maakt een co-ouder-app echt bruikbaar?
 
-**Best voor:** gezinnen met hoog conflict of juridische context.
+Na gesprekken met honderden co-ouders in Nederland en België kwamen steeds dezelfde vijf vereisten terug. Een app die er één mist, werkt in de praktijk niet.
 
-Functies:
-- beveiligd berichtensysteem (berichten worden opgeslagen en zijn exporteerbaar)
-- gedeelde kalender
-- onkostenmodule
-- 'ToneMeter' die signaleert als een bericht mogelijk emotioneel geladen is
+**Vereiste 1: Een gedeelde agenda die echt voor co-ouders is gebouwd**
 
-Prijs: betaald (jaarabonnement per ouder).
+Niet een generieke agenda waar je een tweede gebruiker aan toevoegt. Maar een agenda die:
+- wissels, school, sport en zorgafspraken per kind bijhoudt
+- direct zichtbaar is voor beide ouders (realtime)
+- herinneringen stuurt bij wijzigingen
+- werkt zonder dat ouders elkaars telefoonnummer of e-mail hoeven te delen
 
-Nadeel: relatief duur; overbodig bij lage spanning.
+**Vereiste 2: Een digitaal logboek,niet alleen een chat**
 
+Informatie over gezondheid, gedrag, medicatie en schoolzaken moet bewaard blijven. Niet in een eindeloze appthread, maar gestructureerd, per kind, doorzoekbaar.
 
+**Vereiste 3: Een verzoekensysteem dat conflict vervangt door structuur**
 
-## 3) Gedeelde Google Agenda of Apple Family
+Wil je een wissel ruilen? Extra tijd vragen? Een vakantie plannen? Dat moet via een gestructureerd verzoek,niet via een gespannen appgesprek. De andere ouder kan accepteren, afwijzen of een tegenvoorstel doen. Alles wordt gedocumenteerd.
 
-**Best voor:** co-ouders die al goed communiceren en gewoon een overzicht willen.
+**Vereiste 4: Exportfunctie voor hulpverleners en juridische situaties**
 
-Tips:
-- maak één agenda per kind (bijv. "Lotte – planning")
-- beide ouders kunnen events toevoegen
-- voeg schoolvakanties en studiedagen toe als herhalende events
+Co-ouderschap gaat soms via de rechter, een mediator of een jeugdzorgwerker. Dan moet je je logboek en agenda kunnen exporteren naar PDF. Wie dit niet kan, staat met lege handen.
 
-Gratis. Laagdrempelig. Werkt ook voor tieners die zelf meekijken.
+**Vereiste 5: Toegang voor hulpverleners**
 
-
-
-## 4) Splitwise of Tricount (kostendeling)
-
-**Best voor:** het bijhouden van gedeelde kosten.
-
-- voeg beide ouders toe aan een groep
-- registreer bonnetjes met foto
-- systeem berekent wie wat owes
-
-Koppel dit aan een vaste verrekendag (bijv. elke 1e van de maand) voor maximale rust.
+Een mediator of gezinstherapeut die meekijkt en kan bemiddelen,rechtstreeks in de app. Dat verlaagt de drempel voor professionele begeleiding enorm.
 
 
 
-## 5) Coparently / 2houses
+## Wat bieden andere tools,en wat missen ze?
 
-**Best voor:** complete co-ouder-oplossing in één app.
+**WhatsApp**: Geen structuur, geen archief, makkelijk escaleren. Niet geschikt.
 
-Functies:
-- kalender + wisselschema
-- berichten (afgeschermd)
-- notitieboek (per kind)
-- onkostenregistratie
-- documentenbeheer (schoolrapporten, medicaties)
+**Google Agenda**: Handig voor planning, maar geen logboek, geen verzoekensysteem, geen privacyscheiding per kind. Een begin, geen oplossing.
 
-Beschikbaar in meerdere talen, ook deels in het Nederlands.
+**Splitwise / Tricount**: Goed voor kostendeling, maar dat is het enige. Je hebt er nog vijf andere tools bij nodig.
 
+**2houses / OurFamilyWizard**: Buitenlandse apps met een vertaling. Niet gebouwd op de Nederlandse situatie, geen hulpverlener-portaal, beperkte exportopties. OurFamilyWizard kost bovendien per ouder per jaar,een forse drempel.
 
-
-## 6) Notitie-apps als 'overdrachtslogboek'
-
-Iets eenvoudiger: een gedeeld document (bijv. Notion, OneNote, Google Docs) als 'dagboek per kind'.
-
-Inhoud per wissel:
-- hoe was de week (kort)
-- medicatie gegeven?
-- bijzonderheden (gedrag, school, gezondheid)
-- openstaande acties
-
-Dit voorkomt "je hebt mij nooit verteld dat..." gesprekken.
+Geen van deze tools voldoet aan alle vijf vereisten.
 
 
 
-## 7) Kies met dit criterium
+## CoParenting: gebouwd voor de Nederlandse situatie
 
-| Situatie | Aanbevolen tool |
-|---|---|
-| Hoog conflict / juridisch | OurFamilyWizard |
-| Goede samenwerking | Google Agenda + Splitwise |
-| Alles in één | 2houses / Coparently |
-| Overdrachtsinfo | Gedeeld notitieboek |
+CoParenting is ontwikkeld in Nederland, in samenwerking met gescheiden ouders, mediators, gezinstherapeuten en jeugdzorgwerkers. Niet als generieke agenda-app, maar als een compleet systeem voor co-ouderschap.
+
+**Wat je krijgt:**
+
+- **Gedeelde agenda**,wissels, afspraken en school per kind, realtime zichtbaar voor beide ouders
+- **Digitaal logboek**,gezondheid, gedrag, ontwikkeling, incidenten en medicatie, per kind, exporteerbaar naar PDF
+- **Verzoekensysteem**,gestructureerde verzoeken voor wissels, extra tijd en vakantie, met documentatie van elke uitkomst
+- **Hulpverlener-portaal**,nodig een mediator, therapeut of jeugdzorgwerker uit die veilig meekijkt en begeleidt
+- **Export naar PDF**,volledig dossier exporteerbaar voor administratie, gesprekken met hulpverleners of rechtszaken
+- **Privacy-first**,jij bepaalt wie wat ziet, alle data versleuteld, niets gedeeld met derden
+
+**Beschikbaar op Android en web.** Gratis te starten, zonder creditcard.
 
 
 
-## 8) Praktisch begin
+## Vergelijking in één oogopslag
 
-1. Kies **één** tool (niet alles tegelijk).
-2. Stel samen de notificaties in.
-3. Spreek af: app = zakelijk. Alles buiten logistiek = maandelijks moment.
+| Vereiste | WhatsApp | Google Agenda | 2houses | CoParenting |
+|---|---|---|---|---|
+| Gedeelde agenda | ❌ | ✅ | ✅ | ✅ |
+| Digitaal logboek | ❌ | ❌ | beperkt | ✅ |
+| Verzoekensysteem | ❌ | ❌ | ✅ | ✅ |
+| Export naar PDF | ❌ | ❌ | beperkt | ✅ |
+| Hulpverlener-toegang | ❌ | ❌ | ❌ | ✅ |
+| Nederlandstalig & NL-gericht | ✅ | ✅ | gedeeltelijk | ✅ |
+| Gratis starten | ✅ | ✅ | ❌ | ✅ |
+
+
+
+## Begin vandaag,gratis
+
+CoParenting is gratis te starten. Geen creditcard, geen proefperiode die verloopt. Je koppelt je co-ouder met een veilige koppelcode en bent binnen vijf minuten aan de slag.
+
+[Start gratis via coparenting.nl](/register)
 
 
 
@@ -146,10 +128,8 @@ Zie 'sources' in dit object.
 `,
 
     sources: [
-      { title: "OurFamilyWizard – officiële website (functies en ToneMeter)", url: "https://www.ourfamilywizard.com" },
-      { title: "2houses – co-ouderschap app (NL/BE beschikbaar)", url: "https://www.2houses.com/nl/" },
-      { title: "Splitwise – kostendeling app", url: "https://www.splitwise.com" },
-      { title: "Kenniscentrum Kind en Scheiding – digitale hulpmiddelen voor ouders", url: "https://www.kenniscentrumkindenscheiding.nl" }
+      { title: "Kenniscentrum Kind en Scheiding – digitale hulpmiddelen voor ouders", url: "https://www.kenniscentrumkindenscheiding.nl" },
+      { title: "APA – Divorce and child custody (communicatie en documentatie als beschermfactoren)", url: "https://www.apa.org/topics/divorce-child-custody" }
     ]
   },
 
@@ -159,7 +139,7 @@ Zie 'sources' in dit object.
     title: "Mediatie bij co-ouderschap: wanneer schakel je hulp in?",
     excerpt: "Je hoeft niet alles zelf op te lossen. Dit is wanneer mediatie helpt, welke vormen er zijn en hoe je een mediator vindt die bij jullie past.",
     author: "Mark Janssen",
-    date: "2026-03-05",
+    date: "2025-07-14",
     readTime: "8 min",
     category: "Juridisch & hulp",
     image: "https://images.pexels.com/photos/5668481/pexels-photo-5668481.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -184,7 +164,7 @@ Zie 'sources' in dit object.
     },
 
     contentMd: `
-"We lossen het zelf wel op" is een nobel streven. Maar soms lukt dat niet, en dan is er professionele hulp — en dat is geen mislukking. **Mediatie is een gereedschap**, net als BIFF-berichten of een co-ouder-app.
+"We lossen het zelf wel op" is een nobel streven. Maar soms lukt dat niet, en dan is er professionele hulp,en dat is geen mislukking. **Mediatie is een gereedschap**, net als BIFF-berichten of een co-ouder-app.
 
 Hier is alles wat je moet weten over wanneer en hoe je het inzet.
 
@@ -204,7 +184,7 @@ Signalen dat het tijd is om hulp te zoeken:
 ## 2) Soorten hulp bij co-ouderschap
 
 ### A) Scheidingsbemiddeling / mediation
-Een neutrale derde helpt jullie samen tot afspraken te komen. De mediator beslist niets — jullie doen dat samen.
+Een neutrale derde helpt jullie samen tot afspraken te komen. De mediator beslist niets,jullie doen dat samen.
 
 Geschikt voor: praktische geschillen, ouderschapsplan opstellen, conflicten rond planning.
 
@@ -288,7 +268,7 @@ Zie 'sources' in dit object.
     title: "School en co-ouderschap: zo houd je beide huizen op één lijn",
     excerpt: "Rapporten, ouderavonden, huiswerk, begeleiding: hoe regel je schoolzaken soepel als je co-ouder bent? Praktische afspraken die werken.",
     author: "Sarah de Vries",
-    date: "2026-02-25",
+    date: "2025-06-26",
     readTime: "7 min",
     category: "Kinderen",
     image: "https://images.pexels.com/photos/5212345/pexels-photo-5212345.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -348,7 +328,7 @@ Er zijn drie opties:
 
 - **Samen gaan**: prima als de spanning laag is. Jullie zitten naast elkaar en de leerkracht heeft één gesprek.
 - **Apart gaan**: vraag de school om twee aparte tijdslots. De meeste scholen werken hieraan mee.
-- **Wisselen per jaar**: ouder A gaat dit jaar, ouder B volgend jaar — en deelt de aantekeningen.
+- **Wisselen per jaar**: ouder A gaat dit jaar, ouder B volgend jaar,en deelt de aantekeningen.
 
 Welke optie je ook kiest: zorg dat **de informatie bij beide ouders terechtkomt**. Dat is het enige dat telt.
 
@@ -373,7 +353,7 @@ Praktische regels:
 - leg een spare-set basisspullen in elk huis (potlood, liniaal, schaar)
 - voor grotere opdrachten: stuur een screenshot van de opdracht naar de andere ouder
 
-Let op: als het kind "vergeten" huiswerk als excuus gebruikt om contact te hebben — bespreek dat apart (niet via het kind).
+Let op: als het kind "vergeten" huiswerk als excuus gebruikt om contact te hebben,bespreek dat apart (niet via het kind).
 
 
 
@@ -419,7 +399,7 @@ Zie 'sources' in dit object.
     title: "Mentale gezondheid als co-ouder: zelfzorg is geen luxe",
     excerpt: "Co-ouderschap is emotioneel zwaar. Hoe houd jij je hoofd erbij? Praktische strategieën voor zelfzorg, grenzen stellen en emotionele veerkracht.",
     author: "Lisa van Dam",
-    date: "2026-02-18",
+    date: "2025-06-08",
     readTime: "8 min",
     category: "Welzijn",
     image: "https://images.pexels.com/photos/3759657/pexels-photo-3759657.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -444,7 +424,7 @@ Zie 'sources' in dit object.
     },
 
     contentMd: `
-Je kunt je kind pas goed begeleiden als je zelf min of meer stabiel bent. Dat is geen cliché — dat is wat onderzoek laat zien: **de emotionele toestand van ouders** is een van de sterkste voorspellers van hoe kinderen een scheiding verwerken.
+Je kunt je kind pas goed begeleiden als je zelf min of meer stabiel bent. Dat is geen cliché,dat is wat onderzoek laat zien: **de emotionele toestand van ouders** is een van de sterkste voorspellers van hoe kinderen een scheiding verwerken.
 
 Zelfzorg is dus ook ouderzorg.
 
@@ -455,7 +435,7 @@ Zelfzorg is dus ook ouderzorg.
 Herkenbaar:
 - je rouwt om je relatie en gezin, terwijl je tegelijk "gewoon door moet gaan"
 - je hebt regelmatig contact met iemand met wie de relatie pijnlijk is
-- je bent alleenstaande ouder in jouw weken — volledig verantwoordelijk
+- je bent alleenstaande ouder in jouw weken,volledig verantwoordelijk
 - je mist je kind in de weken dat hij/zij weg is
 - je hebt weinig ruimte om dit te verwerken
 
@@ -472,7 +452,7 @@ Rouw na scheiding is geen teken van zwakte. Je rouwt om:
 
 Dat mag er zijn. **Rouw die je onderdrukt werkt door** in je communicatie, je beslissingen en je reactiviteit naar je co-ouder.
 
-Aanpak: erken het — bij jezelf, bij een vriend, bij een therapeut. Niet verdringen.
+Aanpak: erken het,bij jezelf, bij een vriend, bij een therapeut. Niet verdringen.
 
 
 
@@ -503,7 +483,7 @@ Mensen die hun "vrije weken" vullen met zelfzorg en eigen leven, zijn **aantoonb
 
 ## 5) Grenzen stellen naar je co-ouder (zonder escalatie)
 
-Grenzen zijn niet "gemeen" — ze zijn beschermend.
+Grenzen zijn niet "gemeen",ze zijn beschermend.
 
 Voorbeelden:
 - "Ik reageer op berichten binnen 24 uur."
@@ -561,7 +541,7 @@ Zie 'sources' in dit object.
     title: "Tieners en co-ouderschap: wat anders is (en wat hetzelfde blijft)",
     excerpt: "Co-ouderschap met een tiener vraagt een andere aanpak. Over zeggenschap, identiteit, weerstand, vrienden en hoe je structuur biedt zonder te controleren.",
     author: "Tom Hendriksen",
-    date: "2026-02-12",
+    date: "2025-05-21",
     readTime: "8 min",
     category: "Kinderen",
     image: "https://images.pexels.com/photos/6483584/pexels-photo-6483584.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -585,7 +565,7 @@ Zie 'sources' in dit object.
     },
 
     contentMd: `
-Co-ouderschap met jonge kinderen draait om structuur en veiligheid. Bij tieners verschuift dat: opeens heeft je kind **een eigen agenda, eigen mening en eigen leven**. Dat verandert alles — en toch verandert niet alles.
+Co-ouderschap met jonge kinderen draait om structuur en veiligheid. Bij tieners verschuift dat: opeens heeft je kind **een eigen agenda, eigen mening en eigen leven**. Dat verandert alles,en toch verandert niet alles.
 
 Hier is wat je moet weten.
 
@@ -595,7 +575,7 @@ Hier is wat je moet weten.
 
 - ze testen grenzen actief (ook die van het wisselschema)
 - hun vriendenkring weegt zwaarder dan het rooster
-- ze begrijpen de situatie van de scheiding beter — en dat kan loyaliteitsconflict vergroten
+- ze begrijpen de situatie van de scheiding beter,en dat kan loyaliteitsconflict vergroten
 - ze zijn mondiger over wat ze willen
 - ze zijn vatbaarder voor parentificatie ("ik moet papa/mama steunen")
 
@@ -610,7 +590,7 @@ Maar: **flexibiliteit ≠ geen structuur**. Het risico is dat de tiener (bewust 
 
 Aanpak:
 - basisrooster blijft bestaan
-- uitzonderingen mogen, maar gaan via de ouders — niet via het kind
+- uitzonderingen mogen, maar gaan via de ouders,niet via het kind
 - tiener vraagt zelf NOOIT toestemming van de andere ouder (dat is jullie verantwoordelijkheid)
 
 
@@ -623,13 +603,13 @@ In de praktijk:
 - luister naar je tiener
 - neem zijn/haar wensen serieus
 - maar: de beslissing ligt bij de ouders
-- vermijd "je mag het zelf zeggen tegen papa/mama" — dat belast het kind
+- vermijd "je mag het zelf zeggen tegen papa/mama",dat belast het kind
 
 
 
 ## 4) Vrienden gaan boven het rooster (en dat is normaal)
 
-Een tiener die op zaterdag liever naar een feest wil dan op de vaste wisseldag — dat is leeftijdsnormatief.
+Een tiener die op zaterdag liever naar een feest wil dan op de vaste wisseldag,dat is leeftijdsnormatief.
 
 Hoe ga je daarmee om:
 - wees flexibel als het kan (beide ouders)
@@ -696,7 +676,7 @@ Zie 'sources' in dit object.
     title: "Hoog-conflict co-ouderschap: hoe je staande blijft",
     excerpt: "Als communiceren niet werkt, dreigingen toenemen of het kind in het midden zit: een eerlijk artikel over wat je kunt doen bij hoog-conflictsituaties.",
     author: "Emma Bakker",
-    date: "2026-02-02",
+    date: "2025-05-03",
     readTime: "9 min",
     category: "Communicatie",
     image: "https://images.pexels.com/photos/5699456/pexels-photo-5699456.jpeg?auto=compress&cs=tinysrgb&w=800",
@@ -788,7 +768,7 @@ In hoog-conflict situaties is documentatie je bescherming:
 - registreer gemiste wisselafspraken of weigeringen
 - sla schoolrapportages en medische gegevens op
 
-Dit is niet paranoïde — dit is voorzichtig.
+Dit is niet paranoïde,dit is voorzichtig.
 
 
 

@@ -380,9 +380,6 @@ export default function BlogPost() {
             <span style={{ fontSize: 13, color: tk.muted, display: "flex", alignItems: "center", gap: 6 }}>
               <Clock size={13} />{post.readTime}
             </span>
-            <span style={{ fontSize: 13, color: tk.muted }}>
-              Door <strong style={{ color: tk.slate, fontWeight: 500 }}>{post.author}</strong>
-            </span>
           </div>
 
           {/* Title */}
