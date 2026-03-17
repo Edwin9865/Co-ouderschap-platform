@@ -477,8 +477,8 @@ export function Homepage() {
                   Bekijk prijzen
                 </Link>
                 <a
-                  href="/CoParenting Platform 1.1.3.apk"
-                  download="CoParenting-1.1.3.apk"
+                  href="/CoParenting Platform 1.1.4.apk"
+                  download="CoParenting-1.1.4.apk"
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
