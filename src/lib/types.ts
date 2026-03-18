@@ -146,6 +146,7 @@ export interface Database {
           family_id: string
           first_name: string
           birth_year: number | null
+          birth_date: string | null
           color: string
           created_by: string
           created_at: string
@@ -163,12 +164,14 @@ export interface Database {
           avatar_style: string | null
           avatar_seed: string | null
           avatar_url: string | null
+          phone_numbers: { id: string; name: string; phones: string[] }[] | null
         }
         Insert: {
           id?: string
           family_id: string
           first_name: string
           birth_year?: number | null
+          birth_date?: string | null
           color?: string
           created_by: string
           created_at?: string
@@ -186,12 +189,14 @@ export interface Database {
           avatar_style?: string | null
           avatar_seed?: string | null
           avatar_url?: string | null
+          phone_numbers?: { id: string; name: string; phone: string }[] | null
         }
         Update: {
           id?: string
           family_id?: string
           first_name?: string
           birth_year?: number | null
+          birth_date?: string | null
           color?: string
           created_by?: string
           created_at?: string
@@ -209,6 +214,7 @@ export interface Database {
           avatar_style?: string | null
           avatar_seed?: string | null
           avatar_url?: string | null
+          phone_numbers?: { id: string; name: string; phone: string }[] | null
         }
       }
       events: {
@@ -216,7 +222,7 @@ export interface Database {
           id: string
           family_id: string
           child_id: string | null
-          type: 'medical' | 'school' | 'sport' | 'handover' | 'other'
+          type: 'medical' | 'school' | 'sport' | 'handover' | 'other' | 'birthday'
           title: string
           description: string | null
           start_at: string
@@ -238,7 +244,7 @@ export interface Database {
           id?: string
           family_id: string
           child_id?: string | null
-          type: 'medical' | 'school' | 'sport' | 'handover' | 'other'
+          type: 'medical' | 'school' | 'sport' | 'handover' | 'other' | 'birthday'
           title: string
           description?: string | null
           start_at: string

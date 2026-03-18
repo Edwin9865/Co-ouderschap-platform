@@ -822,7 +822,7 @@ export function Agenda() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold">{event.title}</h3>
+                      <h3 className="font-bold">{event.type === 'birthday' ? '🎂 ' : ''}{event.title}</h3>
                       {event.recurrence_rule && (
                         <span className="flex items-center gap-1 text-xs text-gray-400">
                           <RefreshCw className="w-3 h-3" />
@@ -948,7 +948,7 @@ export function Agenda() {
                           onMouseEnter={e => { setHoveredEvent(event); setHoverPos({ x: e.clientX, y: e.clientY }); }}
                           onMouseLeave={() => setHoveredEvent(null)}
                         >
-                          {event.title}{child && <span className="opacity-70"> · {child.first_name}</span>}
+                          {event.type === 'birthday' ? '🎂 ' : ''}{event.title}{child && <span className="opacity-70"> · {child.first_name}</span>}
                         </div>
                       );
                     })}

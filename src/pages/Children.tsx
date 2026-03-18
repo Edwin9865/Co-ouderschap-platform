@@ -6,7 +6,7 @@ import {
   Plus, Edit2, Trash2, Lock, Eye, EyeOff,
   ArrowLeft, Info, Check, X, ChevronRight,
   Shield, Pill, Syringe, Hash, MapPin, FileText, Tag, Ruler, CreditCard, RefreshCw, Smile,
-  Upload, Camera, Trash,
+  Upload, Camera, Trash, Phone,
 } from 'lucide-react';
 import type { Child, User } from '../lib/types';
 
@@ -14,6 +14,12 @@ interface ChildVisibility {
   child_id: string;
   user_id: string;
   user?: User;
+}
+
+interface PhoneEntry {
+  id: string;
+  name: string;
+  phones: string[];
 }
 
 type InfoFieldKey =
@@ -96,6 +102,21 @@ async function compressImage(file: File, maxDim = 1200, quality = 0.82): Promise
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
+function calculateAge(birthDate: string): number {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+function isBirthdayToday(birthDate: string): boolean {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  return today.getMonth() === birth.getMonth() && today.getDate() === birth.getDate();
+}
+
 export function Children() {
   const { currentFamily, children, refreshFamily, isParent, isHelper, canAccessFeature, members } = useFamily();
   const { user } = useAuth();
@@ -104,7 +125,7 @@ export function Children() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingChild, setEditingChild] = useState<string | null>(null);
   const [firstName, setFirstName] = useState('');
-  const [birthYear, setBirthYear] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [color, setColor] = useState(COLORS[0]);
   const [loading, setLoading] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -116,12 +137,18 @@ export function Children() {
 
   // Detail view state
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'images' | 'info' | 'accounts'>('info');
+  const [activeTab, setActiveTab] = useState<'images' | 'info' | 'accounts' | 'phones'>('info');
   const [editingField, setEditingField] = useState<InfoFieldKey | null>(null);
   const [fieldValue, setFieldValue] = useState('');
   const [fieldSaving, setFieldSaving] = useState(false);
   const [accountsValue, setAccountsValue] = useState('');
   const [accountsSaving, setAccountsSaving] = useState(false);
+
+  // Phone numbers tab state
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneEntry[]>([]);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [showAddPhone, setShowAddPhone] = useState(false);
+  const [newPhoneRows, setNewPhoneRows] = useState<{ name: string; phones: string[] }[]>([{ name: '', phones: [''] }]);
 
   // Avatar picker state
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
@@ -170,10 +197,13 @@ export function Children() {
   useEffect(() => {
     if (selectedChild) {
       setAccountsValue(selectedChild.accounts_notes ?? '');
+      setPhoneNumbers(selectedChild.phone_numbers ?? []);
+      setShowAddPhone(false);
+      setNewPhoneRows([{ name: '', phones: [''] }]);
       setEditingField(null);
       setIsEditingAvatar(false);
       setFirstName(selectedChild.first_name);
-      setBirthYear(selectedChild.birth_year?.toString() ?? '');
+      setBirthDate(selectedChild.birth_date ?? '');
       setColor(selectedChild.color ?? COLORS[0]);
     }
   }, [selectedChildId]);
@@ -208,22 +238,63 @@ export function Children() {
 
   const isChildCreator = (child: Child) => child.created_by === user?.id;
 
+  const syncBirthdayEvent = async (childId: string, childName: string, birthDateValue: string) => {
+    if (!currentFamily || !user || !birthDateValue) return;
+
+    const { data: existing } = await supabase
+      .from('events')
+      .select('id')
+      .eq('child_id', childId)
+      .eq('type', 'birthday')
+      .eq('family_id', currentFamily.id)
+      .eq('recurrence_rule', 'FREQ=YEARLY')
+      .maybeSingle();
+
+    const startAt = `${birthDateValue}T00:00:00`;
+    const endAt = `${birthDateValue}T23:59:00`;
+
+    if (existing) {
+      await supabase.from('events').update({
+        title: `Verjaardag ${childName}`,
+        start_at: startAt,
+        end_at: endAt,
+      }).eq('id', existing.id);
+    } else {
+      await supabase.from('events').insert({
+        family_id: currentFamily.id,
+        child_id: childId,
+        type: 'birthday',
+        title: `Verjaardag ${childName}`,
+        start_at: startAt,
+        end_at: endAt,
+        recurrence_rule: 'FREQ=YEARLY',
+        status: 'scheduled',
+        created_by: user.id,
+        reminder_enabled: false,
+      });
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentFamily || !user) return;
     if (children.length >= 1 && !canAccessFeature('multiple_children')) { setShowPaywall(true); return; }
     setLoading(true);
     try {
+      const birthYear = birthDate ? new Date(birthDate).getFullYear() : null;
       const { data: newChild, error } = await supabase
         .from('children')
-        .insert({ family_id: currentFamily.id, first_name: firstName, birth_year: birthYear ? parseInt(birthYear) : null, color, created_by: user.id })
+        .insert({ family_id: currentFamily.id, first_name: firstName, birth_date: birthDate || null, birth_year: birthYear, color, created_by: user.id })
         .select().single();
       if (error) throw error;
       if (shareWithCoParents && newChild && coParents.length > 0) {
         await supabase.from('child_visibility').insert(coParents.map((p) => ({ child_id: newChild.id, user_id: p.user_id, granted_by: user.id })));
       }
+      if (newChild && birthDate) {
+        await syncBirthdayEvent(newChild.id, firstName, birthDate);
+      }
       await refreshFamily();
-      setFirstName(''); setBirthYear(''); setColor(COLORS[0]); setShareWithCoParents(true); setShowCreate(false);
+      setFirstName(''); setBirthDate(''); setColor(COLORS[0]); setShareWithCoParents(true); setShowCreate(false);
       await fetchChildVisibilities();
     } finally { setLoading(false); }
   };
@@ -231,10 +302,14 @@ export function Children() {
   const handleUpdate = async (childId: string) => {
     setLoading(true);
     try {
+      const birthYear = birthDate ? new Date(birthDate).getFullYear() : null;
       const { error } = await supabase.from('children')
-        .update({ first_name: firstName, birth_year: birthYear ? parseInt(birthYear) : null, color })
+        .update({ first_name: firstName, birth_date: birthDate || null, birth_year: birthYear, color })
         .eq('id', childId);
       if (error) { alert('Fout bij opslaan: Alleen de aanmaker kan dit kind bewerken.'); return; }
+      if (birthDate) {
+        await syncBirthdayEvent(childId, firstName, birthDate);
+      }
       await refreshFamily();
     } finally { setLoading(false); }
   };
@@ -309,7 +384,7 @@ export function Children() {
     if (!isChildCreator(child)) { alert('Alleen de aanmaker kan dit kind bewerken.'); return; }
     setEditingChild(child.id);
     setFirstName(child.first_name);
-    setBirthYear(child.birth_year?.toString() ?? '');
+    setBirthDate(child.birth_date ?? '');
     setColor(child.color ?? COLORS[0]);
   };
 
@@ -324,6 +399,40 @@ export function Children() {
       await refreshFamily();
     } catch (e) { console.error('Error saving field:', e); }
     finally { setFieldSaving(false); setEditingField(null); }
+  };
+
+  const handleSavePhoneNumbers = async (updated: PhoneEntry[]) => {
+    if (!selectedChildId) return;
+    setPhoneSaving(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('children')
+        .update({ phone_numbers: updated })
+        .eq('id', selectedChildId);
+      if (error) throw error;
+      setPhoneNumbers(updated);
+      await refreshFamily();
+    } catch (e) { console.error('Error saving phone numbers:', e); }
+    finally { setPhoneSaving(false); }
+  };
+
+  const handleAddPhones = async () => {
+    const valid = newPhoneRows.filter(r => r.name.trim() || r.phones.some(p => p.trim()));
+    if (!valid.length) return;
+    const entries: PhoneEntry[] = valid.map(r => ({
+      id: crypto.randomUUID(),
+      name: r.name.trim(),
+      phones: r.phones.map(p => p.trim()).filter(Boolean),
+    }));
+    const updated = [...phoneNumbers, ...entries];
+    await handleSavePhoneNumbers(updated);
+    setNewPhoneRows([{ name: '', phones: [''] }]);
+    setShowAddPhone(false);
+  };
+
+  const handleDeletePhone = async (id: string) => {
+    const updated = phoneNumbers.filter(p => p.id !== id);
+    await handleSavePhoneNumbers(updated);
   };
 
   const handleSaveAccounts = async () => {
@@ -457,6 +566,7 @@ export function Children() {
             {([
               { id: 'images', label: 'Avatar' },
               { id: 'info', label: 'Kind info' },
+              { id: 'phones', label: 'Telefoon' },
               { id: 'accounts', label: 'Accounts' },
             ] as const).map((tab) => (
               <button
@@ -494,8 +604,13 @@ export function Children() {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-xl font-bold text-gray-900">{selectedChild.first_name}</h2>
-                  {selectedChild.birth_year && (
-                    <p className="text-sm text-gray-400">Geboortejaar {selectedChild.birth_year}</p>
+                  {selectedChild.birth_date && (
+                    <p className="text-sm text-gray-400">
+                      {calculateAge(selectedChild.birth_date)} jaar
+                      {isBirthdayToday(selectedChild.birth_date) && ' \uD83C\uDF82'}
+                      {' \u00B7 '}
+                      {new Date(selectedChild.birth_date + 'T12:00:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
                   )}
                 </div>
                 {canEdit && (
@@ -786,10 +901,10 @@ export function Children() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Geboortejaar (optioneel)</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Geboortedatum (optioneel)</label>
                           <input
-                            type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)}
-                            min="1990" max={new Date().getFullYear()}
+                            type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                            max={new Date().toISOString().split('T')[0]}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-500 text-sm"
                           />
                         </div>
@@ -831,6 +946,141 @@ export function Children() {
                     Klaar
                   </button>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── PHONES TAB ──────────────────────────────────────── */}
+          {activeTab === 'phones' && (
+            <div className="p-5 space-y-4">
+              {/* List of existing contacts */}
+              {phoneNumbers.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {phoneNumbers.map((entry) => (
+                    <div key={entry.id} className="py-3 flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Phone className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 mb-1">{entry.name || 'Onbekend'}</p>
+                        <div className="space-y-1">
+                          {(entry.phones ?? []).map((num, ni) => (
+                            <div key={ni} className="flex items-center gap-2">
+                              <a
+                                href={`tel:${num.replace(/\s/g, '')}`}
+                                className="text-sm text-blue-600 hover:text-blue-800 font-medium flex-1"
+                              >
+                                {num}
+                              </a>
+                              <a
+                                href={`tel:${num.replace(/\s/g, '')}`}
+                                className="p-1.5 rounded-full bg-green-50 text-green-600 hover:bg-green-100"
+                                title="Bellen"
+                              >
+                                <Phone className="w-3.5 h-3.5" />
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {canEditInfo && (
+                        <button
+                          onClick={() => handleDeletePhone(entry.id)}
+                          disabled={phoneSaving}
+                          className="p-1.5 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                          title="Verwijderen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                !showAddPhone && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    Nog geen telefoonnummers toegevoegd.
+                  </p>
+                )
+              )}
+
+              {/* Add form — one contact at a time, multiple numbers per contact */}
+              {canEditInfo && showAddPhone && (
+                <div className="border border-gray-200 rounded-xl p-4 space-y-3 bg-gray-50">
+                  <input
+                    type="text"
+                    value={newPhoneRows[0].name}
+                    onChange={(e) => setNewPhoneRows([{ ...newPhoneRows[0], name: e.target.value }])}
+                    placeholder="Naam (bijv. Huisarts)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-transparent"
+                  />
+                  <div className="space-y-2">
+                    {newPhoneRows[0].phones.map((num, ni) => (
+                      <div key={ni} className="flex gap-2 items-center">
+                        <input
+                          type="tel"
+                          value={num}
+                          onChange={(e) => {
+                            const phones = [...newPhoneRows[0].phones];
+                            phones[ni] = e.target.value;
+                            setNewPhoneRows([{ ...newPhoneRows[0], phones }]);
+                          }}
+                          placeholder={ni === 0 ? 'Telefoonnummer' : `Nummer ${ni + 1}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-slate-500 focus:border-transparent"
+                        />
+                        {newPhoneRows[0].phones.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const phones = newPhoneRows[0].phones.filter((_, j) => j !== ni);
+                              setNewPhoneRows([{ ...newPhoneRows[0], phones }]);
+                            }}
+                            className="p-1.5 text-gray-400 hover:text-red-500"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNewPhoneRows([{ ...newPhoneRows[0], phones: [...newPhoneRows[0].phones, ''] }])}
+                    className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-800 font-medium"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Nog een nummer toevoegen
+                  </button>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleAddPhones}
+                      disabled={phoneSaving || (!newPhoneRows[0].name.trim() && newPhoneRows[0].phones.every(p => !p.trim()))}
+                      className="flex-1 py-2 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {phoneSaving ? 'Opslaan...' : 'Opslaan'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddPhone(false); setNewPhoneRows([{ name: '', phones: [''] }]); }}
+                      className="flex-1 py-2 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-50"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Add button */}
+              {canEditInfo && !showAddPhone && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddPhone(true)}
+                  className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 text-gray-500 text-sm rounded-lg hover:border-slate-400 hover:text-slate-700 w-full justify-center"
+                >
+                  <Plus className="w-4 h-4" />
+                  Contact toevoegen
+                </button>
               )}
             </div>
           )}
@@ -1061,9 +1311,9 @@ export function Children() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Geboortejaar (optioneel)</label>
-              <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)}
-                min="1990" max={new Date().getFullYear()}
+              <label className="block text-sm font-medium text-gray-700 mb-2">Geboortedatum (optioneel)</label>
+              <input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent" />
             </div>
             <div>
@@ -1101,7 +1351,7 @@ export function Children() {
                 {loading ? 'Bezig...' : 'Toevoegen'}
               </button>
               <button type="button"
-                onClick={() => { setShowCreate(false); setFirstName(''); setBirthYear(''); setColor(COLORS[0]); setShareWithCoParents(true); }}
+                onClick={() => { setShowCreate(false); setFirstName(''); setBirthDate(''); setColor(COLORS[0]); setShareWithCoParents(true); }}
                 className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
                 Annuleren
               </button>

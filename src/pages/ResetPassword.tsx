@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Logo } from '../components/Logo';
-import { Lock, CheckCircle2, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { Lock, CheckCircle2, AlertCircle, Info, Loader2, Eye, EyeOff } from 'lucide-react';
 
 interface ValidationErrors {
   length?: string;
@@ -21,6 +21,8 @@ export function ResetPassword() {
   const [isReady, setIsReady] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [touched, setTouched] = useState({ password: false, confirm: false });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -219,20 +221,30 @@ export function ResetPassword() {
               <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
                 Nieuw wachtwoord
               </label>
-              <input
-                id="newPassword"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                  touched.password && Object.keys(validationErrors).length > 0
-                    ? 'border-red-300'
-                    : 'border-gray-300'
-                }`}
-                disabled={loading}
-                placeholder="Minimaal 8 karakters"
-              />
+              <div className="relative">
+                <input
+                  id="newPassword"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
+                  className={`w-full px-4 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
+                    touched.password && Object.keys(validationErrors).length > 0
+                      ? 'border-red-300'
+                      : 'border-gray-300'
+                  }`}
+                  disabled={loading}
+                  placeholder="Minimaal 8 karakters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
 
               {touched.password && newPassword && (
                 <div className="mt-2 space-y-1">
@@ -270,18 +282,28 @@ export function ResetPassword() {
               >
                 Bevestig nieuw wachtwoord
               </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
-                  touched.confirm && validationErrors.match ? 'border-red-300' : 'border-gray-300'
-                }`}
-                disabled={loading}
-                placeholder="Herhaal nieuw wachtwoord"
-              />
+              <div className="relative">
+                <input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={() => setTouched((prev) => ({ ...prev, confirm: true }))}
+                  className={`w-full px-4 py-2 pr-10 border rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent ${
+                    touched.confirm && validationErrors.match ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                  disabled={loading}
+                  placeholder="Herhaal nieuw wachtwoord"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
 
               {touched.confirm && validationErrors.match && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-red-600">

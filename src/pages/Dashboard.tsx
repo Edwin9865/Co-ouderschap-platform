@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useFamily } from '../contexts/FamilyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Calendar, BookOpen, AlertCircle, UserPlus, Users } from 'lucide-react';
+import { Calendar, BookOpen, AlertCircle, UserPlus, Users, ArrowRight } from 'lucide-react';
 import type { Event, LogEntry, Request } from '../lib/types';
 
 const hexToRgb = (hex: string) => {
@@ -462,13 +462,13 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Calendar className="w-5 h-5 mr-2 text-slate-600" />
-                Aankomende agenda
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center min-w-0">
+                <Calendar className="w-5 h-5 mr-2 text-slate-600 shrink-0" />
+                <span className="truncate">Aankomende agenda</span>
               </h2>
-              <Link to="/agenda" className="text-sm text-slate-700 hover:underline">
-                Alles bekijken
+              <Link to="/agenda" className="p-1.5 text-gray-400 hover:text-slate-700 hover:bg-gray-100 rounded-full shrink-0 transition-colors" aria-label="Alles bekijken">
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
             <div className="space-y-3">
@@ -508,13 +508,13 @@ export function Dashboard() {
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <BookOpen className="w-5 h-5 mr-2 text-slate-600" />
-                Recent logboek
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center min-w-0">
+                <BookOpen className="w-5 h-5 mr-2 text-slate-600 shrink-0" />
+                <span className="truncate">Recent logboek</span>
               </h2>
-              <Link to="/logboek" className="text-sm text-slate-700 hover:underline">
-                Alles bekijken
+              <Link to="/logboek" className="p-1.5 text-gray-400 hover:text-slate-700 hover:bg-gray-100 rounded-full shrink-0 transition-colors" aria-label="Alles bekijken">
+                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
             <div className="space-y-3">
@@ -680,13 +680,14 @@ export function Dashboard() {
           >
             <div className="flex items-start gap-4 mb-4">
               <img src="/icons/section-icons/agenda.png" alt="Agenda" className="w-24 h-24 shrink-0 drop-shadow-md" />
-              <div className="flex-1 flex items-start justify-between pt-1">
-                <h2 className="text-base font-bold text-gray-900">Aankomende agenda</h2>
+              <div className="flex-1 flex items-start justify-between gap-2 pt-1 min-w-0">
+                <h2 className="text-base font-bold text-gray-900 min-w-0 truncate">Aankomende agenda</h2>
                 <Link
                   to="/agenda"
-                  className="px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full hover:bg-blue-600 transition-colors shrink-0 ml-2"
+                  className="p-1.5 text-gray-400 hover:text-slate-700 hover:bg-gray-100 rounded-full shrink-0 transition-colors"
+                  aria-label="Alles bekijken"
                 >
-                  Alles bekijken
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>
@@ -782,13 +783,14 @@ export function Dashboard() {
           >
             <div className="flex items-start gap-4 mb-4">
               <img src="/icons/section-icons/logboek.png" alt="Logboek" className="w-24 h-24 shrink-0 drop-shadow-md" />
-              <div className="flex-1 flex items-start justify-between pt-1">
-                <h2 className="text-base font-bold text-gray-900">Recent logboek</h2>
+              <div className="flex-1 flex items-start justify-between gap-2 pt-1 min-w-0">
+                <h2 className="text-base font-bold text-gray-900 min-w-0 truncate">Recent logboek</h2>
                 <Link
                   to="/logboek"
-                  className="px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full hover:bg-blue-600 transition-colors shrink-0 ml-2"
+                  className="p-1.5 text-gray-400 hover:text-slate-700 hover:bg-gray-100 rounded-full shrink-0 transition-colors"
+                  aria-label="Alles bekijken"
                 >
-                  Alles bekijken
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
             </div>

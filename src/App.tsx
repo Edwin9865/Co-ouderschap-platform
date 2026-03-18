@@ -56,6 +56,7 @@ import { supabase } from "./lib/supabase";
 
 // ✅ NEW: back button hook
 import { useBackButton } from "./lib/useBackButton";
+import { useKeyboardScrollIntoView } from "./lib/useKeyboardScrollIntoView";
 /**
  * Handles auth deep links on native (password reset via email).
  * Must be inside <BrowserRouter> to use useNavigate.
@@ -129,6 +130,7 @@ function WebOnlyRoute({ children }: { children: React.ReactNode }) {
  */
 function AppRoutes() {
   useBackButton();
+  useKeyboardScrollIntoView();
 
   return (
     <AuthProvider>
