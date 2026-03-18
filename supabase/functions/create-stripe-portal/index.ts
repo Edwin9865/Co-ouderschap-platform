@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     if (!subscription?.stripe_customer_id) return json(404, { error: "No Stripe customer found", version: VERSION });
 
     const returnUrl = isMobile
-      ? "com.coparenting.app://portal?returned=true"
+      ? "nl.coouderschap.app://portal?returned=true"
       : `${APP_URL}/instellingen/abonnement?portal=true`;
 
     const params = new URLSearchParams();

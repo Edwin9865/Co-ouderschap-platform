@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   rememberMe: boolean;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  signUp: (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => Promise<{ needsConfirmation: boolean }>;
+  signUp: (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER', emailRedirectTo?: string) => Promise<{ needsConfirmation: boolean }>;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setRememberMe: (enabled: boolean) => Promise<void>;
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await SecureStorage.updateLastActive();
   };
 
-  const signUp = async (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER') => {
+  const signUp = async (email: string, password: string, name: string, accountType: 'PARENT' | 'HELPER', emailRedirectTo?: string) => {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: name,
           account_type: accountType,
         },
+        ...(emailRedirectTo ? { emailRedirectTo } : {}),
       },
     });
 

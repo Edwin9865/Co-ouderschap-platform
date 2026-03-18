@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
     }
 
     // Op mobiel gebruiken we een deep link zodat Capacitor de redirect ontvangt
-    const APP_SCHEME = "com.coparenting.app";
+    const APP_SCHEME = "nl.coouderschap.app";
     const directSuccessUrl = isMobile
       ? `${APP_SCHEME}://checkout?success=true`
       : `${APP_URL}/instellingen/abonnement?success=true`;

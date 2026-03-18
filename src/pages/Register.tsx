@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { UserCircle, Stethoscope, Mail } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { isAndroid } from '../lib/capacitor';
 
 export function Register() {
   const [email, setEmail] = useState('');
@@ -35,7 +36,8 @@ export function Register() {
     setLoading(true);
 
     try {
-      const { needsConfirmation } = await signUp(email, password, name, accountType);
+      const emailRedirectTo = isAndroid() ? 'nl.coouderschap.app://email-confirm' : undefined;
+      const { needsConfirmation } = await signUp(email, password, name, accountType, emailRedirectTo);
       if (needsConfirmation) {
         setRegisteredEmail(email);
       } else {

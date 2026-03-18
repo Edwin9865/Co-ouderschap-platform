@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">CoParenting</string>
     <string name="title_activity_main">CoParenting</string>
-    <string name="package_name">com.coparenting.app</string>
-    <string name="custom_url_scheme">com.coparenting.app</string>
+    <string name="package_name">nl.coouderschap.app</string>
+    <string name="custom_url_scheme">nl.coouderschap.app</string>
 
     <!-- FCM Notification Channel -->
     <string name="default_notification_channel_id">fcm_default_channel</string>

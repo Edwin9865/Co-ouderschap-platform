@@ -205,7 +205,7 @@ export function Abonnement() {
     if (!Capacitor.isNativePlatform()) return;
 
     const listener = CapApp.addListener('appUrlOpen', async ({ url }) => {
-      if (!url.startsWith('com.coparenting.app://')) return;
+      if (!url.startsWith('nl.coouderschap.app://')) return;
 
       await Browser.close().catch(() => {});
 

@@ -18,7 +18,7 @@ export function ForgotPassword() {
 
     try {
       const redirectTo = Capacitor.isNativePlatform()
-        ? 'com.coparenting.app://reset-password'
+        ? 'nl.coouderschap.app://reset-password'
         : `${window.location.origin}/reset-password`;
 
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {

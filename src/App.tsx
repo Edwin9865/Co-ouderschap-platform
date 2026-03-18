@@ -67,18 +67,23 @@ function NativeAuthDeepLinkHandler() {
     if (!isNative()) return;
 
     const listenerPromise = CapApp.addListener("appUrlOpen", async ({ url }) => {
-      if (!url.startsWith("com.coparenting.app://reset-password")) return;
-
-      // Extract tokens from URL fragment: com.coparenting.app://reset-password#access_token=...
       const fragment = url.split("#")[1] ?? "";
       const params = new URLSearchParams(fragment);
       const accessToken = params.get("access_token");
       const refreshToken = params.get("refresh_token") ?? "";
       const type = params.get("type");
 
-      if (accessToken && type === "recovery") {
+      // Wachtwoord reset
+      if (url.startsWith("nl.coouderschap.app://reset-password") && accessToken && type === "recovery") {
         await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
         navigate("/reset-password");
+        return;
+      }
+
+      // Email bevestiging na registratie
+      if (url.startsWith("nl.coouderschap.app://email-confirm") && accessToken && type === "signup") {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        navigate("/dashboard");
       }
     });
 
