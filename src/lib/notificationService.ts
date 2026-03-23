@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { NotificationSettings, Request, Event, LogEntry } from './types';
-import { requestFCMToken, onForegroundMessage } from './firebase';
 import { isNative, isWeb } from './capacitor';
 import { PushNotifications } from '@capacitor/push-notifications';
 
@@ -192,6 +191,7 @@ export class NotificationService {
 
   private async initializeWebPush() {
     try {
+      const { requestFCMToken, onForegroundMessage } = await import('./firebase');
       const token = await requestFCMToken();
 
       if (token && token !== this.settings?.fcm_token && this.userId) {

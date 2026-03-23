@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"lazy\\\\|suspense\\\\|dynamic\\\\|code.*split\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/src --include=*.tsx --include=*.ts)"
+    ]
+  }
+}

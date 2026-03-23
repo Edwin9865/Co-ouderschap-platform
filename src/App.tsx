@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -8,46 +8,45 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
 import { ScrollToTop } from "./components/ScrollToTop";
 import { ScrollToTopButton } from "./components/ScrollToTopButton";
-
-import { Login } from "./pages/Login";
-import { Register } from "./pages/Register";
-import { ForgotPassword } from "./pages/ForgotPassword";
-import { ResetPassword } from "./pages/ResetPassword";
-import { Families } from "./pages/Families";
-import { HelperFamilySelector } from "./pages/HelperFamilySelector";
-import { Dashboard } from "./pages/Dashboard";
-import { Children } from "./pages/Children";
-import { Agenda } from "./pages/Agenda";
-import { Logboek } from "./pages/Logboek";
-import { Verzoeken } from "./pages/Verzoeken";
-import { Hulpverleners } from "./pages/Hulpverleners";
-import { Vragen } from "./pages/Vragen";
-import { Export } from "./pages/Export";
-import { Instellingen } from "./pages/Instellingen";
-import { Account } from "./pages/Account";
-
-import { Koppelen } from "./pages/settings/Koppelen";
-import { Abonnement } from "./pages/settings/Abonnement";
-import { Meldingen } from "./pages/settings/Meldingen";
-import { AccountSettings } from "./pages/settings/AccountSettings";
-import { About } from "./pages/settings/About";
-
-import { AppBlog } from "./pages/AppBlog";
-
-import { AlgemeneVoorwaarden } from "./pages/AlgemeneVoorwaarden";
-import { Privacybeleid } from "./pages/Privacybeleid";
-import { Cookieverklaring } from "./pages/Cookieverklaring";
-import { Disclaimer } from "./pages/Disclaimer";
-import { ContactSupport } from "./pages/ContactSupport";
 import { CookieConsent } from "./components/CookieConsent";
 
+// Homepage eager laden – eerste pagina voor bezoekers
 import { Homepage } from "./pages/Homepage";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
-import Pricing from "./pages/Pricing";
-import FAQ from "./pages/FAQ";
-import Contact from "./pages/Contact";
-import { AboutUs } from "./pages/AboutUs";
+
+// Overige pagina's lazy laden – verkleint de initiële bundel aanzienlijk
+const Login               = React.lazy(() => import("./pages/Login").then(({ Login }) => ({ default: Login })));
+const Register            = React.lazy(() => import("./pages/Register").then(({ Register }) => ({ default: Register })));
+const ForgotPassword      = React.lazy(() => import("./pages/ForgotPassword").then(({ ForgotPassword }) => ({ default: ForgotPassword })));
+const ResetPassword       = React.lazy(() => import("./pages/ResetPassword").then(({ ResetPassword }) => ({ default: ResetPassword })));
+const Families            = React.lazy(() => import("./pages/Families").then(({ Families }) => ({ default: Families })));
+const HelperFamilySelector = React.lazy(() => import("./pages/HelperFamilySelector").then(({ HelperFamilySelector }) => ({ default: HelperFamilySelector })));
+const Dashboard           = React.lazy(() => import("./pages/Dashboard").then(({ Dashboard }) => ({ default: Dashboard })));
+const Children            = React.lazy(() => import("./pages/Children").then(({ Children }) => ({ default: Children })));
+const Agenda              = React.lazy(() => import("./pages/Agenda").then(({ Agenda }) => ({ default: Agenda })));
+const Logboek             = React.lazy(() => import("./pages/Logboek").then(({ Logboek }) => ({ default: Logboek })));
+const Verzoeken           = React.lazy(() => import("./pages/Verzoeken").then(({ Verzoeken }) => ({ default: Verzoeken })));
+const Hulpverleners       = React.lazy(() => import("./pages/Hulpverleners").then(({ Hulpverleners }) => ({ default: Hulpverleners })));
+const Vragen              = React.lazy(() => import("./pages/Vragen").then(({ Vragen }) => ({ default: Vragen })));
+const Export              = React.lazy(() => import("./pages/Export").then(({ Export }) => ({ default: Export })));
+const Instellingen        = React.lazy(() => import("./pages/Instellingen").then(({ Instellingen }) => ({ default: Instellingen })));
+const Account             = React.lazy(() => import("./pages/Account").then(({ Account }) => ({ default: Account })));
+const Koppelen            = React.lazy(() => import("./pages/settings/Koppelen").then(({ Koppelen }) => ({ default: Koppelen })));
+const Abonnement          = React.lazy(() => import("./pages/settings/Abonnement").then(({ Abonnement }) => ({ default: Abonnement })));
+const Meldingen           = React.lazy(() => import("./pages/settings/Meldingen").then(({ Meldingen }) => ({ default: Meldingen })));
+const AccountSettings     = React.lazy(() => import("./pages/settings/AccountSettings").then(({ AccountSettings }) => ({ default: AccountSettings })));
+const About               = React.lazy(() => import("./pages/settings/About").then(({ About }) => ({ default: About })));
+const AppBlog             = React.lazy(() => import("./pages/AppBlog").then(({ AppBlog }) => ({ default: AppBlog })));
+const AlgemeneVoorwaarden = React.lazy(() => import("./pages/AlgemeneVoorwaarden").then(({ AlgemeneVoorwaarden }) => ({ default: AlgemeneVoorwaarden })));
+const Privacybeleid       = React.lazy(() => import("./pages/Privacybeleid").then(({ Privacybeleid }) => ({ default: Privacybeleid })));
+const Cookieverklaring    = React.lazy(() => import("./pages/Cookieverklaring").then(({ Cookieverklaring }) => ({ default: Cookieverklaring })));
+const Disclaimer          = React.lazy(() => import("./pages/Disclaimer").then(({ Disclaimer }) => ({ default: Disclaimer })));
+const ContactSupport      = React.lazy(() => import("./pages/ContactSupport").then(({ ContactSupport }) => ({ default: ContactSupport })));
+const Blog                = React.lazy(() => import("./pages/Blog"));
+const BlogPost            = React.lazy(() => import("./pages/BlogPost"));
+const Pricing             = React.lazy(() => import("./pages/Pricing"));
+const FAQ                 = React.lazy(() => import("./pages/FAQ"));
+const Contact             = React.lazy(() => import("./pages/Contact"));
+const AboutUs             = React.lazy(() => import("./pages/AboutUs").then(({ AboutUs }) => ({ default: AboutUs })));
 
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { App as CapApp } from "@capacitor/app";
@@ -139,6 +138,11 @@ function AppRoutes() {
         <ScrollToTop />
         <ScrollToTopButton />
         <CookieConsent />
+        <Suspense fallback={
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-green-700 border-t-transparent rounded-full animate-spin" />
+          </div>
+        }>
         <Routes>
           {/* ---------------- Public routes (web + native) ---------------- */}
           <Route path="/login" element={<Login />} />
@@ -413,6 +417,7 @@ function AppRoutes() {
           {/* ---------------- Fallback ---------------- */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </FamilyProvider>
     </AuthProvider>
   );

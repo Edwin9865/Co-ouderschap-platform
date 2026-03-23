@@ -2,7 +2,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const VERSION = "v2026-03-04-sync-cancel-at";
+const VERSION = "v2026-03-23-cancel-at-date-fallback";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -128,11 +128,14 @@ Deno.serve(async (req: Request) => {
     else if (stripeSubscription.status === "unpaid") status = "PAST_DUE";
 
     const cps = stripeSubscription.current_period_start ? new Date(stripeSubscription.current_period_start * 1000).toISOString() : null;
-    const cpe = stripeSubscription.current_period_end ? new Date(stripeSubscription.current_period_end * 1000).toISOString() : null;
-    const ts = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null;
-    const te = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000).toISOString() : null;
     // Stripe gebruikt cancel_at_period_end voor normale opzeggingen,
-    // maar cancel_at (specifieke datum) voor trial-opzeggingen via de portal
+    // maar cancel_at (specifieke datum) voor trial-opzeggingen via de portal.
+    // Gebruik cancel_at als fallback wanneer current_period_end null is.
+    const cpe_raw = stripeSubscription.current_period_end ?? stripeSubscription.cancel_at;
+    const cpe = cpe_raw ? new Date(cpe_raw * 1000).toISOString() : null;
+    const ts = stripeSubscription.trial_start ? new Date(stripeSubscription.trial_start * 1000).toISOString() : null;
+    const te_raw = stripeSubscription.trial_end ?? stripeSubscription.cancel_at;
+    const te = te_raw ? new Date(te_raw * 1000).toISOString() : null;
     const cape = !!stripeSubscription.cancel_at_period_end || !!stripeSubscription.cancel_at;
 
     const payload = {

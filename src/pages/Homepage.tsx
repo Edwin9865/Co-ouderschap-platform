@@ -1,5 +1,6 @@
 // src/pages/Homepage.tsx
 import React, { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import {
   Calendar,
@@ -40,8 +41,6 @@ const tk = {
 
 /* ─── Global styles ─── */
 const globalStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
-
   .cp-page {
     font-family: 'DM Sans', sans-serif;
     background: #faf8f4;
@@ -389,6 +388,9 @@ function ScreenshotCarousel() {
 export function Homepage() {
   return (
     <div className="cp-page">
+      <Helmet>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" />
+      </Helmet>
       <Seo
         title="CoParenting – App voor gescheiden ouders | Veilig communiceren &amp; samen opvoeden"
         description="CoParenting helpt gescheiden ouders in Nederland en België veilig communiceren, afspraken plannen en samen opvoeden. Gedeelde agenda, digitaal logboek en verzoekensysteem. Gratis te starten."
