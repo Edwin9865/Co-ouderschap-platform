@@ -169,6 +169,14 @@ export default function FileUpload({
                 <Image className="w-4 h-4" />
                 Selecteer foto
               </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <File className="w-4 h-4" />
+                Selecteer bestand
+              </button>
             </>
           ) : (
             <button

@@ -110,6 +110,7 @@ export function Logboek() {
   }, [currentFamily, selectedChild, children]);
 
   const fetchEntriesRef = useRef<() => void>(() => {});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!currentFamily) return;
@@ -572,6 +573,18 @@ export function Logboek() {
 
               {isNative() ? (
                 <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/heic,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      setPendingFiles(prev => [...prev, ...files].slice(0, 5));
+                      e.target.value = '';
+                    }}
+                  />
                   <button
                     type="button"
                     onClick={handleCameraCapture}
@@ -589,6 +602,15 @@ export function Logboek() {
                   >
                     <Image className="w-5 h-5" />
                     <span>Selecteer foto</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading || pendingFiles.length >= 5 || (uploadQuota && !uploadQuota.canUpload)}
+                    className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+                  >
+                    <Upload className="w-5 h-5" />
+                    <span>Selecteer bestand (PDF)</span>
                   </button>
                 </div>
               ) : (
