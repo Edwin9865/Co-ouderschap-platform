@@ -33,7 +33,7 @@ interface NavItem {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, signOut, familyMemberships } = useAuth();
-  const { currentFamily, isParent, isHelper, isHelperMode, subscription, clearHelperFamily } = useFamily();
+  const { currentFamily, isParent, isHelper, isHelperMode, subscription, clearHelperFamily, loading: familyLoading } = useFamily();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuSheetOpen, setMenuSheetOpen] = useState(false);
@@ -217,6 +217,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         { name: 'Instellingen', href: '/instellingen', icon: Settings, color: 'text-slate-400' },
       ];
 
+
+  if (familyLoading) {
+    return (
+      <div className="dashboard-bg min-h-screen bg-cover bg-top bg-fixed flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-slate-300 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!currentFamily && location.pathname !== '/families' && location.pathname !== '/helper-families') {
     return (

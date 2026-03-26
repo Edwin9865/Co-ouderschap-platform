@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { File, Image as ImageIcon, Download, ExternalLink } from 'lucide-react';
 import { UploadedFile } from '../lib/fileUploadService';
 import { formatFileSize, isImageFile } from '../lib/imageCompression';
@@ -55,7 +56,7 @@ export default function AttachmentList({
         <h4 className="text-sm font-medium text-gray-700">Bijlagen</h4>
 
         {showThumbnails ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <AttachmentThumbnail
                 key={attachment.id}
@@ -101,17 +102,26 @@ function AttachmentThumbnail({
   const isImage = isImageFile({ type: attachment.mimeType } as File);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isImage) {
+      getAttachmentSignedUrl(attachment.storageKey)
+        .then(setSignedUrl)
+        .catch(() => setImageError(true));
+    }
+  }, [attachment.storageKey, isImage]);
 
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      className="group relative aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-500 transition-colors disabled:opacity-50"
+      className="group relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-500 transition-colors disabled:opacity-50 flex-shrink-0"
     >
-      {isImage && !imageError ? (
+      {isImage && !imageError && signedUrl ? (
         <>
           <img
-            src={attachment.url}
+            src={signedUrl}
             alt={attachment.fileName}
             className={`w-full h-full object-cover ${imageLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity`}
             onLoad={() => setImageLoaded(true)}
@@ -119,13 +129,17 @@ function AttachmentThumbnail({
           />
           {!imageLoaded && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <ImageIcon className="w-8 h-8 text-gray-400" />
+              <ImageIcon className="w-5 h-5 text-gray-400" />
             </div>
           )}
         </>
+      ) : isImage && !imageError ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <ImageIcon className="w-5 h-5 text-gray-400" />
+        </div>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <File className="w-8 h-8 text-gray-400 mb-1" />
+          <File className="w-5 h-5 text-gray-400 mb-1" />
           <span className="text-xs text-gray-500 uppercase">PDF</span>
         </div>
       )}
@@ -187,9 +201,9 @@ function ImageModal({
   imageUrl: string;
   onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] bg-black bg-opacity-75 flex items-center justify-center p-4"
       onClick={onClose}
     >
       <div className="relative max-w-4xl max-h-full">
@@ -218,6 +232,7 @@ function ImageModal({
           </svg>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
