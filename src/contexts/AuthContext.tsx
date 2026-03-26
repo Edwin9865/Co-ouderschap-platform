@@ -40,9 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     if (userData) {
-      console.log('User data fetched:', userData);
-      setUser(userData);
-
       const { data: memberships } = await supabase
         .from('family_members')
         .select(`
@@ -59,7 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (m: any) => m.family?.status === 'ACTIVE'
       );
 
+      console.log('User data fetched:', userData);
       console.log('Family memberships:', activeMemberships);
+      setUser(userData);
       setFamilyMemberships(activeMemberships);
     } else {
       console.warn('No user data found for:', userId);
