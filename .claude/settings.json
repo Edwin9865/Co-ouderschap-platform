@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(grep -r \"lazy\\\\|suspense\\\\|dynamic\\\\|code.*split\" /d/Edwin/Bureaublad/app/Co-ouderschap-platform/src --include=*.tsx --include=*.ts)",
-      "Bash(grep -o '\"\"opportunities\"\"' \"d:\\\\Edwin\\\\Bureaublad\\\\app\\\\Co-ouderschap-platform\\\\android\\\\coparenting.nl-20260324T122029.json\")"
+      "Bash(grep -o '\"\"opportunities\"\"' \"d:\\\\Edwin\\\\Bureaublad\\\\app\\\\Co-ouderschap-platform\\\\android\\\\coparenting.nl-20260324T122029.json\")",
+      "Bash(npm show:*)",
+      "Bash(npm pack:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
