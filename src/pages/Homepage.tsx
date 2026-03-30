@@ -10,8 +10,6 @@ import {
   Clock,
   CheckCircle,
   Heart,
-  Baby,
-  Scale,
   ArrowRight,
   Star,
   Lock,
@@ -639,21 +637,6 @@ export function Homepage() {
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 14 }}>
-              {[
-                { icon: <Baby size={26} color={tk.moss} />,   stat: "10.000+", label: "Gezinnen gebruiken CoParenting" },
-                { icon: <Scale size={26} color={tk.terra} />, stat: "95%",     label: "Ervaart minder conflict over planning" },
-                { icon: <Star size={26} color="#e2a24a" />,   stat: "4.8 / 5", label: "Gemiddelde waardering door ouders" },
-              ].map(({ icon, stat, label }) => (
-                <div key={label} className="cp-stat-card">
-                  <div className="cp-stat-icon">{icon}</div>
-                  <div>
-                    <div className="cp-serif" style={{ fontSize: 34, fontWeight: 500, color: tk.slate, lineHeight: 1 }}>{stat}</div>
-                    <div style={{ fontSize: 13, color: tk.muted, marginTop: 5 }}>{label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
