@@ -477,25 +477,16 @@ export function Homepage() {
                   Bekijk prijzen
                 </Link>
                 <a
-                  href="/CoParenting Platform 1.1.4.apk"
-                  download="CoParenting-1.1.4.apk"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 10,
-                    background: "#1a1a1a",
-                    color: "#fff",
-                    padding: "10px 18px",
-                    borderRadius: 10,
-                    textDecoration: "none",
-                    fontSize: 14,
-                    fontWeight: 500,
-                  }}
+                  href="https://play.google.com/store/apps/details?id=nl.coouderschap.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "inline-block", textDecoration: "none" }}
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 18c0 .55.45 1 1 1h1v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h2v3.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V19h1c.55 0 1-.45 1-1V8H6v10zm-2.5-1C2.67 17 2 17.67 2 18.5v5c0 .83.67 1.5 1.5 1.5S5 24.33 5 23.5v-5C5 17.67 4.33 17 3.5 17zm17 0c-.83 0-1.5.67-1.5 1.5v5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5c0-.83-.67-1.5-1.5-1.5zM15.53 2.16l1.3-1.3c.2-.2.2-.51 0-.71-.2-.2-.51-.2-.71 0l-1.48 1.48A5.84 5.84 0 0 0 12 1c-.74 0-1.45.14-2.1.38L8.34.1c-.2-.2-.51-.2-.71 0-.2.2-.2.51 0 .71l1.27 1.27C7.19 3.28 6 5.27 6 7.5V8h12v-.5c0-2.2-1.15-4.17-2.47-5.34zM10 6H9V5h1v1zm5 0h-1V5h1v1z" fill="#78C257"/>
-                  </svg>
-                  Android app downloaden
+                  <img
+                    src="https://play.google.com/intl/nl/badges/static/images/badges/nl_badge_web_generic.png"
+                    alt="Ontdek het op Google Play"
+                    style={{ height: 48, width: "auto" }}
+                  />
                 </a>
               </div>
               <p style={{ marginTop: 20, fontSize: 13, color: tk.muted, display: "flex", alignItems: "center", gap: 8 }}>
